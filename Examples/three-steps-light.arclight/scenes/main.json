@@ -1,0 +1,830 @@
+{
+ "id": "main",
+ "name": "Three steps (light)",
+ "duration": 7,
+ "background": "$bg",
+ "post": {
+  "fade": {
+   "in": 0.4,
+   "out": 0.5,
+   "color": "$bg"
+  }
+ },
+ "nodes": [
+  {
+   "id": "kicker",
+   "type": "text",
+   "text": "HOW IT WORKS",
+   "font": "$body",
+   "size": 28,
+   "color": "$accent2",
+   "align": "center",
+   "x": 960,
+   "y": 150,
+   "tracking": 8,
+   "reveal": {
+    "by": "char",
+    "stagger": 0.03,
+    "duration": 0.7,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 20
+    }
+   },
+   "in": 0.1
+  },
+  {
+   "id": "headline",
+   "type": "text",
+   "text": "Three steps to launch day",
+   "font": "$display",
+   "size": 92,
+   "color": "$fg",
+   "align": "center",
+   "x": 960,
+   "y": 208,
+   "reveal": {
+    "by": "word",
+    "stagger": 0.1,
+    "duration": 0.9,
+    "ease": "outExpo",
+    "mask": true,
+    "from": {
+     "opacity": 0,
+     "y": 90
+    }
+   },
+   "in": 0.3
+  },
+  {
+   "id": "link1",
+   "type": "shape",
+   "shape": "line",
+   "x": 646.0,
+   "y": 520,
+   "to": [
+    68.0,
+    0
+   ],
+   "stroke": "$accent2",
+   "strokeWidth": 10,
+   "cap": "round",
+   "trim": {
+    "k": [
+     [
+      0,
+      [
+       0,
+       0
+      ]
+     ],
+     [
+      1.8,
+      [
+       0,
+       0
+      ]
+     ],
+     [
+      2.5,
+      [
+       0,
+       1
+      ],
+      "inOutCubic"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "link2",
+   "type": "shape",
+   "shape": "line",
+   "x": 1206.0,
+   "y": 520,
+   "to": [
+    68.0,
+    0
+   ],
+   "stroke": "$accent2",
+   "strokeWidth": 10,
+   "cap": "round",
+   "trim": {
+    "k": [
+     [
+      0,
+      [
+       0,
+       0
+      ]
+     ],
+     [
+      2.3,
+      [
+       0,
+       0
+      ]
+     ],
+     [
+      3.0,
+      [
+       0,
+       1
+      ],
+      "inOutCubic"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "card1",
+   "type": "group",
+   "x": 400,
+   "y": {
+    "k": [
+     [
+      0,
+      750
+     ],
+     [
+      1.0,
+      750
+     ],
+     [
+      2.0,
+      630,
+      "spring"
+     ]
+    ]
+   },
+   "opacity": {
+    "k": [
+     [
+      0,
+      0
+     ],
+     [
+      1.0,
+      0
+     ],
+     [
+      1.45,
+      1,
+      "outCubic"
+     ]
+    ]
+   },
+   "scale": {
+    "k": [
+     [
+      0,
+      0.92
+     ],
+     [
+      1.0,
+      0.92
+     ],
+     [
+      1.9,
+      1,
+      "outBack"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "card1-sh2",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 26,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$fg@5",
+   "parent": "card1"
+  },
+  {
+   "id": "card1-sh",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 14,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$fg@8",
+   "parent": "card1"
+  },
+  {
+   "id": "card1-bg",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 0,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$card",
+   "parent": "card1"
+  },
+  {
+   "id": "card1-badge",
+   "type": "shape",
+   "shape": "ellipse",
+   "x": -158.0,
+   "y": -198.0,
+   "width": 68,
+   "height": 68,
+   "fill": "$accent2",
+   "parent": "card1"
+  },
+  {
+   "id": "card1-num",
+   "type": "text",
+   "text": "1",
+   "font": "$display",
+   "size": 34,
+   "color": "$card",
+   "align": "center",
+   "x": -158.0,
+   "y": -210.0,
+   "parent": "card1"
+  },
+  {
+   "id": "card1-disc",
+   "type": "shape",
+   "shape": "ellipse",
+   "x": 0,
+   "y": -110,
+   "width": 190,
+   "height": 190,
+   "fill": "$lav",
+   "parent": "card1"
+  },
+  {
+   "id": "card1-icon",
+   "type": "symbol",
+   "symbol": "basic/pin",
+   "size": 96,
+   "x": 0,
+   "y": -110,
+   "fill": "$accent2",
+   "parent": "card1"
+  },
+  {
+   "id": "card1-title",
+   "type": "text",
+   "text": "Plan",
+   "font": "$display",
+   "size": 52,
+   "color": "$fg",
+   "align": "center",
+   "x": 0,
+   "y": 50,
+   "in": 1.35,
+   "reveal": {
+    "by": "char",
+    "stagger": 0.04,
+    "duration": 0.8,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 24
+    }
+   },
+   "parent": "card1"
+  },
+  {
+   "id": "card1-desc",
+   "type": "text",
+   "text": "Map your goals and owners\non one shared board.",
+   "font": "$body",
+   "size": 30,
+   "color": "$fg",
+   "align": "center",
+   "x": 0,
+   "y": 135,
+   "lineHeight": 1.4,
+   "opacity": 0.9,
+   "in": 1.55,
+   "reveal": {
+    "by": "line",
+    "stagger": 0.12,
+    "duration": 0.9,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 22
+    }
+   },
+   "parent": "card1"
+  },
+  {
+   "id": "card2",
+   "type": "group",
+   "x": 960,
+   "y": {
+    "k": [
+     [
+      0,
+      750
+     ],
+     [
+      1.3,
+      750
+     ],
+     [
+      2.3,
+      630,
+      "spring"
+     ]
+    ]
+   },
+   "opacity": {
+    "k": [
+     [
+      0,
+      0
+     ],
+     [
+      1.3,
+      0
+     ],
+     [
+      1.75,
+      1,
+      "outCubic"
+     ]
+    ]
+   },
+   "scale": {
+    "k": [
+     [
+      0,
+      0.92
+     ],
+     [
+      1.3,
+      0.92
+     ],
+     [
+      2.2,
+      1,
+      "outBack"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "card2-sh2",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 26,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$fg@5",
+   "parent": "card2"
+  },
+  {
+   "id": "card2-sh",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 14,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$fg@8",
+   "parent": "card2"
+  },
+  {
+   "id": "card2-bg",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 0,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$card",
+   "parent": "card2"
+  },
+  {
+   "id": "card2-badge",
+   "type": "shape",
+   "shape": "ellipse",
+   "x": -158.0,
+   "y": -198.0,
+   "width": 68,
+   "height": 68,
+   "fill": "$accent2",
+   "parent": "card2"
+  },
+  {
+   "id": "card2-num",
+   "type": "text",
+   "text": "2",
+   "font": "$display",
+   "size": 34,
+   "color": "$card",
+   "align": "center",
+   "x": -158.0,
+   "y": -210.0,
+   "parent": "card2"
+  },
+  {
+   "id": "card2-disc",
+   "type": "shape",
+   "shape": "ellipse",
+   "x": 0,
+   "y": -110,
+   "width": 190,
+   "height": 190,
+   "fill": "$lav",
+   "parent": "card2"
+  },
+  {
+   "id": "card2-icon",
+   "type": "symbol",
+   "symbol": "basic/heart",
+   "size": 96,
+   "x": 0,
+   "y": -110,
+   "fill": "$accent2",
+   "parent": "card2"
+  },
+  {
+   "id": "card2-title",
+   "type": "text",
+   "text": "Share",
+   "font": "$display",
+   "size": 52,
+   "color": "$fg",
+   "align": "center",
+   "x": 0,
+   "y": 50,
+   "in": 1.65,
+   "reveal": {
+    "by": "char",
+    "stagger": 0.04,
+    "duration": 0.8,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 24
+    }
+   },
+   "parent": "card2"
+  },
+  {
+   "id": "card2-desc",
+   "type": "text",
+   "text": "Invite the team and gather\nfeedback in one place.",
+   "font": "$body",
+   "size": 30,
+   "color": "$fg",
+   "align": "center",
+   "x": 0,
+   "y": 135,
+   "lineHeight": 1.4,
+   "opacity": 0.9,
+   "in": 1.85,
+   "reveal": {
+    "by": "line",
+    "stagger": 0.12,
+    "duration": 0.9,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 22
+    }
+   },
+   "parent": "card2"
+  },
+  {
+   "id": "card3",
+   "type": "group",
+   "x": 1520,
+   "y": {
+    "k": [
+     [
+      0,
+      750
+     ],
+     [
+      1.6,
+      750
+     ],
+     [
+      2.6,
+      630,
+      "spring"
+     ]
+    ]
+   },
+   "opacity": {
+    "k": [
+     [
+      0,
+      0
+     ],
+     [
+      1.6,
+      0
+     ],
+     [
+      2.0500000000000003,
+      1,
+      "outCubic"
+     ]
+    ]
+   },
+   "scale": {
+    "k": [
+     [
+      0,
+      0.92
+     ],
+     [
+      1.6,
+      0.92
+     ],
+     [
+      2.5,
+      1,
+      "outBack"
+     ],
+     [
+      4.7,
+      1
+     ],
+     [
+      5.4,
+      1.04,
+      "outBack"
+     ],
+     [
+      6.2,
+      1.03,
+      "inOutCubic"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "card3-sh2",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 26,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$fg@5",
+   "parent": "card3"
+  },
+  {
+   "id": "card3-sh",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 14,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$fg@8",
+   "parent": "card3"
+  },
+  {
+   "id": "card3-bg",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 0,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$card",
+   "parent": "card3"
+  },
+  {
+   "id": "hl",
+   "type": "shape",
+   "shape": "rect",
+   "x": 0,
+   "y": 0,
+   "width": 440,
+   "height": 520,
+   "radius": 28,
+   "fill": "$accent@0",
+   "stroke": "$accent",
+   "strokeWidth": 8,
+   "opacity": {
+    "k": [
+     [
+      0,
+      0
+     ],
+     [
+      4.7,
+      0
+     ],
+     [
+      5.3,
+      1,
+      "outExpo"
+     ]
+    ]
+   },
+   "parent": "card3"
+  },
+  {
+   "id": "card3-badge",
+   "type": "shape",
+   "shape": "ellipse",
+   "x": -158.0,
+   "y": -198.0,
+   "width": 68,
+   "height": 68,
+   "fill": {
+    "k": [
+     [
+      0,
+      "$accent2"
+     ],
+     [
+      4.7,
+      "$accent2"
+     ],
+     [
+      5.3,
+      "$accent",
+      "outCubic"
+     ]
+    ]
+   },
+   "parent": "card3"
+  },
+  {
+   "id": "card3-num",
+   "type": "text",
+   "text": "3",
+   "font": "$display",
+   "size": 34,
+   "color": "$card",
+   "align": "center",
+   "x": -158.0,
+   "y": -210.0,
+   "parent": "card3"
+  },
+  {
+   "id": "card3-disc",
+   "type": "shape",
+   "shape": "ellipse",
+   "x": 0,
+   "y": -110,
+   "width": 190,
+   "height": 190,
+   "fill": "$lav",
+   "parent": "card3"
+  },
+  {
+   "id": "card3-icon",
+   "type": "symbol",
+   "symbol": "basic/star",
+   "size": 96,
+   "x": 0,
+   "y": -110,
+   "fill": {
+    "k": [
+     [
+      0,
+      "$accent2"
+     ],
+     [
+      4.7,
+      "$accent2"
+     ],
+     [
+      5.3,
+      "$accent",
+      "outCubic"
+     ]
+    ]
+   },
+   "parent": "card3"
+  },
+  {
+   "id": "card3-title",
+   "type": "text",
+   "text": "Ship",
+   "font": "$display",
+   "size": 52,
+   "color": "$fg",
+   "align": "center",
+   "x": 0,
+   "y": 50,
+   "in": 1.9500000000000002,
+   "reveal": {
+    "by": "char",
+    "stagger": 0.04,
+    "duration": 0.8,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 24
+    }
+   },
+   "parent": "card3"
+  },
+  {
+   "id": "card3-desc",
+   "type": "text",
+   "text": "Publish in a single click\nand celebrate the launch.",
+   "font": "$body",
+   "size": 30,
+   "color": "$fg",
+   "align": "center",
+   "x": 0,
+   "y": 135,
+   "lineHeight": 1.4,
+   "opacity": 0.9,
+   "in": 2.1500000000000004,
+   "reveal": {
+    "by": "line",
+    "stagger": 0.12,
+    "duration": 0.9,
+    "ease": "outExpo",
+    "from": {
+     "opacity": 0,
+     "y": 22
+    }
+   },
+   "parent": "card3"
+  },
+  {
+   "id": "done",
+   "type": "group",
+   "x": 1678.0,
+   "y": 432.0,
+   "scale": {
+    "k": [
+     [
+      0,
+      0
+     ],
+     [
+      5.0,
+      0
+     ],
+     [
+      5.7,
+      1,
+      "outBack"
+     ]
+    ]
+   },
+   "opacity": {
+    "k": [
+     [
+      0,
+      0
+     ],
+     [
+      5.0,
+      0
+     ],
+     [
+      5.15,
+      1
+     ]
+    ]
+   }
+  },
+  {
+   "id": "done-ring",
+   "type": "shape",
+   "shape": "ellipse",
+   "parent": "done",
+   "x": 0,
+   "y": 0,
+   "width": 76,
+   "height": 76,
+   "fill": "$accent"
+  },
+  {
+   "id": "done-chk",
+   "type": "symbol",
+   "symbol": "basic/check",
+   "parent": "done",
+   "x": 0,
+   "y": 0,
+   "size": 40,
+   "fill": "$card"
+  }
+ ]
+}

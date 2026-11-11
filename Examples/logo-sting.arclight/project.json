@@ -1,0 +1,17 @@
+{
+  "name": "Logo Sting",
+  "size": [1920, 1080],
+  "fps": 30,
+  "scenes": ["sting"],
+  "theme": {
+    "bg": "#071417",
+    "fg": "#E8FBF8",
+    "muted": "#5F8A8B",
+    "accent": "#3DE0C8",
+    "ink": "#031012",
+    "pool": "#B8FFF4",
+    "floor": "#0A1D20",
+    "display": "GillSans-SemiBold",
+    "body": "GillSans-Light"
+  }
+}

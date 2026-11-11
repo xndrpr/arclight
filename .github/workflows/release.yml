@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  release:
+    name: Build Arclight.app and publish a pre-release
+    runs-on: macos-15
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the release and upload the zip
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Version from the tag
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "::error::tag $GITHUB_REF_NAME is not v<semver>"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          swift --version
+
+      - name: Build Arclight.app
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          Scripts/bundle.sh
+          plutil -extract CFBundleShortVersionString raw dist/Arclight.app/Contents/Info.plist | grep -qx "$VERSION" \
+            || { echo "::error::Info.plist version does not match the tag ($VERSION)"; exit 1; }
+
+      - name: Zip (keeps the signature)
+        id: zip
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          zip="dist/Arclight-$VERSION.zip"
+          ditto -c -k --keepParent dist/Arclight.app "$zip"
+          (cd dist && shasum -a 256 "Arclight-$VERSION.zip" > "Arclight-$VERSION.zip.sha256")
+          # The signature must survive the round trip through the zip.
+          mkdir "$RUNNER_TEMP/unzipped"
+          ditto -x -k "$zip" "$RUNNER_TEMP/unzipped"
+          codesign --verify --strict --verbose=2 "$RUNNER_TEMP/unzipped/Arclight.app"
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+
+      - name: Release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The section under "## [<version>]", up to the next "## [" heading or the link definitions at the end.
+          # Relative links (docs/…) are pointed at the tagged tree, since release notes have no base path.
+          blob="https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && (/^## \[/ || /^\[[^]]+\]: /) { exit }
+            on { print }
+          ' CHANGELOG.md | sed -E "s#\]\((docs/|Scripts/|[A-Z_]+\.md)#](${blob}/\1#g" > "$RUNNER_TEMP/notes.md"
+          grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md" || { echo "::error::CHANGELOG.md has no section for $VERSION"; exit 1; }
+          {
+            echo
+            echo "---"
+            echo
+            echo "### Download"
+            echo
+            echo "\`Arclight-$VERSION.zip\`: unzip it and move \`Arclight.app\` to \`/Applications\`. Requires macOS 14 or later."
+            echo
+            echo "SHA-256: \`$(cut -d' ' -f1 "dist/Arclight-$VERSION.zip.sha256")\`"
+            # Always say it, even if a future changelog section forgets to.
+            if ! grep -qi "not notarized" "$RUNNER_TEMP/notes.md"; then
+              echo
+              echo "**This build is ad-hoc signed and not notarized**, so macOS warns the first time you open it: open it"
+              echo "once, then click **Open Anyway** in **System Settings ▸ Privacy & Security**. If macOS says the app"
+              echo "\"is damaged\", click **Cancel** and run \`xattr -cr /Applications/Arclight.app\`. Full instructions:"
+              echo "[docs/install.md]($blob/docs/install.md)."
+            fi
+          } >> "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Create the GitHub pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.zip.outputs.zip }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$ZIP" "$ZIP.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --prerelease \
+            --title "Arclight $VERSION (alpha)" \
+            --notes-file "$RUNNER_TEMP/notes.md"

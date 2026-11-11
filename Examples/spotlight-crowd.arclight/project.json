@@ -1,0 +1,17 @@
+{
+  "name": "Spotlight Crowd",
+  "size": [1920, 1080],
+  "fps": 30,
+  "scenes": ["main"],
+  "theme": {
+    "bg": "#0E0806",
+    "fg": "#FFE9D6",
+    "muted": "#6E5A4E",
+    "accent": "#FF7A2F",
+    "ink": "#0A0605",
+    "pool": "#FFB36B",
+    "floor": "#140C09",
+    "display": "DINCondensed-Bold",
+    "body": "DINAlternate-Bold"
+  }
+}

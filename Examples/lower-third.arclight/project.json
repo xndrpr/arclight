@@ -1,0 +1,38 @@
+{
+  "name": "Lower Third",
+  "size": [
+    1920,
+    1080
+  ],
+  "fps": 30,
+  "scenes": [
+    "main"
+  ],
+  "theme": {
+    "bg": "#282828",
+    "fg": "#EBDBB2",
+    "muted": "#A89984",
+    "accent": "#FABD2F",
+    "ink": "#1D2021",
+    "pool": "#FBF1C7",
+    "floor": "#32302F",
+    "display": "AvenirNextCondensed-Bold",
+    "body": "AvenirNextCondensed-Medium",
+    "accent2": "#FE8019",
+    "panel": "#3C3836F0",
+    "wall": "#4E4540",
+    "wallDeep": "#1D2021",
+    "bk1": "#D7992180",
+    "bk1r": "#D79921B3",
+    "bk1x": "#D7992100",
+    "bk2": "#B5651D80",
+    "bk2r": "#B5651DB3",
+    "bk2x": "#B5651D00",
+    "bk3": "#7C9A7E80",
+    "bk3r": "#7C9A7EB3",
+    "bk3x": "#7C9A7E00",
+    "bk6": "#D5A55A80",
+    "bk6r": "#D5A55AB3",
+    "bk6x": "#D5A55A00"
+  }
+}

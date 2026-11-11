@@ -1,0 +1,15 @@
+{
+  "name": "UI fixture",
+  "size": [1920, 1080],
+  "fps": 30,
+  "scenes": ["e2"],
+  "theme": {
+    "bg": "#0E0E0E",
+    "fg": "#ECE7DC",
+    "ink": "#070707",
+    "pool": "#E2DDD2",
+    "floor": "#0B0B0B",
+    "display": "HelveticaNeue-CondensedBold",
+    "whisper": "Georgia-Italic"
+  }
+}

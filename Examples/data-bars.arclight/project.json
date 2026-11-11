@@ -1,0 +1,25 @@
+{
+  "name": "Data Bars",
+  "size": [
+    1920,
+    1080
+  ],
+  "fps": 30,
+  "scenes": [
+    "main"
+  ],
+  "theme": {
+    "bg": "#0B1020",
+    "fg": "#E6ECFF",
+    "muted": "#7C88A8",
+    "accent": "#5B8CFF",
+    "ink": "#04060E",
+    "pool": "#CFE0FF",
+    "floor": "#0E1530",
+    "display": "AvenirNext-Heavy",
+    "body": "AvenirNext-Medium",
+    "grid": "#1A2340",
+    "bar": "#2F3F70",
+    "accent2": "#9DB9FF"
+  }
+}

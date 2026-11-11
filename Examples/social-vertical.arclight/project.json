@@ -1,0 +1,18 @@
+{
+  "name": "Social Vertical",
+  "size": [1080, 1920],
+  "fps": 30,
+  "scenes": ["main"],
+  "theme": {
+    "bg": "#050505",
+    "fg": "#F5F5F5",
+    "muted": "#6E6E6E",
+    "accent": "#39FF14",
+    "accent2": "#FF2BD6",
+    "ink": "#000000",
+    "pool": "#B6FF9E",
+    "floor": "#0A0A0A",
+    "display": "Futura-Bold",
+    "body": "Futura-Medium"
+  }
+}

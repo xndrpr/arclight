@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest a feature or an improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! For open-ended ideas or questions, [Discussions](https://github.com/xndrpr/arclight/discussions) may be a better fit.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to make or do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you'd like
+      description: How it could work in the editor, the MCP tools, the CLI or the project format.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor
+        - Layers, effects or animation
+        - Rendering or export
+        - MCP server / AI agents
+        - Command line
+        - Project format, templates or symbols
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and examples
+      description: Workarounds you use now, or how other tools solve it (screenshots and links welcome).
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to work on this myself (see CONTRIBUTING.md).

@@ -1,0 +1,1158 @@
+{
+ "id": "main",
+ "name": "Broadcast lower third",
+ "duration": 6,
+ "background": "$bg",
+ "post": {
+  "grain": 0.035
+ },
+ "nodes": [
+  {
+   "id": "backdrop",
+   "type": "group",
+   "name": "Backdrop (hide for ProRes overlay)"
+  },
+  {
+   "id": "wall",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Wall",
+   "shape": "rect",
+   "x": 960,
+   "y": 540,
+   "width": 1920,
+   "height": 1080,
+   "fill": {
+    "linear": [
+     800,
+     -540,
+     -800,
+     540
+    ],
+    "stops": [
+     [
+      0,
+      "$wall"
+     ],
+     [
+      1,
+      "$wallDeep"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk0",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 1",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1500
+     ],
+     [
+      6,
+      1550,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      230
+     ],
+     [
+      6,
+      255,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 760,
+   "height": 760,
+   "opacity": 0.5,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     380.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk6"
+     ],
+     [
+      0.85,
+      "$bk6r"
+     ],
+     [
+      1,
+      "$bk6x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk1",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 2",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      700
+     ],
+     [
+      6,
+      740,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      300
+     ],
+     [
+      6,
+      280,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 640,
+   "height": 640,
+   "opacity": 0.4,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     320.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk6"
+     ],
+     [
+      0.85,
+      "$bk6r"
+     ],
+     [
+      1,
+      "$bk6x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk2",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 3",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1650
+     ],
+     [
+      6,
+      1610,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      640
+     ],
+     [
+      6,
+      670,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 520,
+   "height": 520,
+   "opacity": 0.6,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     260.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk1"
+     ],
+     [
+      0.85,
+      "$bk1r"
+     ],
+     [
+      1,
+      "$bk1x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk3",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 4",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1250
+     ],
+     [
+      6,
+      1280,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      120
+     ],
+     [
+      6,
+      100,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 200,
+   "height": 200,
+   "opacity": 0.9,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     100.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk1"
+     ],
+     [
+      0.85,
+      "$bk1r"
+     ],
+     [
+      1,
+      "$bk1x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk4",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 5",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1000
+     ],
+     [
+      6,
+      950,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      430
+     ],
+     [
+      6,
+      450,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 300,
+   "height": 300,
+   "opacity": 0.7,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     150.0
+    ],
+    "stops": [
+     [
+      0,
+      "$fg@22"
+     ],
+     [
+      0.85,
+      "$fg@31"
+     ],
+     [
+      1,
+      "$fg@0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk5",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 6",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1830
+     ],
+     [
+      6,
+      1805,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      200
+     ],
+     [
+      6,
+      235,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 180,
+   "height": 180,
+   "opacity": 0.9,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     90.0
+    ],
+    "stops": [
+     [
+      0,
+      "$fg@22"
+     ],
+     [
+      0.85,
+      "$fg@31"
+     ],
+     [
+      1,
+      "$fg@0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk6",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 7",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1380
+     ],
+     [
+      6,
+      1420,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      560
+     ],
+     [
+      6,
+      530,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 240,
+   "height": 240,
+   "opacity": 0.7,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     120.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk3"
+     ],
+     [
+      0.85,
+      "$bk3r"
+     ],
+     [
+      1,
+      "$bk3x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk7",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 8",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      520
+     ],
+     [
+      6,
+      550,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      180
+     ],
+     [
+      6,
+      205,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 170,
+   "height": 170,
+   "opacity": 0.8,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     85.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk2"
+     ],
+     [
+      0.85,
+      "$bk2r"
+     ],
+     [
+      1,
+      "$bk2x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk8",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 9",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1120
+     ],
+     [
+      6,
+      1145,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      330
+     ],
+     [
+      6,
+      350,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 130,
+   "height": 130,
+   "opacity": 1.0,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     65.0
+    ],
+    "stops": [
+     [
+      0,
+      "$fg@22"
+     ],
+     [
+      0.85,
+      "$fg@31"
+     ],
+     [
+      1,
+      "$fg@0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk9",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 10",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1740
+     ],
+     [
+      6,
+      1720,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      430
+     ],
+     [
+      6,
+      455,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 110,
+   "height": 110,
+   "opacity": 1.0,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     55.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk1"
+     ],
+     [
+      0.85,
+      "$bk1r"
+     ],
+     [
+      1,
+      "$bk1x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk10",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 11",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      330
+     ],
+     [
+      6,
+      365,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      420
+     ],
+     [
+      6,
+      395,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 260,
+   "height": 260,
+   "opacity": 0.6,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     130.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk3"
+     ],
+     [
+      0.85,
+      "$bk3r"
+     ],
+     [
+      1,
+      "$bk3x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk11",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 12",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      880
+     ],
+     [
+      6,
+      905,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      640
+     ],
+     [
+      6,
+      620,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 150,
+   "height": 150,
+   "opacity": 0.8,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     75.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk2"
+     ],
+     [
+      0.85,
+      "$bk2r"
+     ],
+     [
+      1,
+      "$bk2x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk12",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 13",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1560
+     ],
+     [
+      6,
+      1540,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      90
+     ],
+     [
+      6,
+      110,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 120,
+   "height": 120,
+   "opacity": 1.0,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     60.0
+    ],
+    "stops": [
+     [
+      0,
+      "$fg@22"
+     ],
+     [
+      0.85,
+      "$fg@31"
+     ],
+     [
+      1,
+      "$fg@0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bk13",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bokeh 14",
+   "shape": "ellipse",
+   "x": {
+    "k": [
+     [
+      0,
+      1900
+     ],
+     [
+      6,
+      1865,
+      "inOutSine"
+     ]
+    ]
+   },
+   "y": {
+    "k": [
+     [
+      0,
+      800
+     ],
+     [
+      6,
+      770,
+      "inOutSine"
+     ]
+    ]
+   },
+   "width": 360,
+   "height": 360,
+   "opacity": 0.5,
+   "fill": {
+    "radial": [
+     0,
+     0,
+     180.0
+    ],
+    "stops": [
+     [
+      0,
+      "$bk1"
+     ],
+     [
+      0.85,
+      "$bk1r"
+     ],
+     [
+      1,
+      "$bk1x"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "floorshade",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Bottom shade",
+   "shape": "rect",
+   "x": 960,
+   "y": 700,
+   "width": 1920,
+   "height": 760,
+   "fill": {
+    "linear": [
+     0,
+     380,
+     0,
+     -380
+    ],
+    "stops": [
+     [
+      0,
+      "$ink@95"
+     ],
+     [
+      0.55,
+      "$ink@95"
+     ],
+     [
+      1,
+      "$ink@0"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "leftshade",
+   "type": "shape",
+   "parent": "backdrop",
+   "name": "Left shade",
+   "shape": "rect",
+   "x": 560,
+   "y": 540,
+   "width": 1120,
+   "height": 1080,
+   "fill": {
+    "linear": [
+     -560,
+     0,
+     560,
+     0
+    ],
+    "stops": [
+     [
+      0,
+      "$ink@95"
+     ],
+     [
+      1,
+      "$ink@0"
+     ]
+    ]
+   },
+   "opacity": 0.7
+  },
+  {
+   "id": "lt",
+   "type": "group",
+   "name": "Lower third",
+   "y": 760,
+   "x": {
+    "k": [
+     [
+      0,
+      120
+     ],
+     [
+      5.0,
+      120
+     ],
+     [
+      5.7,
+      -100,
+      "inBack"
+     ]
+    ]
+   },
+   "opacity": {
+    "k": [
+     [
+      0,
+      1
+     ],
+     [
+      5.15,
+      1
+     ],
+     [
+      5.7,
+      0,
+      "inQuint"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "panel",
+   "type": "shape",
+   "parent": "lt",
+   "name": "Panel",
+   "shape": "rect",
+   "x": 36,
+   "y": 120,
+   "width": 790,
+   "height": 160,
+   "fill": "$panel",
+   "anchor": [
+    -395,
+    0
+   ],
+   "scale": {
+    "k": [
+     [
+      0.55,
+      [
+       0,
+       1
+      ]
+     ],
+     [
+      1.4,
+      [
+       1,
+       1
+      ],
+      "outQuint"
+     ],
+     [
+      5.0,
+      [
+       1,
+       1
+      ]
+     ],
+     [
+      5.55,
+      [
+       0,
+       1
+      ],
+      "inQuint"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "bar",
+   "type": "shape",
+   "parent": "lt",
+   "name": "Accent bar",
+   "shape": "rect",
+   "x": 6,
+   "y": 210,
+   "width": 12,
+   "height": 200,
+   "fill": "$accent",
+   "anchor": [
+    0,
+    100
+   ],
+   "scale": {
+    "k": [
+     [
+      0.3,
+      [
+       1,
+       0
+      ]
+     ],
+     [
+      1.0,
+      [
+       1,
+       1
+      ],
+      "outExpo"
+     ],
+     [
+      5.1,
+      [
+       1,
+       1
+      ]
+     ],
+     [
+      5.6,
+      [
+       1,
+       0
+      ],
+      "inQuint"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "name",
+   "type": "text",
+   "parent": "lt",
+   "name": "Name",
+   "text": "Marta Lindqvist",
+   "x": 72,
+   "y": 62,
+   "size": 92,
+   "font": "$display",
+   "color": "$fg",
+   "tracking": 1,
+   "reveal": {
+    "by": "char",
+    "stagger": 0.035,
+    "duration": 0.7,
+    "delay": 1.0,
+    "ease": "outExpo",
+    "mask": true,
+    "from": {
+     "opacity": 0,
+     "y": 90
+    }
+   }
+  },
+  {
+   "id": "role",
+   "type": "text",
+   "parent": "lt",
+   "name": "Role",
+   "text": "Senior Field Correspondent",
+   "x": 74,
+   "y": 156,
+   "size": 36,
+   "font": "$body",
+   "color": "$muted",
+   "tracking": 1.5,
+   "reveal": {
+    "by": "word",
+    "stagger": 0.09,
+    "duration": 0.6,
+    "delay": 1.4,
+    "ease": "outQuint",
+    "from": {
+     "opacity": 0,
+     "x": -24
+    }
+   }
+  },
+  {
+   "id": "pill",
+   "type": "shape",
+   "parent": "lt",
+   "name": "Tag pill",
+   "shape": "rect",
+   "x": 36,
+   "y": 14,
+   "width": 224,
+   "height": 38,
+   "radius": 19,
+   "fill": "$accent",
+   "anchor": [
+    -112,
+    0
+   ],
+   "scale": {
+    "k": [
+     [
+      1.5,
+      [
+       0,
+       0
+      ]
+     ],
+     [
+      2.1,
+      [
+       1,
+       1
+      ],
+      "spring"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tag",
+   "type": "text",
+   "parent": "lt",
+   "name": "Tag text",
+   "text": "LIVE \u00b7 LISBON",
+   "x": 148,
+   "y": 6,
+   "size": 24,
+   "font": "$display",
+   "color": "$ink",
+   "align": "center",
+   "tracking": 2.5,
+   "opacity": {
+    "k": [
+     [
+      1.75,
+      0
+     ],
+     [
+      2.0,
+      1,
+      "outQuad"
+     ]
+    ]
+   }
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Kinetic Type",
+  "size": [1920, 1080],
+  "fps": 30,
+  "scenes": ["main"],
+  "theme": {
+    "bg": "#E10600", "fg": "#000000", "muted": "#5C0000", "accent": "#FFFFFF",
+    "ink": "#000000", "pool": "#FFFFFF", "floor": "#B80500",
+    "display": "Impact", "body": "HelveticaNeue-Bold"
+  }
+}

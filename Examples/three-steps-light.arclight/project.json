@@ -1,0 +1,25 @@
+{
+  "name": "Three Steps (Light)",
+  "size": [
+    1920,
+    1080
+  ],
+  "fps": 30,
+  "scenes": [
+    "main"
+  ],
+  "theme": {
+    "bg": "#FBF3F6",
+    "fg": "#3B3355",
+    "muted": "#9A91B0",
+    "accent": "#FF8FB1",
+    "ink": "#3B3355",
+    "pool": "#FFFFFF",
+    "floor": "#F1E4EC",
+    "display": "Optima-ExtraBlack",
+    "body": "Optima-Regular",
+    "card": "#FFFFFF",
+    "accent2": "#A78BFA",
+    "lav": "#EFE8FF"
+  }
+}

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/xndrpr/arclight/security/advisories/new
+    about: Please report security problems privately, not in a public issue.
+  - name: macOS blocks the app or says it is damaged
+    url: https://github.com/xndrpr/arclight/blob/main/docs/install.md
+    about: The 0.1 release is ad-hoc signed and not notarized. The install guide shows how to open it.
+  - name: Questions and ideas
+    url: https://github.com/xndrpr/arclight/discussions
+    about: Ask how to do something, or share what you made.

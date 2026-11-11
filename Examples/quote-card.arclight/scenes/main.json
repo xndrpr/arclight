@@ -1,0 +1,24 @@
+{
+  "id": "main", "name": "Quote card", "duration": 7,
+  "post": {"grain": 0.03, "vignette": {"amount": 0.18, "softness": 0.9}, "gradeOverlay": true, "fade": {"in": 0.6, "out": 0.7}, "motionBlur": 1},
+  "nodes": [
+    {"id":"stage","type":"group","x":960,"y":540,"anchor":[960,540],"scale":{"k":[[0,1],[7,1.03,"linear"]]}},
+    {"id":"mark","type":"text","parent":"stage","text":"“","font":"$display","size":520,"color":"$accent","x":96,"y":150,"opacity":0.95,
+     "reveal":{"by":"line","duration":1.6,"delay":0.3,"ease":"outCubic","mask":true,"from":{"opacity":0,"y":120}}},
+    {"id":"kicker","type":"text","parent":"stage","text":"ON LIVING DELIBERATELY","font":"$body","size":22,"tracking":6,"color":"$accent","x":430,"y":150,
+     "reveal":{"by":"word","stagger":0.18,"duration":1.0,"delay":0.6,"ease":"inOutSine","from":{"opacity":0,"y":0}}},
+    {"id":"issue","type":"text","parent":"stage","text":"No. 07","font":"$italic","size":26,"color":"$muted","align":"right","x":1780,"y":148,
+     "reveal":{"by":"line","duration":1.2,"delay":0.9,"ease":"inOutSine","from":{"opacity":0,"y":0}}},
+    {"id":"rule1","type":"shape","parent":"stage","shape":"line","x":430,"y":206,"to":[1350,0],"stroke":"$fg","strokeWidth":1.5,
+     "trim":{"k":[[0.4,[0,0]],[2.0,[0,1],"inOutSine"]]}},
+    {"id":"quote","type":"text","parent":"stage","text":"I went to the woods because I wished\nto live deliberately, to front only the\nessential facts of life, and see if I\ncould not learn what it had to teach,\nand not, when I came to die, discover\nthat I had not lived.",
+     "font":"$display","size":70,"lineHeight":1.22,"color":"$fg","x":430,"y":262,
+     "reveal":{"by":"line","stagger":0.42,"duration":1.3,"delay":1.1,"ease":"outCubic","mask":true,"from":{"opacity":0,"y":80}}},
+    {"id":"rule2","type":"shape","parent":"stage","shape":"line","x":430,"y":836,"to":[120,0],"stroke":"$accent","strokeWidth":3,
+     "trim":{"k":[[3.6,[0,0]],[4.8,[0,1],"inOutSine"]]}},
+    {"id":"attr","type":"text","parent":"stage","text":"— HENRY DAVID THOREAU","font":"$body","size":28,"tracking":5,"color":"$fg","x":430,"y":872,
+     "reveal":{"by":"word","stagger":0.2,"duration":1.0,"delay":4.0,"ease":"outCubic","mask":true,"from":{"opacity":0,"y":40}}},
+    {"id":"src","type":"text","parent":"stage","text":"Walden, 1854","font":"$italic","size":32,"color":"$fg","opacity":0.7,"x":430,"y":922,
+     "reveal":{"by":"line","duration":1.2,"delay":4.5,"ease":"inOutSine","from":{"opacity":0,"y":0}}}
+  ]
+}

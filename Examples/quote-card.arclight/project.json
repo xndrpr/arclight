@@ -1,0 +1,11 @@
+{
+  "name": "Quote Card",
+  "size": [1920, 1080],
+  "fps": 30,
+  "scenes": ["main"],
+  "theme": {
+    "bg": "#F3EBDD", "fg": "#2A1F17", "muted": "#8A7A68", "accent": "#B4441F",
+    "ink": "#2A1F17", "pool": "#FFF4DE", "floor": "#E6D9C3",
+    "display": "Didot-Bold", "body": "Georgia", "italic": "Didot-Italic"
+  }
+}

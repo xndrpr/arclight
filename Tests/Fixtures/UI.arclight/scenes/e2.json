@@ -1,0 +1,73 @@
+{
+  "id": "e2",
+  "name": "45% — almost one in two",
+  "duration": 9.7,
+  "background": "$bg",
+  "camera": {"k": [
+    [0,    {"position": [949.4, 749, 287.4],   "target": [872, 763.1, 611.2], "fov": 56.7, "roll": 0,
+            "shake": [{"at": 0.55, "y": 1.4, "roll": 0, "decay": 14, "freq": 14.3, "duration": 0.4},
+                      {"at": 3.40, "y": 8.4, "roll": 0.34, "decay": 9, "freq": 8.75, "duration": 0.6}]}],
+    [1.75, {"position": [928.3, 751.2, 357.8], "target": [872, 761, 611.2], "fov": 56.7, "roll": 0,
+            "shake": [{"at": 0.55, "y": 1.4, "roll": 0, "decay": 14, "freq": 14.3, "duration": 0.4},
+                      {"at": 3.40, "y": 8.4, "roll": 0.34, "decay": 9, "freq": 8.75, "duration": 0.6}]}, "outCubic"],
+    [4.26, {"position": [502.4, -120.4, -268.8], "target": [1030.4, 830, 1350.4], "fov": 56.7, "roll": -2.58,
+            "shake": [{"at": 0.55, "y": 1.4, "roll": 0, "decay": 14, "freq": 14.3, "duration": 0.4},
+                      {"at": 3.40, "y": 8.4, "roll": 0.34, "decay": 9, "freq": 8.75, "duration": 0.6}]}, "inOutCubic"],
+    [9.7,  {"position": [1136, 41.5, -177.3], "target": [1129, 830, 1420.8], "fov": 56.7, "roll": -0.86,
+            "shake": [{"at": 0.55, "y": 1.4, "roll": 0, "decay": 14, "freq": 14.3, "duration": 0.4},
+                      {"at": 3.40, "y": 8.4, "roll": 0.34, "decay": 9, "freq": 8.75, "duration": 0.6}]}, "inOutSine"]
+  ]},
+  "fog": {"color": "#0B0B0B", "near": 704, "far": 3600},
+  "post": {"bloom": {"intensity": 0.35, "threshold": 0.6}, "vignette": {"amount": 0.72, "softness": 0.7},
+           "grain": 0.06, "motionBlur": {"samples": 3, "shutter": 0.5}, "fade": {"in": 0.6, "out": 0.6, "color": "$bg"}},
+  "nodes": [
+    {"id": "crowd", "type": "repeater", "x": 916, "y": 830, "z": 1667.2,
+     "layout": "grid", "cols": 46, "rows": 25, "spacing": 88, "jitter": 0.1, "seed": 41,
+     "color": "$ink", "rimColor": "$fg",
+     "items": [
+       {"symbol": "chess/pawn",   "height": 98,  "widthScale": 0.8, "weight": 58},
+       {"symbol": "chess/bishop", "height": 110, "widthScale": 0.8, "weight": 13},
+       {"symbol": "chess/knight", "height": 110, "widthScale": 0.8, "weight": 13},
+       {"symbol": "chess/queen",  "height": 110, "widthScale": 0.8, "weight": 9},
+       {"symbol": "chess/king",   "height": 110, "widthScale": 0.8, "weight": 7}
+     ],
+     "instance": {
+       "lit": {"expr": "var r = pick(i, n, 0.45, 7); if (r < 0 || i == 22) return 0; var N = Math.round(n * 0.45); var on = 1.85 + 1.51 * Math.sqrt((r + 1) / N); var L = t - 3.40; return lamp(t, on) * (L > 0 ? 1 + 0.35 * Math.exp(-L * 4) : 1) * (0.93 + 0.07 * Math.sin(t * 2.1 + i * 1.7));"},
+       "scale": {"expr": "0.935 + rand(i * 5.3) * 0.13"},
+       "visible": {"expr": "i != 22"}
+     },
+     "ground": {"color": "$floor", "size": [4224, 2376], "checker": {"opacity": 0.045, "color": "$fg"}},
+     "ambient": {"intensity": 0.035, "grow": 0.155, "radius": 1830, "center": [184.8, -211.2], "color": "$fg"},
+     "pool": {"radius": 43.6, "color": "$pool", "intensity": 0.9, "softness": 0.1, "falloff": 0, "spill": {"radius": 3.07, "intensity": 0.16}},
+     "contact": {"radius": 0.17, "opacity": 0.85},
+     "cone": {"height": 5.4, "radius": 43.6, "color": "$fg", "intensity": 0.6}
+    },
+    {"id": "hero", "type": "repeater", "x": 872, "y": 830, "z": 611.2,
+     "layout": "points", "points": [[0, 0]], "color": "$ink", "rimColor": "$fg",
+     "items": [{"symbol": "chess/rook", "height": 142, "widthScale": 0.8}],
+     "instance": {"lit": {"expr": "var L = t - 3.40; return lamp(t, 0.55) * (L > 0 ? 1 + 0.35 * Math.exp(-L * 4) : 1) * (0.93 + 0.07 * Math.sin(t * 2.1));"}},
+     "ground": false,
+     "pool": {"radius": 43.6, "color": "$pool", "intensity": 0.9, "softness": 0.1, "falloff": 0, "spill": {"radius": 3.07, "intensity": 0.16}},
+     "contact": {"radius": 0.17, "opacity": 0.85},
+     "cone": {"height": 3.7, "radius": 43.6, "color": "$fg"}
+    },
+    {"id": "noir", "type": "shape", "x": 960, "y": 540, "width": 1920, "height": 1080,
+     "fill": {"linear": [-960, -540, 480, 324], "stops": [[0, "#0A0A0AD1"], [0.55, "#0A0A0A59"], [1, "#0A0A0A00"]]},
+     "opacity": {"expr": "1 - Math.pow(1 - clamp((T - 1.85) / 1.2, 0, 1), 3)"}},
+    {"id": "counter", "type": "text", "in": 1.90, "text": "{v}%", "font": "$display", "size": 270, "color": "$fg",
+     "x": 112, "y": 136, "tabular": true,
+     "value": {"expr": "Math.max(1, Math.min(45, Math.ceil(45 * litCount('crowd') / Math.round(instanceCount('crowd') * 0.45))))"},
+     "opacity": {"expr": "(1 - Math.pow(1 - clamp(t / 0.4, 0, 1), 3)) * (T > 3.40 ? 1 : 0.85)"},
+     "scale": {"expr": "var L = T - 3.40; return L > 0 ? 1 + 0.06 * Math.exp(-L * 6) * Math.cos(L * 14) : 1;"}},
+    {"id": "whisper", "type": "text", "in": 1.91, "out": 5.45, "text": "almost one in two", "font": "$whisper", "size": 68,
+     "color": "$fg", "x": 118, "y": 384,
+     "reveal": {"by": "char", "stagger": 0.047, "duration": 0.01, "from": {"opacity": 0}},
+     "opacity": {"expr": "(0.9 + 0.1 * Math.sin(T * 19)) * (1 - smoothstep(5.0, 5.4, T))"}},
+    {"id": "line1", "type": "text", "in": 5.45, "text": "THAT MANY PEOPLE SPENT YESTERDAY", "font": "$display", "size": 74,
+     "color": "$fg", "x": 116, "y": 387,
+     "reveal": {"by": "char", "stagger": 0.022, "duration": 0.6, "ease": "outExpo", "from": {"opacity": 0, "y": 37, "skew": 12.4}}},
+    {"id": "line2", "type": "text", "in": 7.32, "text": "FEELING LONELY.", "font": "$display", "size": 74,
+     "color": "$fg", "x": 116, "y": 469,
+     "reveal": {"by": "char", "stagger": 0.022, "duration": 0.6, "ease": "outExpo", "from": {"opacity": 0, "y": 37, "skew": 12.4}}}
+  ]
+}

@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in Arclight doesn't work as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please search [existing issues](https://github.com/xndrpr/arclight/issues) first.
+        Security problems go through [private reporting](https://github.com/xndrpr/arclight/security/advisories/new), not here.
+        If macOS blocks the app on first launch, see [docs/install.md](https://github.com/xndrpr/arclight/blob/main/docs/install.md).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Open Examples/…
+        2. Select the title layer and drag the opacity field
+        3. Expected the value to change; instead …
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor (canvas, timeline, layers, inspector)
+        - Rendering or export
+        - MCP server / AI agents
+        - Command line
+        - Project format, templates or symbols
+        - Install or launch
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Arclight version
+      description: "`arclight --version`, Arclight ▸ About Arclight, or the commit you built."
+      placeholder: 0.1.0 (alpha)
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: macOS 15.5, MacBook Air M2
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How you installed it
+      options:
+        - Release zip from GitHub
+        - Built from source (Scripts/install.sh or Scripts/bundle.sh)
+        - swift run
+    validations:
+      required: true
+  - type: input
+    id: agent
+    attributes:
+      label: MCP client (if relevant)
+      description: The agent or editor you connected to `arclight mcp`, and its version.
+  - type: textarea
+    id: repro
+    attributes:
+      label: Project, logs or screenshots
+      description: |
+        A small project that shows the problem helps most: zip the `.arclight` folder and drag it here.
+        For rendering bugs, `arclight validate <project>` and `arclight check <project>` output is useful.
+        For click or keyboard problems in the editor, Help ▸ Record Click Diagnostics writes a log you can attach.
+    validations:
+      required: false

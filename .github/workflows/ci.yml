@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build, test, lint and check examples
+    # macos-15 (Apple Silicon) ships Xcode 16.4 as its default, which is Swift 6.1.2: the same compiler as the
+    # Command Line Tools the project is developed with. Pinning DEVELOPER_DIR keeps it there if the image's default
+    # Xcode moves on.
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      # Shared with Scripts/verify.sh, so its build section reuses this release build instead of starting over.
+      RELEASE_BUILD: .build/verify-release
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Toolchain
+        run: |
+          swift --version
+          swift --version 2>&1 | grep -q "Swift version 6.1" || { echo "::error::expected Swift 6.1"; exit 1; }
+
+      - name: Detect a Metal device
+        id: metal
+        run: |
+          cat > "$RUNNER_TEMP/metal-probe.swift" <<'EOF'
+          import Metal
+          if let d = MTLCreateSystemDefaultDevice(), d.makeCommandQueue() != nil { print(d.name) } else { print("none") }
+          EOF
+          swiftc -o "$RUNNER_TEMP/metal-probe" "$RUNNER_TEMP/metal-probe.swift"
+          device="$("$RUNNER_TEMP/metal-probe")"
+          echo "Metal device: $device"
+          if [[ "$device" == "none" ]]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No usable Metal device on this runner: Metal-dependent tests are skipped and the render and MCP checks don't run."
+          else
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Lint (swift format)
+        run: swift format lint --strict --parallel -r Sources Tests Scripts Package.swift
+
+      - name: Build (release, warnings as errors)
+        run: swift build -c release --scratch-path "$RELEASE_BUILD" -Xswiftc -warnings-as-errors
+
+      - name: Test
+        run: swift test -Xswiftc -warnings-as-errors
+
+      # The CLI steps below run with an empty home folder and presence folder (CFFIXED_USER_HOME,
+      # ARCLIGHT_PRESENCE_DIR), so they never read or write the runner's ~/Library (see CONTRIBUTING.md).
+      - name: Isolated home for the CLI
+        run: |
+          mkdir -p "$RUNNER_TEMP/home" "$RUNNER_TEMP/presence"
+          echo "ARCLIGHT_HOME=$RUNNER_TEMP/home" >> "$GITHUB_ENV"
+          echo "ARCLIGHT_PRESENCE=$RUNNER_TEMP/presence" >> "$GITHUB_ENV"
+
+      - name: Generated docs are up to date
+        env:
+          CFFIXED_USER_HOME: ${{ env.ARCLIGHT_HOME }}
+          ARCLIGHT_PRESENCE_DIR: ${{ env.ARCLIGHT_PRESENCE }}
+        run: |
+          bin="$(swift build -c release --scratch-path "$RELEASE_BUILD" --show-bin-path)/arclight"
+          "$bin" docs --out "$RUNNER_TEMP/scene-format.md" > /dev/null
+          if ! diff -u docs/scene-format.md "$RUNNER_TEMP/scene-format.md"; then
+            echo "::error file=docs/scene-format.md::out of date: run 'swift run arclight docs --out docs/scene-format.md' and commit the result"
+            exit 1
+          fi
+
+      - name: Validate and check the examples
+        env:
+          CFFIXED_USER_HOME: ${{ env.ARCLIGHT_HOME }}
+          ARCLIGHT_PRESENCE_DIR: ${{ env.ARCLIGHT_PRESENCE }}
+        run: |
+          bin="$(swift build -c release --scratch-path "$RELEASE_BUILD" --show-bin-path)/arclight"
+          shopt -s nullglob
+          projects=(Examples/*.arclight)
+          (( ${#projects[@]} )) || { echo "::error::no example projects in Examples/"; exit 1; }
+          status=0
+          for p in "${projects[@]}"; do
+            echo "::group::$p"
+            "$bin" validate "$p" || { echo "::error file=$p::arclight validate failed"; status=1; }
+            "$bin" check "$p" || { echo "::error file=$p::arclight check found problems"; status=1; }
+            echo "::endgroup::"
+          done
+          exit $status
+
+      # Scripts/verify.sh compares against a baseline recorded on a developer's Mac (out/baseline, not in git), so CI
+      # runs its smoke mode, which needs no baseline: every example scene renders at 0, 1.5, 3 s and its last frame,
+      # and a scripted MCP session (create, edit, symbol, asset, render_frames, export) answers every request without
+      # an error. Any failure or crash fails the step. Pixel comparisons, off-screen UI snapshots and clickprobe stay
+      # local. verify.sh isolates its own CLI runs (empty home, presence folder and throwaway settings).
+      - name: Render and MCP smoke test (Scripts/verify.sh)
+        if: steps.metal.outputs.available == 'true'
+        run: Scripts/verify.sh --smoke
+
+      - name: Upload renders and logs
+        if: failure() || steps.metal.outputs.available == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verify-output
+          path: |
+            out/verify/render
+            out/verify/mcp
+            out/verify-work/*.log
+            out/verify-work/mcp/stderr.txt
+          if-no-files-found: ignore
+          retention-days: 7
