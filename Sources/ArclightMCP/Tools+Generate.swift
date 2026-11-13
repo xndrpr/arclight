@@ -182,10 +182,10 @@ extension MCPServer {
                     throw ToolError("give rect [x,y,w,h] or area_layer")
                 }
                 let prompt = try a.str("prompt")
-                let scene = h.scene, project = h.project, above = a["above"]?.string
+                let scene = h.scene, project = h.project, above = a["above"]?.string, area = rect
                 let res = try blocking {
                     try await ImageAI.fill(
-                        rect: rect, prompt: prompt, in: scene, project: project, store: s, renderer: r,
+                        rect: area, prompt: prompt, in: scene, project: project, store: s, renderer: r,
                         provider: provider, above: above)
                 }
                 return text("asset \(res.asset)\n" + (try h.save(res.ops, res.summary)))
