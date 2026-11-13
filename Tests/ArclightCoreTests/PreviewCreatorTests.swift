@@ -76,6 +76,10 @@ import Testing
         #expect(m.artboard(mids[0])?.name == "Words")
         #expect(m.artboard(mids[0])?.nodes[0].props["text"] == .value("BYE"))
         #expect(m.artboard("a")?.nodes[0].props["text"] == .value("HI"))
+        // Names in any script make valid ids.
+        let (u, uids) = try PreviewVariants.make([.init(name: "B · Дверь", ops: []), .init(name: "Пирс", ops: [])], of: "a", in: p)
+        #expect(uids == ["b", "variant"])
+        #expect(u.artboard("variant")?.name == "Пирс")
     }
 
     @Test(.requiresMetal) func framesFromAVideoAndFromAScene() async throws {
