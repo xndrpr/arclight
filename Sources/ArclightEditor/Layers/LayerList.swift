@@ -21,7 +21,9 @@ struct NamesColumn: View {
         let dropAt: (CGFloat) -> LayerTree.Drop? = { y in
             LayerTree.dropZone(scene, rows: rows, y: y, rowH: TL.rowH, collapsed: collapsed, dragging: ui.dragging)
         }
-        return VStack(spacing: 0) {
+        // Lazy: only rows in view are built (a 70-layer scene built ~1.6 ms per row on every scene or workspace switch).
+        // Rows have a fixed height, so the drop-zone maths and the tracks beside them line up as before.
+        return LazyVStack(spacing: 0) {
             ForEach(rows) { r in
                 NameRow(
                     doc: doc, ui: ui, row: r, childCount: kids[r.node.id]?.count ?? 0,

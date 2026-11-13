@@ -230,15 +230,23 @@ private struct HomeLogoButton: View {
 struct WorkspaceSwitch: View {
     @ObservedObject var doc: EditorDocument
     @Namespace private var ns
+    /// The tab just clicked: the pill slides there at once, then the panels swap (next frame) and fade in.
+    @State private var pending: Workspace?
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(Workspace.allCases) { ws in
-                let on = doc.workspace == ws
+                let on = (pending ?? doc.workspace) == ws
                 Button {
                     ClickTrace.fired("workspace \(ws.rawValue)")
-                    // No animation: animating the whole editor layout re-sizes (and re-renders) the canvas every frame.
-                    doc.setWorkspace(ws)
+                    guard ws != (pending ?? doc.workspace) else { return }
+                    withAnimation(.easeOut(duration: 0.12)) { pending = ws }
+                    // The pill glides first (so the click answers at once); then the panels swap — never animated as
+                    // layout, which would resize and re-render the canvas every frame — and fade in (`WorkspaceFade`).
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) {
+                        doc.setWorkspace(ws)
+                        pending = nil
+                    }
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: ws.symbol).font(.system(size: 11))
@@ -256,4 +264,19 @@ struct WorkspaceSwitch: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(UI.panel))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(UI.border))
     }
+}
+
+/// Panels that belong to one workspace fade in when they appear (opacity only: the layout itself changes at once,
+/// so the canvas resizes a single time).
+struct WorkspaceFade: ViewModifier {
+    @State private var shown = false
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .onAppear { withAnimation(.easeOut(duration: 0.16)) { shown = true } }
+    }
+}
+
+extension View {
+    func workspaceFade() -> some View { modifier(WorkspaceFade()) }
 }

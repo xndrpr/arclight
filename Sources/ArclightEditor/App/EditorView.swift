@@ -61,14 +61,13 @@ struct EditorView: View {
 
     private func panels(_ w: PanelWidths) -> some View {
         HStack(spacing: 0) {
-            Group {
-                if doc.isPreview && !doc.isEmptyWorkspace {
-                    // Figma-style: pages and artboards on top, the open artboard's layers below.
-                    VSplit(top: { LeftSidebar(doc: doc) }, bottom: { PreviewLayersPanel(doc: doc) })
-                } else {
-                    LeftSidebar(doc: doc)
-                }
-            }
+            // One structure in both workspaces (so the sidebar is updated, not rebuilt, on a switch): in Preview the
+            // open artboard's layers sit under the pages (Figma); in Motion that half is collapsed.
+            VSplit(
+                collapsed: !doc.isPreview || doc.isEmptyWorkspace,
+                top: { LeftSidebar(doc: doc) },
+                bottom: { if doc.isPreview && !doc.isEmptyWorkspace { PreviewLayersPanel(doc: doc).workspaceFade() } }
+            )
             .frame(width: w.left)
             SideResizeHandle(width: $leftW, range: 160...420, growsRight: true, defaultWidth: 210)
             VStack(spacing: 0) {
@@ -76,15 +75,24 @@ struct EditorView: View {
                     // Preview tools in their own column (the Metal canvas would draw over a floating bar).
                     if doc.isPreview && !doc.isEmptyWorkspace {
                         PreviewToolBar(doc: doc).padding(.horizontal, 6).frame(maxHeight: .infinity).background(UI.bg)
+                            .workspaceFade()
                         Hairline(vertical: true)
                     }
                     ViewportView(doc: doc)
                         .overlay { if doc.isEmptyWorkspace { EmptyWorkspaceView(doc: doc) } }
                 }
                 // Previews are stills: no timeline.
-                if !doc.isPreview && !doc.isEmptyWorkspace {
-                    ResizeHandle(height: $timelineH)
-                    TimelineView(doc: doc).frame(height: timelineH)
+                // The timeline stays alive in Preview (hidden, no height): switching back updates it instead of
+                // rebuilding it, which took ~0.1–0.2 s on long scenes.
+                let showTimeline = !doc.isPreview && !doc.isEmptyWorkspace
+                if showTimeline { ResizeHandle(height: $timelineH) }
+                if !doc.isEmptyWorkspace {
+                    TimelineView(doc: doc)
+                        .frame(height: showTimeline ? timelineH : 0)
+                        .opacity(showTimeline ? 1 : 0)
+                        .allowsHitTesting(showTimeline)
+                        .accessibilityHidden(!showTimeline)
+                        .clipped()
                 }
             }
             .frame(minWidth: PanelWidths.minCenter)
@@ -155,6 +163,8 @@ struct EmptyWorkspaceView: View {
 
 /// Two panes stacked with a draggable divider; the split is remembered.
 struct VSplit<Top: View, Bottom: View>: View {
+    /// The top pane takes the whole height (no divider, no bottom pane).
+    var collapsed = false
     @ViewBuilder let top: () -> Top
     @ViewBuilder let bottom: () -> Bottom
     @AppStorage("preview.layersSplit") private var fraction: Double = 0.42
@@ -163,9 +173,10 @@ struct VSplit<Top: View, Bottom: View>: View {
     var body: some View {
         GeometryReader { g in
             let h = g.size.height
-            let topH = min(max(h * fraction, 120), h - 140)
+            let topH = collapsed ? h : min(max(h * fraction, 120), h - 140)
             VStack(spacing: 0) {
                 top().frame(width: g.size.width, height: topH).clipped()
+                if !collapsed {
                 Rectangle().fill(UI.border).frame(height: 1)
                     .overlay(Color.clear.frame(height: 7).contentShape(Rectangle()).cursor(.resizeUpDown)
                         .gesture(
@@ -176,6 +187,7 @@ struct VSplit<Top: View, Bottom: View>: View {
                                 }
                                 .onEnded { _ in startFraction = nil }))
                 bottom().frame(width: g.size.width).frame(maxHeight: .infinity).clipped()
+                }
             }
         }
         .clipped()

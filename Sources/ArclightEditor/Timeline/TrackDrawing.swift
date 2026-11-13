@@ -10,7 +10,9 @@ struct TrackDrawing {
     let map: TimeMap
     let selected: Set<KeyRef>
 
-    func draw(_ ctx: GraphicsContext, _ size: CGSize) {
+    /// Draws into a canvas showing the track area from content y `top` down (`size` is the canvas's own size).
+    /// Rows outside it are skipped; full-height marks (work area, END, markers, playhead) are the same at any y.
+    func draw(_ ctx: GraphicsContext, _ size: CGSize, top: CGFloat = 0) {
         let d = doc.scene.duration
         let ex = map.x(d)
         if let w = doc.workArea {
@@ -26,7 +28,12 @@ struct TrackDrawing {
         for k in selected {
             selByNode[k.node, default: []].insert(k.t); selByProp["\(k.node).\(k.prop)", default: []].insert(k.t)
         }
-        for (i, r) in rows.enumerated() { drawRow(ctx, size, i, r, d, selByNode, selByProp) }
+        var rc = ctx
+        rc.translateBy(x: 0, y: -top)
+        let first = max(0, Int(floor(top / TL.rowH))), last = min(rows.count, Int(ceil((top + size.height) / TL.rowH)) + 1)
+        if first < last {
+            for i in first..<last { drawRow(rc, size, i, rows[i], d, selByNode, selByProp) }
+        }
         // Over the rows, so bars and keys that run past END read as "outside the scene".
         TimelineInk.drawPastEnd(ctx, size, endX: ex)
         TimelineInk.drawEndLine(ctx, size, endX: ex)
@@ -34,7 +41,7 @@ struct TrackDrawing {
             ctx.draw(
                 Text("Past the end · not rendered — drag END on the ruler to extend").font(.system(size: 10.5))
                     .foregroundColor(UI.dim),
-                at: CGPoint(x: max(ex, 0) + 12, y: CGFloat(rows.count) * TL.rowH + 16), anchor: .leading)
+                at: CGPoint(x: max(ex, 0) + 12, y: CGFloat(rows.count) * TL.rowH + 16 - top), anchor: .leading)
         }
         for m in doc.scene.markers ?? [] {
             let x = map.x(m.t)
