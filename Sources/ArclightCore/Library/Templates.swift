@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// A reusable scene with parameters: `{{name}}` placeholders anywhere in the scene JSON
@@ -30,6 +31,10 @@ public struct Template: Codable, Equatable, Sendable {
     public var scene: JSONValue
     /// Theme tokens the template expects; added to the project when missing (never overwritten).
     public var theme: [String: JSONValue]?
+    /// "scene" (default: a motion scene) or "preview" (a thumbnail artboard; `scene.size` is its size).
+    public var kind: String?
+
+    public var isPreview: Bool { kind == "preview" }
 
     public init(
         id: String, name: String, description: String? = nil, category: String? = nil, params: [Param],
@@ -62,6 +67,45 @@ public enum Templates {
     }
 
     public static func get(_ id: String, project: URL?) -> Template? { all(project: project).last { $0.id == id } }
+
+    /// Builds an artboard from a template (preview templates bring their own size; scene templates fit `size`).
+    /// Image parameters left empty point at a placeholder silhouette written into the project's assets.
+    public static func instantiateArtboard(
+        _ t: Template, params: [String: JSONValue], artboardId: String, size: [Int]? = nil, store: ProjectStore?
+    ) throws -> Artboard {
+        let own = t.scene["size"]?.doubles.map { $0.map { Int($0) } }
+        let sz = size ?? own ?? Artboard.youtubeSize
+        var values = params
+        for p in t.params where p.kind == "image" {
+            let given = values[p.name]?.string ?? p.default?.string ?? ""
+            if given.isEmpty || given == Templates.placeholderPhoto {
+                if let store { try Templates.writePlaceholder(store: store) }
+                values[p.name] = .string(Templates.placeholderPhoto)
+            }
+        }
+        let scene = try instantiate(t, params: values, sceneId: "tmp", canvas: (sz[0], sz.count > 1 ? sz[1] : sz[0]))
+        var a = Artboard(id: artboardId, name: t.name, size: sz)
+        a.update(from: scene)
+        a.size = sz
+        return a
+    }
+
+    public static let placeholderPhoto = "placeholder-photo.png"
+
+    /// A grey person silhouette (transparent background) to stand in for the user's photo.
+    static func writePlaceholder(store: ProjectStore) throws {
+        let url = store.assetsURL.appendingPathComponent(placeholderPhoto)
+        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+        guard let ctx = ImageData.context(800, 1000) else { return }
+        ctx.setFillColor(CGColor(srgbRed: 0.55, green: 0.57, blue: 0.62, alpha: 1))
+        ctx.addPath(CGPath(roundedRect: CGRect(x: 110, y: 0, width: 580, height: 470), cornerWidth: 220, cornerHeight: 220, transform: nil))
+        ctx.fillPath()
+        ctx.setFillColor(CGColor(srgbRed: 0.7, green: 0.72, blue: 0.76, alpha: 1))
+        ctx.fillEllipse(in: CGRect(x: 220, y: 430, width: 360, height: 420))
+        guard let img = ctx.makeImage(), let data = ImageData.png(img) else { return }
+        try FileManager.default.createDirectory(at: store.assetsURL, withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+    }
 
     /// Builds a scene: parameters (missing ones fall back to defaults) and canvas size substituted.
     public static func instantiate(

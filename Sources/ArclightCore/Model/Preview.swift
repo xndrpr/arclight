@@ -98,6 +98,8 @@ public struct Preview: Codable, Equatable, Sendable {
     public var name: String?
     public var artboards: [Artboard]
     public var theme: ThemeLink
+    /// Reference pictures (asset names) kept with the page for inspiration; never exported.
+    public var references: [String]?
     /// Incremented on every saved change, like `Scene.rev`.
     public var rev: Int
 
@@ -105,7 +107,7 @@ public struct Preview: Codable, Equatable, Sendable {
         self.id = id; self.name = name; self.artboards = artboards; self.theme = theme; self.rev = 0
     }
 
-    enum CodingKeys: String, CodingKey { case id, name, artboards, theme, rev }
+    enum CodingKeys: String, CodingKey { case id, name, artboards, theme, references, rev }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -113,6 +115,7 @@ public struct Preview: Codable, Equatable, Sendable {
         name = try c.decodeIfPresent(String.self, forKey: .name)
         artboards = try c.decodeIfPresent([Artboard].self, forKey: .artboards) ?? []
         theme = try c.decodeIfPresent(ThemeLink.self, forKey: .theme) ?? .project
+        references = try c.decodeIfPresent([String].self, forKey: .references)
         rev = try c.decodeIfPresent(Int.self, forKey: .rev) ?? 0
     }
 

@@ -9,17 +9,21 @@ extension MCPServer {
             Tool(
                 name: "template_list",
                 description:
-                    "List scene templates (built-in, user library, project) with their parameters and defaults. Prefer a template over building a common graphic from scratch.",
-                schema: schema(["category": prop("string", "Optional filter, e.g. Text or Numbers")]), readOnly: true
+                    "List templates (built-in, user library, project) with their parameters and defaults: scene templates for motion, and preview templates (kind preview) for YouTube thumbnails. Prefer a template over building a common graphic from scratch.",
+                schema: schema([
+                    "category": prop("string", "Optional filter, e.g. Text, Numbers or Thumbnails"),
+                    "kind": prop("string", "scene or preview", extra: ["enum": ["scene", "preview"]]),
+                ]), readOnly: true
             ) { [unowned self] a in
                 let all = Templates.all(project: store?.url).filter { t in
-                    a["category"]?.string.map { t.category == $0 } ?? true
+                    (a["category"]?.string.map { t.category == $0 } ?? true)
+                        && (a["kind"]?.string.map { $0 == "preview" ? t.isPreview : !t.isPreview } ?? true)
                 }
                 let lines = all.map { t -> String in
                     let ps = t.params.map { "\($0.name)=\($0.default.map { compactJSON($0) } ?? "?")" }.joined(
                         separator: ", ")
                     return
-                        "\(t.id) — \(t.name)\(t.category.map { " [\($0)]" } ?? ""): \(t.description ?? "")\n  params: \(ps)"
+                        "\(t.id)\(t.isPreview ? " (preview)" : "") — \(t.name)\(t.category.map { " [\($0)]" } ?? ""): \(t.description ?? "")\n  params: \(ps)"
                 }
                 return text(lines.isEmpty ? "no templates" : lines.joined(separator: "\n"))
             },
@@ -27,17 +31,21 @@ extension MCPServer {
             Tool(
                 name: "template_instantiate",
                 description:
-                    "Create a scene from a template with parameter values. Missing parameters use defaults; layout adapts to the canvas size. Then refine with scene_apply.",
+                    "Create a scene (or, with preview, a thumbnail artboard) from a template with parameter values. Missing parameters use defaults; layout adapts to the canvas size. Image parameters take an asset name (empty: a placeholder silhouette). Then refine with scene_apply / preview_apply.",
                 schema: schema(
                     [
                         "template": prop("string", "Template id from template_list"),
                         "scene": prop("string", "New scene id"),
+                        "preview": prop("string", "Instead of a scene: add an artboard to this preview page (created if missing)"),
+                        "artboard": prop("string", "New artboard id (default: from the template)"),
                         "params": prop("object", "Parameter values, e.g. {\"value\":72,\"caption\":\"…\"}"),
                         "overwrite": prop("boolean", "Replace an existing scene with this id"),
                     ],
-                    required: ["template", "scene"])
+                    required: ["template"])
             ) { [unowned self] a in
                 let s = try requireStore()
+                if let pid = a["preview"]?.string { return try instantiatePreviewTemplate(a, preview: pid, store: s) }
+                guard a["scene"]?.string != nil else { throw ToolError("give scene (a new scene id) or preview") }
                 let id = try SafeName.id(try a.str("scene"), what: "scene")
                 guard let t = Templates.get(try a.str("template"), project: s.url) else {
                     throw ToolError(
@@ -189,5 +197,30 @@ extension MCPServer {
                 )
             },
         ]
+    }
+
+    /// template_instantiate into a preview page: a new artboard placed to the right of the others.
+    func instantiatePreviewTemplate(_ a: [String: JSONValue], preview pid: String, store s: ProjectStore) throws
+        -> [JSONValue]
+    {
+        let tid = try a.str("template")
+        guard let t = Templates.get(tid, project: s.url) else {
+            throw ToolError("unknown template — preview templates: \(Templates.all(project: s.url).filter(\.isPreview).map(\.id).joined(separator: ", "))")
+        }
+        try SafeName.id(pid, what: "preview")
+        var p = s.previews[pid] ?? Preview(id: pid, name: t.name)
+        let aid = try SafeName.id(a["artboard"]?.string ?? p.uniqueArtboardId(String(tid.replacingOccurrences(of: "thumb-", with: "").prefix(24))), what: "artboard")
+        guard p.artboard(aid) == nil else { throw ToolError("artboard '\(aid)' exists in \(pid)") }
+        var ab = try Templates.instantiateArtboard(t, params: a["params"]?.object ?? [:], artboardId: aid, store: s)
+        (ab.x, ab.y) = p.nextArtboardOrigin()
+        p.artboards.append(ab)
+        if let tokens = t.theme {
+            var pr = s.project
+            var changed = false
+            for (k, v) in tokens where pr.theme[k] == nil { pr.theme[k] = v; changed = true }
+            if changed { try s.update(project: pr) }
+        }
+        let saved = try saveValidated(p, store: s, expectedRev: s.previews[pid]?.rev, summary: "template \(t.id)")
+        return text(previewReport(saved, changed: [aid], store: s))
     }
 }

@@ -160,11 +160,16 @@ enum Guide {
         Theme and assets are shared with the motion scenes: use tokens ($fg, $accent, $display…) and the brand stays in sync. A page can take its own tokens with \
         "theme":{"detached":true,"tokens":{...}} (tokens it lacks still come from the project); "theme":"project" links it back.
         Tools: preview_list · preview_create · preview_get (outline; artboard + ids for full JSON) · preview_apply · preview_render · preview_delete · \
-        history {preview} · export {preview, artboards, format: youtube|jpg|png}.
+        preview_variants · template_instantiate {preview} · frame_extract · reference_add · reference_analyze · image_* · history {preview} · export {preview, artboards, format: youtube|jpg|png}.
         preview_apply ops: the scene ops (add, set, key, remove, move, duplicate, scene) on the call's "artboard" (default: the first) or an op's own "artboard"; plus \
         artboard_add {id,name,size,x,y,background,copy_from}, artboard_set {id,…}, artboard_duplicate {id,as,name}, artboard_remove {id}, artboard_move {id,index}, preview {name,theme}.
-        Variants for A/B tests (YouTube Test & Compare takes up to 3): artboard_duplicate the finished artboard, then change ONE thing per variant (the words, the accent colour, the crop) \
-        so the test says what worked.
+        Start fast: template_list {kind:"preview"} → template_instantiate {template, preview, params} (layouts: face + words, before/after, big number, reaction, product, minimal); \
+        image params take an asset name (empty = a placeholder silhouette to swap later with preview_apply set src).
+        Variants for A/B tests (YouTube Test & Compare takes up to 3): preview_variants {preview, artboard, variants:[{name, ops}]} or {auto:"color"|"zoom"|"background", count} — \
+        change ONE thing per variant (the words, the accent colour, the crop) so the test says what worked.
+        Pictures: frame_extract {video, best:3} picks the sharpest frames with the best faces (or times:[…]; or scene + times for a motion scene), and with preview places one as a full-bleed background.
+        References: reference_add {preview, source: YouTube URL | image} keeps a thumbnail the user likes; reference_analyze {asset} returns its palette, text, faces, focus and layout notes. \
+        Rebuild its structure with the user's own photos, theme and words — never copy someone else's artwork or text.
         Thumbnail rules that hold up in the feed (always check with preview_render feed:true; most viewers see it about 360 px wide):
         - One focal point: a large face or object filling a third or more of the frame, cut out with a strong outline or glow if the background is busy.
         - 3–5 words at most, very heavy display font, 110 px or more on a 1280x720 artboard; never repeat the video title word for word.
