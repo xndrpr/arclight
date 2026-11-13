@@ -1,9 +1,12 @@
+import ArclightCore
 import SwiftUI
 
 /// Centre lines, title/action safe areas and rule of thirds, drawn over the canvas (no hit testing).
 struct GuidesOverlay: View {
     let canvas: CGSize
     let scale: CGFloat
+    var preview = false
+    @AppStorage(Pref.timestampBadge) private var badge = true
     @AppStorage(Pref.centerLines) private var center = false
     @AppStorage(Pref.safeAreas) private var safe = false
     @AppStorage(Pref.thirds) private var thirds = false
@@ -27,6 +30,19 @@ struct GuidesOverlay: View {
             if center {
                 seg(CGPoint(x: w / 2, y: 0), CGPoint(x: w / 2, y: h), dash: [6, 4])
                 seg(CGPoint(x: 0, y: h / 2), CGPoint(x: w, y: h / 2), dash: [6, 4])
+            }
+            if preview && badge {
+                // Where YouTube draws the video length: keep faces and words out of it.
+                let r = FeedMock.badgeRect(width: Double(canvas.width), height: Double(canvas.height))
+                let rect = Path(
+                    roundedRect: CGRect(x: r.minX * s, y: r.minY * s, width: r.width * s, height: r.height * s),
+                    cornerRadius: r.height * s * 0.2)
+                ctx.fill(rect, with: .color(.black.opacity(0.55)))
+                ctx.stroke(rect, with: line, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                ctx.draw(
+                    Text("12:34").font(.system(size: max(7, r.height * s * 0.55), weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8)),
+                    at: CGPoint(x: r.midX * s, y: r.midY * s))
             }
             if safe {
                 for f in [CanvasGuides.actionSafe, CanvasGuides.titleSafe] {

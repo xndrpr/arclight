@@ -99,22 +99,89 @@ enum Shortcuts {
     ]
 }
 
+extension Shortcuts {
+    /// Preview workspace: Figma first, Photoshop where Figma has no key.
+    static let previewLeft: [Group] = [
+        (
+            "Tools",
+            [
+                (["V"], "Move / select"),
+                (["T"], "Text — click to place"),
+                (["R", "O", "L"], "Rectangle · ellipse · line — drag to draw (⇧ = square / circle)"),
+                (["⇧⌘K"], "Place image"),
+                (["H", "space drag"], "Hand: pan the board"),
+                (["Z", "⌥ click"], "Zoom in · out"),
+                (["A", "F"], "New artboard like this one, to the right"),
+                (["Esc"], "Back to Move · deselect"),
+            ]
+        ),
+        (
+            "View",
+            [
+                (["⇧0"], "Zoom to 100%"),
+                (["⇧1"], "Zoom to fit all artboards"),
+                (["⇧2"], "Zoom to the open artboard"),
+                (["⌘=", "⌘−"], "Zoom in / out"),
+                (["pinch", "⌘ scroll"], "Zoom at the pointer"),
+                (["scroll"], "Pan"),
+                (["click artboard"], "Edit that artboard (variants, covers)"),
+                (["drag artboard name"], "Move the artboard on the board"),
+                (["P"], "Full-screen viewer"),
+            ]
+        ),
+    ]
+
+    static let previewRight: [Group] = [
+        (
+            "Layers",
+            [
+                (["⌘Z", "⇧⌘Z"], "Undo / redo"),
+                (["⌘C", "⌘X", "⌘V"], "Copy / cut / paste layers (also between artboards)"),
+                (["⌘D", "⌘J"], "Duplicate"),
+                (["⌘G", "⇧⌘G"], "Group / ungroup"),
+                (["⌘]", "⌘["], "Bring forward / send backward"),
+                (["⌥⌘]", "⌥⌘["], "Bring to front / send to back"),
+                (["⇧⌘H"], "Show / hide layer"),
+                (["⇧⌘L"], "Lock / unlock layer"),
+                (["←", "→", "↑", "↓"], "Nudge 1 px (⇧ = 10 px)"),
+                (["⌫"], "Delete"),
+                (["double-click"], "Edit text on canvas"),
+                (["⇧ scale", "⇧ rotate"], "Uniform scale · 15° steps"),
+            ]
+        ),
+        (
+            "Project",
+            [
+                (["⌘1", "⌘2"], "Motion / Preview workspace"),
+                (["⇧⌘N"], "New preview page"),
+                (["⇧⌘H (Motion)"], "Back to projects — in Preview it hides the layer"),
+                (["⌘E"], "Export thumbnails"),
+                (["⌘S"], "Save now (autosave is on)"),
+                (["⌥⌘A"], "Show / hide the AI panel"),
+                (["⌘?"], "This list"),
+            ]
+        ),
+    ]
+}
+
 struct ShortcutsSheet: View {
     @Binding var isPresented: Bool
+    var preview = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Keyboard shortcuts").font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
                 Spacer()
-                Text("Based on DaVinci Resolve").font(UI.small).foregroundStyle(UI.dim)
+                Text(preview ? "Preview · based on Figma & Photoshop" : "Motion · based on DaVinci Resolve")
+                    .font(UI.small).foregroundStyle(UI.dim)
             }
             .padding(.horizontal, 24).padding(.vertical, 18)
             Hairline()
             ScrollView {
                 HStack(alignment: .top, spacing: 36) {
-                    column(Shortcuts.left)
-                    column(Shortcuts.right)
+                    column(preview ? Shortcuts.previewLeft : Shortcuts.left)
+                    column(preview ? Shortcuts.previewRight : Shortcuts.right)
                 }
                 .padding(24)
             }

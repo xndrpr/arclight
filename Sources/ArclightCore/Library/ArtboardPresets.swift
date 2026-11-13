@@ -8,6 +8,7 @@ public enum ArtboardPresets {
         public let id: String
         public let title: String
         public let size: [Int]
+        public init(id: String, title: String, size: [Int]) { self.id = id; self.title = title; self.size = size }
     }
 
     public static let all: [Preset] = [

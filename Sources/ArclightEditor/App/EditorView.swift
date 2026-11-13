@@ -50,7 +50,7 @@ struct EditorView: View {
                 ExportSheet(doc: doc, isPresented: $showExport)
             }
         }
-        .sheet(isPresented: $showShortcuts) { ShortcutsSheet(isPresented: $showShortcuts) }
+        .sheet(isPresented: $showShortcuts) { ShortcutsSheet(isPresented: $showShortcuts, preview: doc.isPreview) }
         .onReceive(NotificationCenter.default.publisher(for: .showExport)) { n in
             if (n.object as? EditorDocument) === doc { showExport = true }
         }
@@ -61,11 +61,26 @@ struct EditorView: View {
 
     private func panels(_ w: PanelWidths) -> some View {
         HStack(spacing: 0) {
-            LeftSidebar(doc: doc).frame(width: w.left)
+            Group {
+                if doc.isPreview && !doc.isEmptyWorkspace {
+                    // Figma-style: pages and artboards on top, the open artboard's layers below.
+                    VSplit(top: { LeftSidebar(doc: doc) }, bottom: { PreviewLayersPanel(doc: doc) })
+                } else {
+                    LeftSidebar(doc: doc)
+                }
+            }
+            .frame(width: w.left)
             SideResizeHandle(width: $leftW, range: 160...420, growsRight: true, defaultWidth: 210)
             VStack(spacing: 0) {
-                ViewportView(doc: doc)
-                    .overlay { if doc.isEmptyWorkspace { EmptyWorkspaceView(doc: doc) } }
+                HStack(spacing: 0) {
+                    // Preview tools in their own column (the Metal canvas would draw over a floating bar).
+                    if doc.isPreview && !doc.isEmptyWorkspace {
+                        PreviewToolBar(doc: doc).padding(.horizontal, 6).frame(maxHeight: .infinity).background(UI.bg)
+                        Hairline(vertical: true)
+                    }
+                    ViewportView(doc: doc)
+                        .overlay { if doc.isEmptyWorkspace { EmptyWorkspaceView(doc: doc) } }
+                }
                 // Previews are stills: no timeline.
                 if !doc.isPreview && !doc.isEmptyWorkspace {
                     ResizeHandle(height: $timelineH)
@@ -135,5 +150,34 @@ struct EmptyWorkspaceView: View {
         .padding(28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(UI.bg)
+    }
+}
+
+/// Two panes stacked with a draggable divider; the split is remembered.
+struct VSplit<Top: View, Bottom: View>: View {
+    @ViewBuilder let top: () -> Top
+    @ViewBuilder let bottom: () -> Bottom
+    @AppStorage("preview.layersSplit") private var fraction: Double = 0.42
+    @State private var startFraction: Double?
+
+    var body: some View {
+        GeometryReader { g in
+            let h = g.size.height
+            let topH = min(max(h * fraction, 120), h - 140)
+            VStack(spacing: 0) {
+                top().frame(width: g.size.width, height: topH).clipped()
+                Rectangle().fill(UI.border).frame(height: 1)
+                    .overlay(Color.clear.frame(height: 7).contentShape(Rectangle()).cursor(.resizeUpDown)
+                        .gesture(
+                            DragGesture()
+                                .onChanged { v in
+                                    if startFraction == nil { startFraction = fraction }
+                                    fraction = min(max((startFraction ?? fraction) + v.translation.height / max(h, 1), 0.15), 0.85)
+                                }
+                                .onEnded { _ in startFraction = nil }))
+                bottom().frame(width: g.size.width).frame(maxHeight: .infinity).clipped()
+            }
+        }
+        .clipped()
     }
 }

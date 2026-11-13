@@ -22,6 +22,8 @@ final class EditorDocument: ObservableObject {
     @Published var workspace: Workspace = .motion
     /// What `scene` is a working copy of; `.none` when the workspace is empty ("Create first scene / preview").
     @Published var target: EditTarget = .none
+    /// Preview workspace tool (Figma / Photoshop style): move, text, shapes, hand, zoom.
+    @Published var tool: PreviewTool = .move
     @Published var selection: String? { didSet { if selection != oldValue { stateChanged() } } }
     /// Playhead (scene seconds). Published at a reduced rate while playing; see `playTime`.
     @Published var time: Double = 0 { didSet { if !playing { playTime = time }; stateChanged() } }
