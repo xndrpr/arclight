@@ -38,6 +38,21 @@ enum ViewZoom {
         return CGSize(width: min(max(pan.width, -lx), lx), height: min(max(pan.height, -ly), ly))
     }
 
+    /// Board version of `clampPan`: keeps at least `margin` points of the whole board (all artboards, in canvas
+    /// pixels around the open canvas at 0,0) inside the viewport.
+    static func clampPan(
+        _ pan: CGSize, board b: CGRect, canvas: CGSize, scale s: CGFloat, view: CGSize, margin: CGFloat = 40
+    ) -> CGSize {
+        // Board edges relative to the open canvas centre, in points.
+        let x0 = (b.minX - canvas.width / 2) * s, x1 = (b.maxX - canvas.width / 2) * s
+        let y0 = (b.minY - canvas.height / 2) * s, y1 = (b.maxY - canvas.height / 2) * s
+        let lox = margin - view.width / 2 - x1, hix = view.width / 2 - margin - x0
+        let loy = margin - view.height / 2 - y1, hiy = view.height / 2 - margin - y0
+        return CGSize(
+            width: lox <= hix ? min(max(pan.width, lox), hix) : (lox + hix) / 2,
+            height: loy <= hiy ? min(max(pan.height, loy), hiy) : (loy + hiy) / 2)
+    }
+
     /// Top-left of the canvas in viewport coordinates.
     static func canvasOrigin(view: CGSize, canvas: CGSize, scale s: CGFloat, pan: CGSize) -> CGPoint {
         CGPoint(

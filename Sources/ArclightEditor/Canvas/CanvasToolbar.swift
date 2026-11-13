@@ -92,6 +92,8 @@ private struct GuidesMenu: View {
     @AppStorage(Pref.centerLines) private var center = false
     @AppStorage(Pref.safeAreas) private var safe = false
     @AppStorage(Pref.thirds) private var thirds = false
+    @AppStorage(Pref.timestampBadge) private var badge = true
+    @AppStorage(Pref.feedPreview) private var feed = false
 
     var body: some View {
         Menu {
@@ -99,6 +101,11 @@ private struct GuidesMenu: View {
             Toggle("Centre lines", isOn: $center)
             Toggle("Safe areas (90% / 80%)", isOn: $safe)
             Toggle("Rule of thirds", isOn: $thirds)
+            if doc.isPreview {
+                Divider()
+                Toggle("YouTube timestamp badge", isOn: $badge)
+                Toggle("Feed-size preview", isOn: $feed)
+            }
             Divider()
             Toggle("Snapping (hold ⌘ to bypass)", isOn: $doc.snapping)
         } label: {

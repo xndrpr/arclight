@@ -26,7 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ClickTrace.installIfEnabled()
         // The handler's result goes straight back: nil swallows the key. `?? e` here passed handled keys on to the
         // window too, so Space played/stopped *and* beeped.
-        let monitor = LocalEventMonitor(.keyDown) { e in KeyCommands.handle(e) }
+        let monitor = LocalEventMonitor([.keyDown, .keyUp]) { e in
+            e.type == .keyUp ? KeyCommands.handleUp(e) : KeyCommands.handle(e)
+        }
         monitor.install()
         keyMonitor = monitor
         if let p = initialPath { open(URL(fileURLWithPath: (p as NSString).expandingTildeInPath)) }

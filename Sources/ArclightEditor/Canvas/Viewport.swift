@@ -11,6 +11,7 @@ struct ViewportView: View {
     @State private var hint = true
     @State private var dropTarget = false
     @AppStorage(Pref.rulers) private var rulers = false
+    @AppStorage(Pref.feedPreview) private var feedPreview = false
 
     var body: some View {
         GeometryReader { geo in
@@ -20,6 +21,10 @@ struct ViewportView: View {
             let s = doc.cinema ? fit : (vp.zoom ?? fit)
             let pan = doc.cinema ? .zero : vp.pan
             let size = CGSize(width: cs.width * s, height: cs.height * s)
+            let board = doc.isPreview && !doc.cinema
+            // The board's extent lets panning reach every artboard (plain var: no view update).
+            let _ = (vp.board = board ? doc.boardRects().map(\.rect).reduce(nil) { $0?.union($1) ?? $1 } : nil)
+            let origin = CGPoint(x: geo.size.width / 2 + pan.width - size.width / 2, y: geo.size.height / 2 + pan.height - size.height / 2)
             ZStack {
                 ViewportAnchor(vp: vp)
                 // Clicking the empty area around the canvas deselects (on press, so tap-to-click always lands).
@@ -29,17 +34,20 @@ struct ViewportView: View {
                             guard ClickSlop.distance(g.translation) < ClickSlop.fastSlop else { return }
                             endEditing(); doc.multiSelection = []; doc.selection = nil
                         })
+                if board { BoardOverlay(doc: doc, vp: vp, origin: origin, scale: s) }
                 ZStack {
                     MetalCanvas(doc: doc, pixelSize: MetalCanvas.drawableSize(for: size))
                     if !doc.cinema {
-                        GuidesOverlay(canvas: cs, scale: s)
+                        GuidesOverlay(canvas: cs, scale: s, preview: doc.isPreview)
                         GizmoOverlay(doc: doc, vp: vp, scale: s)
                         FlashOverlay(doc: doc, scale: s)
+                        if doc.isPreview && doc.tool.capturesCanvas { PreviewToolOverlay(doc: doc, vp: vp, scale: s) }
                     }
                 }
                 .frame(width: size.width, height: size.height)
                 .overlay(Rectangle().stroke(doc.cinema ? .clear : UI.border, lineWidth: 1))
                 .position(x: geo.size.width / 2 + pan.width, y: geo.size.height / 2 + pan.height)
+                if board && doc.tool == .hand { HandPanOverlay(vp: vp) }
                 if rulers && !doc.cinema { CanvasRulers(vp: vp) }
             }
             .onAppear { sync(geo.size, cs, pad) }
@@ -84,10 +92,35 @@ struct ViewportView: View {
                     }
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if doc.isPreview && feedPreview && !doc.cinema && !doc.isEmptyWorkspace {
+                FeedPreview(doc: doc).padding(12)
+            }
+        }
         .onChange(of: doc.cinema) { _, on in if on { hint = true } }
-        .onChange(of: doc.scene.id) { _, _ in vp.fit() }
+        // Another artboard of the same page keeps the zoom (BoardOverlay keeps it in place); anything else fits.
+        .onChange(of: doc.scene.id) { old, new in
+            if doc.isPreview, Self.page(old) != nil, Self.page(old) == Self.page(new) { return }
+            vp.fit()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .boardCommand)) { n in
+            guard (n.object as? EditorDocument) === doc, let c = (n.userInfo?["cmd"] as? String).flatMap(BoardCommand.init)
+            else { return }
+            switch c {
+            case .actualSize: vp.setScale(1)
+            case .fitAll: vp.fitBoard()
+            case .fitArtboard: vp.fit()
+            case .zoomIn: vp.zoom(by: 1.25, at: nil)
+            case .zoomOut: vp.zoom(by: 0.8, at: nil)
+            }
+        }
         .onAppear { vp.events.install(doc: doc, vp: vp) }
         .onDisappear { vp.events.remove() }
+    }
+
+    /// The preview page of an artboard scene id (`<preview>~<artboard>`).
+    static func page(_ sceneId: String) -> String? {
+        sceneId.range(of: "~").map { String(sceneId[..<$0.lowerBound]) }.flatMap { $0.isEmpty ? nil : $0 }
     }
 
     private func sync(_ view: CGSize, _ canvas: CGSize, _ pad: CGFloat) {

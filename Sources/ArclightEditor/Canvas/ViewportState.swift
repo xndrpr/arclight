@@ -14,6 +14,9 @@ final class ViewportState: ObservableObject {
     /// Plain NSView behind the viewport, used to hit-test AppKit events (scroll, pinch, clicks).
     weak var anchorView: NSView?
     let events = CanvasEvents()
+    /// Preview workspace: every artboard of the page, in the open artboard's pixel coordinates (it sits at 0,0).
+    /// Panning may then reach any artboard, and "fit all" frames the whole page. nil for motion scenes.
+    var board: CGRect?
 
     var fitScale: CGFloat { ViewZoom.fit(canvas: canvas, view: viewSize, pad: pad) }
     var scale: CGFloat { zoom ?? fitScale }
@@ -46,7 +49,26 @@ final class ViewportState: ObservableObject {
     }
 
     private func clamped(_ p: CGSize, scale s: CGFloat) -> CGSize {
-        ViewZoom.clampPan(p, canvas: CGSize(width: canvas.width * s, height: canvas.height * s), view: viewSize)
+        guard let b = board, b.width > canvas.width || b.height > canvas.height || b.minX < 0 || b.minY < 0 else {
+            return ViewZoom.clampPan(p, canvas: CGSize(width: canvas.width * s, height: canvas.height * s), view: viewSize)
+        }
+        return ViewZoom.clampPan(p, board: b, canvas: canvas, scale: s, view: viewSize)
+    }
+
+    /// Frames every artboard of the page (⇧1).
+    func fitBoard() {
+        guard let b = board else { fit(); return }
+        let s = ViewZoom.fit(canvas: b.size, view: viewSize, pad: pad)
+        zoom = ViewZoom.clamp(s, fit: s)
+        // Pan is the open canvas centre's offset from the view centre: put the board's centre in the middle.
+        pan = CGSize(width: (canvas.width / 2 - b.midX) * s, height: (canvas.height / 2 - b.midY) * s)
+    }
+
+    /// Centres a board rect (an artboard or a selection) at the current zoom, or zooms to it with `zoomIn`.
+    func show(_ r: CGRect, zoomIn: Bool = false) {
+        let s = zoomIn ? ViewZoom.clamp(ViewZoom.fit(canvas: r.size, view: viewSize, pad: pad * 3)) : scale
+        zoom = s
+        pan = CGSize(width: (canvas.width / 2 - r.midX) * s, height: (canvas.height / 2 - r.midY) * s)
     }
 
     /// Canvas pixel under a viewport point.

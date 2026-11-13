@@ -1,4 +1,5 @@
 import AppKit
+import ArclightCore
 
 /// DaVinci Resolve–style transport and editing keys (see `Shortcuts.all`), from the app's key-down monitor.
 /// Returns nil for every key it handled; command combos that aren't listed here go through the menu.
@@ -9,18 +10,37 @@ enum KeyCommands {
         return r
     }
 
+    /// The tool to return to when a held Space (temporary Hand) is released.
+    private static var springTool: PreviewTool?
+
+    static func handleUp(_ e: NSEvent) -> NSEvent? {
+        if e.keyCode == 49, let t = springTool {
+            springTool = nil
+            EditorWindowController.frontmost?.doc.tool = t
+            return nil
+        }
+        return e
+    }
+
     private static func route(_ e: NSEvent) -> NSEvent? {
         // Space never falls through to AppKit unhandled (that's the system beep): it plays/stops the frontmost
         // project unless the user is typing, or a focused button/switch should press (keyboard navigation).
         if e.keyCode == 49, e.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             let fr = NSApp.keyWindow?.firstResponder
+            // Preview: hold Space for the Hand tool (Figma / Photoshop); released in `handleUp`.
+            if let wc = EditorWindowController.frontmost, wc.doc.isPreview, !(fr is NSTextView && (fr as? NSTextView)?.isEditable == true),
+                NSApp.keyWindow?.attachedSheet == nil
+            {
+                if !e.isARepeat, wc.doc.tool != .hand { springTool = wc.doc.tool; wc.doc.tool = .hand }
+                return nil
+            }
             if let t = fr as? NSTextView, t.isEditable { return e }
             if fr is NSButton || fr is NSPopUpButton || fr is NSSegmentedControl { return e }
             if NSApp.keyWindow?.sheetParent == nil, NSApp.keyWindow?.attachedSheet == nil,
                 let wc = EditorWindowController.frontmost
             {
                 if fr is NSText { NSApp.keyWindow?.makeFirstResponder(nil) }
-                wc.doc.togglePlay()
+                if !wc.doc.isPreview { wc.doc.togglePlay() }  // previews are stills
             }
             return nil
         }
@@ -47,6 +67,8 @@ enum KeyCommands {
                 e.keyCode == 123 ? (-k, 0) : e.keyCode == 124 ? (k, 0) : e.keyCode == 125 ? (0, k) : (0, -k)
             return doc.nudge(dx: d.0, dy: d.1) ? nil : e
         }
+        // Preview workspace: Figma / Photoshop command keys first (they differ from the Resolve-style motion map).
+        if doc.isPreview, previewCommand(e, doc: doc, mods: mods) { return nil }
         // Command shortcuts handled here so they work no matter which SwiftUI view has focus.
         if mods.contains(.command) && !mods.contains(.control) {
             switch (chars, mods.contains(.shift)) {
@@ -116,6 +138,32 @@ enum KeyCommands {
         return nil
     }
 
+    /// ⌘ shortcuts of the Preview workspace (Figma first, Photoshop where Figma has none). True if handled.
+    private static func previewCommand(_ e: NSEvent, doc: EditorDocument, mods: NSEvent.ModifierFlags) -> Bool {
+        guard mods.contains(.command), !mods.contains(.control) else { return false }
+        let chars = (e.charactersIgnoringModifiers ?? "").lowercased()
+        let shift = mods.contains(.shift), opt = mods.contains(.option)
+        switch (chars, shift, opt) {
+        case ("j", false, false): doc.duplicateSelection()  // Photoshop: duplicate layer
+        case ("]", false, false): doc.moveSelection(1)  // bring forward
+        case ("[", false, false): doc.moveSelection(-1)  // send backward
+        case ("]", false, true), ("}", _, true): doc.arrange(toFront: true)
+        case ("[", false, true), ("{", _, true): doc.arrange(toFront: false)
+        case ("h", true, false): doc.toggleEnabled()  // Figma: show / hide
+        case ("l", true, false):  // Figma: lock / unlock
+            guard let id = doc.selection else { return true }
+            doc.setLocked(doc.targets(id), !doc.isLockedDirect(id))
+        case ("k", true, false): doc.placeImage(at: nil)  // Figma: place image
+        case ("=", _, false), ("+", _, false): doc.postBoard(.zoomIn)
+        case ("-", _, false): doc.postBoard(.zoomOut)
+        case ("0", false, false): doc.postBoard(.actualSize)
+        case ("l", false, false): return true  // no loop in Preview
+        default: return false
+        }
+        return true
+    }
+
+    /// Plain keys of the Preview workspace: tools (V T R O L H Z), view (⇧0 ⇧1 ⇧2), artboards (A/F), nudges.
     private static func previewKey(
         _ e: NSEvent, doc: EditorDocument, wc: EditorWindowController, mods: NSEvent.ModifierFlags
     ) -> NSEvent? {
@@ -128,17 +176,42 @@ enum KeyCommands {
                 e.keyCode == 123 ? (-k, 0) : e.keyCode == 124 ? (k, 0) : e.keyCode == 125 ? (0, k) : (0, -k)
             return doc.nudge(dx: d.0, dy: d.1) ? nil : e
         case 51, 117: doc.deleteSelection(); return nil  // delete
-        case 53:  // esc
+        case 53:  // esc: AI panel, cinema, the active tool, then the selection
             if AIPanelState.handleEscape(in: NSApp.keyWindow) { return nil }
-            if doc.cinema { wc.setCinema(false) } else if doc.viewerOnly { doc.viewerOnly = false } else {
-                doc.selection = nil
+            if doc.cinema { wc.setCinema(false) } else if doc.viewerOnly { doc.viewerOnly = false } else if doc.tool != .move {
+                doc.tool = .move
+            } else {
+                doc.selection = nil; doc.multiSelection = []
             }
             return nil
-        case 49: return nil  // space: nothing to play (pan is handled by the canvas)
+        case 49: return nil  // space: nothing to play (space-drag pans)
         default: break
         }
+        // ⇧0 / ⇧1 / ⇧2 arrive as ")", "!", "@" on US layouts: read the key code.
+        if shift {
+            switch e.keyCode {
+            case 29: doc.postBoard(.actualSize); return nil  // ⇧0: 100%
+            case 18: doc.postBoard(.fitAll); return nil  // ⇧1: zoom to fit all artboards
+            case 19: doc.postBoard(.fitArtboard); return nil  // ⇧2: zoom to the open artboard
+            default: break
+            }
+        }
         switch (e.charactersIgnoringModifiers ?? "").lowercased() {
-        case "z" where shift: doc.zoomToFit()
+        case "v": doc.tool = .move
+        case "t": doc.tool = .text
+        case "r": doc.tool = .rect
+        case "o": doc.tool = .ellipse
+        case "l": doc.tool = .line
+        case "h": doc.tool = .hand
+        case "z": doc.tool = .zoom
+        case "a", "f":  // Figma's frame / artboard key: a new artboard like this one, to the right
+            if let a = doc.target.artboardId, let p = doc.target.previewId,
+                let ab = doc.openPreview?.artboard(a)
+            {
+                doc.addArtboard(
+                    preset: ArtboardPresets.all.first { $0.size == ab.size }
+                        ?? .init(id: "artboard", title: "Artboard", size: ab.size), to: p)
+            }
         case "p": wc.setCinema(!doc.cinema)
         case "?": NotificationCenter.default.post(name: .showShortcuts, object: doc)
         default: return e
