@@ -25,6 +25,8 @@ public final class Renderer {
     let shapePSO, texPSO, spritePSO, shadowPSO, beamPSO, poolPSO, contactPSO, conePSO: MTLRenderPipelineState
     let dofPSO, brightPSO, downPSO, upPSO, finalPSO, scalePSO, copyPSO: MTLRenderPipelineState
     let coverPSO, unionPSO: MTLRenderPipelineState
+    /// Per-layer effects (blend, clip, mask, outline, shadow, glow, blur, adjust): pipelines and scratch targets.
+    let fx: FxKit
     let sampler: MTLSamplerState
     let glyphs: GlyphCache
     let symbolRasters: SymbolRasterCache
@@ -127,6 +129,11 @@ public final class Renderer {
         finalPSO = try pipeline("post_vs", "final_fs", [Renderer.outFormat], .none)
         coverPSO = try pipeline("tex_vs", "cover_fs", [Renderer.coverFormat], .additiveAll)
         unionPSO = try pipeline("post_vs", "union_fs", one, .premul)
+        fx = try FxKit(
+            plain: { try pipeline("post_vs", $0, one, .none) },
+            over: { try pipeline("post_vs", $0, one, .premul) },
+            add: { try pipeline("post_vs", $0, one, .additiveAll) },
+            jfa: { try pipeline("post_vs", $0, [FxKit.jfaFormat], .none) })
 
         let sd = MTLSamplerDescriptor()
         sd.minFilter = .linear; sd.magFilter = .linear; sd.mipFilter = .linear

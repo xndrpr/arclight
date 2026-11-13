@@ -190,4 +190,72 @@ public enum Schema {
             Field("color", .color, "Light colour.", default: "#FFFFFF"),
         ])
 
+
+    // MARK: Layer effects (2D layers)
+
+    public static let layerEffects: [Field] = [
+        Field(
+            "blend", .choice(["normal", "multiply", "screen", "overlay", "softLight", "add", "color"]),
+            "How the layer mixes with what's under it (Photoshop blend modes).", default: "normal", animatable: false),
+        Field(
+            "clip", .bool, "Clip to the layer below (Photoshop clipping mask): only shows where that layer is.",
+            label: "Clip to below", default: false, animatable: false),
+        Field("mask", .object(maskObject), "Show this layer only where another layer is.", advanced: true, canDisable: true),
+        Field("effects", .object(effectsObject), "Outline, drop shadow, glow, blur."),
+        Field("adjust", .object(adjustObject), "Brightness, contrast, saturation, hue and temperature.", canDisable: true),
+    ]
+
+    static let maskObject = ObjectSchema(
+        "mask", "Another layer used as this layer's mask; the mask layer itself is not drawn.",
+        [
+            Field("node", .string(), "Id of the mask layer.", animatable: false),
+            Field("mode", .choice(["alpha", "luma"]), "Use the mask's opacity, or its brightness.", default: "alpha",
+                animatable: false),
+            Field("invert", .bool, "Show the layer where the mask is NOT.", default: false, animatable: false),
+        ])
+
+    static let outlineObject = ObjectSchema(
+        "outline", "Stroke around the layer's outer edge — the cut-out 'sticker' look of thumbnails.",
+        [
+            Field("color", .color, "Outline colour.", default: "#FFFFFF"),
+            Field("width", .number(min: 0, max: 200, step: 1, unit: "px"), "Thickness.", default: 12),
+            Field("opacity", zeroToOne, "Opacity.", default: 1),
+        ])
+
+    static let dropShadowObject = ObjectSchema(
+        "dropShadow", "Soft shadow behind the layer.",
+        [
+            Field("color", .color, "Shadow colour.", default: "#000000"),
+            Field("x", .number(unit: "px"), "Horizontal offset.", default: 0),
+            Field("y", .number(unit: "px"), "Vertical offset.", default: 12),
+            Field("blur", .number(min: 0, max: 400, unit: "px"), "Softness.", default: 24),
+            Field("opacity", zeroToOne, "Opacity.", default: 0.6),
+        ])
+
+    static let glowObject = ObjectSchema(
+        "glow", "Coloured light around the layer.",
+        [
+            Field("color", .color, "Glow colour.", default: "$accent"),
+            Field("radius", .number(min: 0, max: 400, unit: "px"), "Size.", default: 30),
+            Field("intensity", .number(min: 0, max: 4, step: 0.05), "Strength.", default: 1),
+        ])
+
+    static let effectsObject = ObjectSchema(
+        "effects", "Layer effects, drawn under the layer (blur applies to the layer itself).",
+        [
+            Field("outline", .object(outlineObject), "Outer stroke.", canDisable: true),
+            Field("dropShadow", .object(dropShadowObject), "Drop shadow.", label: "Drop shadow", canDisable: true),
+            Field("glow", .object(glowObject), "Outer glow.", canDisable: true),
+            Field("blur", .number(min: 0, max: 400, unit: "px"), "Gaussian blur of the layer.", default: 0),
+        ])
+
+    static let adjustObject = ObjectSchema(
+        "adjust", "Colour adjustments for this layer only.",
+        [
+            Field("brightness", .number(min: -1, max: 1, step: 0.01), "Lighter / darker.", default: 0),
+            Field("contrast", .number(min: 0, max: 3, step: 0.01), "1 = unchanged.", default: 1),
+            Field("saturation", .number(min: 0, max: 3, step: 0.01), "0 = grey, 1 = unchanged.", default: 1),
+            Field("hue", .number(min: -180, max: 180, unit: "°"), "Hue rotation.", default: 0),
+            Field("temperature", .number(min: -1, max: 1, step: 0.01), "Cooler (−) / warmer (+).", default: 0),
+        ])
 }
