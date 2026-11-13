@@ -154,6 +154,10 @@ enum KeyCommands {
             guard let id = doc.selection else { return true }
             doc.setLocked(doc.targets(id), !doc.isLockedDirect(id))
         case ("k", true, false): doc.placeImage(at: nil)  // Figma: place image
+        case ("k", false, false): doc.aiPrompt = .generate  // AI: generate an image
+        case ("f", true, false):  // Photoshop: generative fill on the marquee
+            if doc.marquee != nil { doc.aiPrompt = .fill } else { doc.flash("Draw a marquee first (M)") }
+        case ("b", false, true): doc.removeBackground()  // AI: remove background (on-device)
         case ("=", _, false), ("+", _, false): doc.postBoard(.zoomIn)
         case ("-", _, false): doc.postBoard(.zoomOut)
         case ("0", false, false): doc.postBoard(.actualSize)
@@ -178,7 +182,11 @@ enum KeyCommands {
         case 51, 117: doc.deleteSelection(); return nil  // delete
         case 53:  // esc: AI panel, cinema, the active tool, then the selection
             if AIPanelState.handleEscape(in: NSApp.keyWindow) { return nil }
-            if doc.cinema { wc.setCinema(false) } else if doc.viewerOnly { doc.viewerOnly = false } else if doc.tool != .move {
+            if doc.cinema { wc.setCinema(false) } else if doc.viewerOnly { doc.viewerOnly = false } else if doc.aiPrompt != nil {
+                doc.aiPrompt = nil
+            } else if doc.marquee != nil {
+                doc.marquee = nil
+            } else if doc.tool != .move {
                 doc.tool = .move
             } else {
                 doc.selection = nil; doc.multiSelection = []
@@ -198,6 +206,8 @@ enum KeyCommands {
         }
         switch (e.charactersIgnoringModifiers ?? "").lowercased() {
         case "v": doc.tool = .move
+        case "m": doc.tool = .marquee
+        case "w": doc.selectSubject()
         case "t": doc.tool = .text
         case "r": doc.tool = .rect
         case "o": doc.tool = .ellipse

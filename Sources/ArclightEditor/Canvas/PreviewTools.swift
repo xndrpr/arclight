@@ -5,12 +5,13 @@ import UniformTypeIdentifiers
 
 /// Tools of the Preview workspace (Figma letters first, Photoshop's where Figma has none).
 enum PreviewTool: String, CaseIterable, Identifiable {
-    case move, text, rect, ellipse, line, image, hand, zoom
+    case move, marquee, text, rect, ellipse, line, image, hand, zoom
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .move: "Move"
+        case .marquee: "Marquee (for generative fill)"
         case .text: "Text"
         case .rect: "Rectangle"
         case .ellipse: "Ellipse"
@@ -24,6 +25,7 @@ enum PreviewTool: String, CaseIterable, Identifiable {
     var key: String {
         switch self {
         case .move: "V"
+        case .marquee: "M"
         case .text: "T"
         case .rect: "R"
         case .ellipse: "O"
@@ -37,6 +39,7 @@ enum PreviewTool: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .move: "cursorarrow"
+        case .marquee: "rectangle.dashed"
         case .text: "textformat"
         case .rect: "rectangle"
         case .ellipse: "circle"
@@ -120,7 +123,7 @@ struct PreviewToolBar: View {
 
     var body: some View {
         VStack(spacing: 2) {
-            ForEach([PreviewTool.move, .text, .rect, .ellipse, .line, .image], id: \.self) { button($0) }
+            ForEach([PreviewTool.move, .marquee, .text, .rect, .ellipse, .line, .image], id: \.self) { button($0) }
             Hairline().frame(width: 18).padding(.vertical, 3)
             ArtboardToolMenu(doc: doc)
             Hairline().frame(width: 18).padding(.vertical, 3)
@@ -162,7 +165,7 @@ private struct ArtboardToolMenu: View {
                 Button("Duplicate as variant") { doc.duplicateArtboard(a, in: p) }
             }
         } label: {
-            Image(systemName: "rectangle.dashed").font(.system(size: 13)).foregroundStyle(UI.label2)
+            Image(systemName: "rectangle.on.rectangle").font(.system(size: 13)).foregroundStyle(UI.label2)
                 .frame(width: 28, height: 26).hitArea()
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 28, height: 26)
@@ -203,6 +206,10 @@ struct PreviewToolOverlay: View {
                         let shift = NSEvent.modifierFlags.contains(.shift)
                         switch doc.tool {
                         case .hand: return
+                        case .marquee:
+                            let r = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
+                            doc.marquee = r.width >= 4 && r.height >= 4 ? r.integral : nil
+                            if doc.marquee != nil { doc.aiPrompt = .fill }
                         case .zoom:
                             let p = CGPoint(
                                 x: vp.canvasOrigin.x + g.location.x, y: vp.canvasOrigin.y + g.location.y)
@@ -213,7 +220,7 @@ struct PreviewToolOverlay: View {
                     }
             )
             .overlay {
-                if let s = start, let c = current, [.rect, .ellipse, .line].contains(doc.tool) {
+                if let s = start, let c = current, [.rect, .ellipse, .line, .marquee].contains(doc.tool) {
                     Path { p in
                         if doc.tool == .line {
                             p.move(to: s); p.addLine(to: c)

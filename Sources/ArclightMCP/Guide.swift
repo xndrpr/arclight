@@ -32,6 +32,8 @@ enum Guide {
         "artwork": ["symbols", "image"],
         "thumbnails": ["previews"],
         "effects": ["previews"],
+        "ai": ["previews"],
+        "images": ["previews", "image"],
         "preview": ["previews"],
     ]
 
@@ -170,6 +172,14 @@ enum Guide {
         - Keep the bottom-right corner (about 20% x 15%) free of anything important: YouTube's timestamp badge covers it.
         - Leave a margin of about 40 px; the feed rounds the corners.
         Export {preview, format:"youtube"} writes 1280x720 JPGs under YouTube's 2 MB limit to <project>/exports/<preview>_<artboard>.jpg.
+
+        # AI pixels (image_status says what's available)
+        - image_remove_bg {layer} — on-device and free: cut a person/object out of a photo, then add effects.outline for the sticker look.
+        - image_select_subject {layer} — the subject's box in canvas px (place text beside it, or use it as an image_fill rect).
+        - With the user's fal.ai key: image_generate {prompt} (a new picture; no words in it — use text layers), image_fill {rect|area_layer, prompt}
+          (repaint an area: remove or add things; result is a new layer), image_expand {layer, left/top/right/bottom} (outpaint a tight photo to 16:9),
+          image_upscale {layer, factor}. If they return "image generation is off", tell the user they can add a key in Settings ▸ AI.
+        - All take scene, or preview + artboard. Results are new assets plus normal layer edits (revertible via history).
 
         # Layer effects (text, shape, symbol and image layers — in previews and motion scenes alike)
         - "blend": "multiply" | "screen" | "overlay" | "softLight" | "add" | "color" — mixes with everything below, background included.
