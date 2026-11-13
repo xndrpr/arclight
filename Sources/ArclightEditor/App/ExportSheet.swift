@@ -171,7 +171,7 @@ struct ExportSheet: View {
 }
 
 /// One export format: title and a one-line "when to use it". The whole card is clickable.
-private struct FormatCard: View {
+struct FormatCard: View {
     let title: String
     let detail: String
     let on: Bool

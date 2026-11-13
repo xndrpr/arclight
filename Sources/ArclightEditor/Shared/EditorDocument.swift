@@ -13,8 +13,15 @@ final class EditorDocument: ObservableObject {
     let renderer: Renderer
 
     // Set only by the Document+*.swift extensions (they live in other files, so the setters can't be private).
+    /// The project as the open document renders it: the stored project, with a detached preview's own theme laid
+    /// over it while that preview is open (`effectiveProject`).
     @Published var project: Project
+    /// The working copy being edited: a motion scene, or an artboard of a preview page (`Artboard.asScene`).
     @Published var scene: Scene
+    /// Motion (scenes, timeline) or Preview (thumbnail pages, artboards). Remembered in project.json.
+    @Published var workspace: Workspace = .motion
+    /// What `scene` is a working copy of; `.none` when the workspace is empty ("Create first scene / preview").
+    @Published var target: EditTarget = .none
     @Published var selection: String? { didSet { if selection != oldValue { stateChanged() } } }
     /// Playhead (scene seconds). Published at a reduced rate while playing; see `playTime`.
     @Published var time: Double = 0 { didSet { if !playing { playTime = time }; stateChanged() } }
@@ -90,18 +97,28 @@ final class EditorDocument: ObservableObject {
 
     init(url: URL) throws {
         let st = try ProjectStore(url: url)
-        if st.orderedScenes.isEmpty {
+        // Open where the user (or agent) left off; a project with only previews opens on them.
+        let ws: Workspace =
+            Workspace(rawValue: st.project.workspace ?? "")
+            ?? (st.orderedScenes.isEmpty && !st.orderedPreviews.isEmpty ? .preview : .motion)
+        if ws == .motion && st.orderedScenes.isEmpty {
             var s = Scene(id: "scene-1", duration: 5)
             s.name = "Scene 1"
             try st.save(scene: s, summary: "create")
         }
-        let first = try st.scene(nil)
+        if ws == .preview && st.orderedPreviews.isEmpty {
+            try st.save(preview: EditorDocument.starterPreview(id: "preview-1"), summary: "create")
+        }
         store = st
         renderer = try Renderer()
         renderer.draft = true
         project = st.project
+        workspace = ws
+        let (first, tgt, rev) = EditorDocument.initialTarget(ws, store: st)
         scene = first
-        baseRev = first.rev
+        target = tgt
+        baseRev = rev
+        project = effectiveProject()
         stamps = fileStamps()
         tlVisible = fitSpan()
         refreshActivity(force: true)

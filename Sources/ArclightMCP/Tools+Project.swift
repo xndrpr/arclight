@@ -48,6 +48,10 @@ extension MCPServer {
                         "size": prop(
                             "array", "[width, height], default [1920,1080]", extra: ["items": ["type": "integer"]]),
                         "fps": prop("number", "Default 30"),
+                        "start": prop(
+                            "string",
+                            "What the editor opens first: motion (default) or preview (a thumbnail-only project needs no scenes)",
+                            extra: ["enum": ["motion", "preview"]]),
                     ], required: ["path"])
             ) { [unowned self] a in
                 let url = URL(expandingPath: try a.str("path"))
@@ -57,11 +61,14 @@ extension MCPServer {
                 // Validate before anything is created on disk.
                 let size = try a["size"].map(MCPServer.canvasSize)
                 let fps = try a["fps"].map(MCPServer.frameRate)
+                let start = a["start"]?.string
+                if let start, !["motion", "preview"].contains(start) { throw ToolError("start must be motion or preview") }
                 let s = try ProjectStore.create(
                     at: url, name: a["name"]?.string ?? url.deletingPathExtension().lastPathComponent)
                 var p = s.project
                 if let size { p.size = size }
                 if let fps { p.fps = fps }
+                p.workspace = start
                 try s.update(project: p)
                 store = s
                 return text(projectSummary(s))

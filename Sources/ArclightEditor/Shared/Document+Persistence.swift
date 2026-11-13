@@ -13,6 +13,11 @@ extension EditorDocument {
 
     func saveNow() {
         savePending?.cancel(); savePending = nil
+        switch target {
+        case .none: return
+        case .artboard(let pid, let aid): saveArtboard(pid, aid); return
+        case .scene: break
+        }
         guard scene != store.scenes[scene.id] || scene.rev != baseRev else { return }
         if let disk = store.scenes[scene.id], disk == scene { return }
         do {
@@ -39,15 +44,47 @@ extension EditorDocument {
         }
     }
 
+    /// The working artboard written back into its preview page (rev-checked like scenes: if the AI saved the page
+    /// first, theirs wins and our edit stays in undo).
+    private func saveArtboard(_ pid: String, _ aid: String) {
+        guard let disk = store.previews[pid], let ab = disk.artboard(aid) else { return }
+        let stored = ab.asScene(preview: pid, rev: disk.rev)
+        guard scene != stored else { return }
+        do {
+            let diff = SceneDiff.diff(stored, scene)
+            let saved = try store.save(
+                artboardScene: scene, preview: pid, artboard: aid, expectedRev: baseRev, summary: diff.summary,
+                source: .editor)
+            ActivityLog.append(
+                ActivityEntry(
+                    source: .editor, tool: "edit", scene: scene.id, summary: diff.summary,
+                    changed: diff.all.isEmpty ? nil : diff.all, revBefore: disk.rev, revAfter: saved.rev,
+                    write: true), project: url)
+            baseRev = saved.rev
+            var s = scene; s.rev = saved.rev
+            if s != scene { scene = s }
+            stamps = fileStamps()
+        } catch {
+            try? store.reload()
+            if let p = store.previews[pid], let a = p.artboard(aid) {
+                undoStack.append(scene)
+                scene = a.asScene(preview: pid, rev: p.rev); baseRev = p.rev
+                flash("Preview changed outside the editor — reloaded (⌘Z restores your edit)")
+            }
+        }
+    }
+
     func fileStamps() -> [String: Date] {
         var out: [String: Date] = [:]
         let fm = FileManager.default
-        let files =
-            [url.appendingPathComponent("project.json")]
-            + ((try? fm.contentsOfDirectory(at: url.appendingPathComponent("scenes"), includingPropertiesForKeys: nil))
-                ?? [])
-        for f in files {
+        func list(_ dir: String) -> [URL] {
+            (try? fm.contentsOfDirectory(at: url.appendingPathComponent(dir), includingPropertiesForKeys: nil)) ?? []
+        }
+        for f in [url.appendingPathComponent("project.json")] + list("scenes") {
             out[f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
+        }
+        for f in list("previews") {
+            out["previews/" + f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
         }
         return out
     }
@@ -71,7 +108,20 @@ extension EditorDocument {
         guard now != stamps else { return }
         stamps = now
         guard (try? store.reload()) != nil else { return }
-        project = store.project
+        project = effectiveProject()
+        switch target {
+        case .none:
+            // Something was created outside the editor (an agent's first scene or preview): open it.
+            let (s, t, rev) = EditorDocument.initialTarget(workspace, store: store)
+            if t != .none { open(s, target: t, rev: rev) }
+            objectWillChange.send()
+            return
+        case .artboard(let pid, let aid):
+            pollArtboard(pid, aid)
+            objectWillChange.send()
+            return
+        case .scene: break
+        }
         if let disk = store.scenes[scene.id] {
             if disk.rev != baseRev {
                 let diff = SceneDiff.diff(scene, disk)
@@ -86,12 +136,35 @@ extension EditorDocument {
             }
         } else if let first = store.orderedScenes.first {
             switchTo(first)  // the open scene was deleted on disk: its history must not bring it back
+        } else {
+            open(EditorDocument.placeholderScene(), target: .none, rev: 0)
         }
         objectWillChange.send()
     }
 
+    /// Live reload of the open artboard when its page changed on disk (an agent's preview_apply).
+    private func pollArtboard(_ pid: String, _ aid: String) {
+        guard let p = store.previews[pid] else {
+            let (s, t, rev) = EditorDocument.initialTarget(.preview, store: store)  // page deleted on disk
+            open(s, target: t, rev: rev)
+            return
+        }
+        guard p.rev != baseRev else { return }
+        guard let a = p.artboard(aid) else { open(preview: pid); return }  // artboard removed: show the page's first
+        let disk = a.asScene(preview: pid, rev: p.rev)
+        let diff = SceneDiff.diff(scene, disk)
+        if diff.isEmpty { baseRev = p.rev; scene = disk; return }  // another artboard of this page changed
+        undoStack.append(scene)
+        scene = disk; baseRev = p.rev
+        if let sel = selection, !sel.hasPrefix("@"), disk.node(sel) == nil { selection = nil }
+        multiSelection = multiSelection.filter { disk.node($0) != nil }
+        flashLayers(Set(diff.added + diff.modified))
+        let by = activity.last?.isAI == true ? "AI" : "disk"
+        flash("Updated by \(by) · \(diff.summary)")
+    }
+
     /// Highlights layers that changed outside the editor (layer list + viewport), fading after a moment.
-    private func flashLayers(_ ids: Set<String>) {
+    func flashLayers(_ ids: Set<String>) {
         guard !ids.isEmpty else { return }
         flashIds = ids
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
@@ -101,11 +174,26 @@ extension EditorDocument {
 
     // MARK: History (per scene)
 
-    func history() -> [ProjectStore.HistoryEntry] { store.history(scene.id) }
+    func history() -> [ProjectStore.HistoryEntry] {
+        switch target {
+        case .scene(let id): return store.history(id)
+        case .artboard(let pid, _): return store.previewHistory(pid)
+        case .none: return []
+        }
+    }
+
+    /// A saved revision of what's open, as a scene: for an artboard, that artboard in that revision of its page.
+    func snapshotScene(_ rev: Int) -> Scene? {
+        switch target {
+        case .scene(let id): return store.snapshot(id, rev: rev)
+        case .artboard(let pid, let aid): return store.previewSnapshot(pid, rev: rev)?.artboard(aid)?.asScene(preview: pid)
+        case .none: return nil
+        }
+    }
 
     /// Restores a saved revision as a new revision (nothing is lost; undoable).
     func restore(rev: Int) {
-        guard let old = store.snapshot(scene.id, rev: rev) else { flash("Revision \(rev) is no longer kept"); return }
+        guard let old = snapshotScene(rev) else { flash("Revision \(rev) is no longer kept"); return }
         edit { s in
             let r = s.rev; s = old; s.rev = r
         }
@@ -124,7 +212,11 @@ extension EditorDocument {
 
     private func writeState() {
         let state: JSONValue = [
-            "scene": .string(scene.id), "selection": selection.map { .string($0) } ?? .null,
+            "workspace": .string(workspace.rawValue),
+            "scene": target.previewId == nil && target != .none ? .string(scene.id) : .null,
+            "preview": target.previewId.map { .string($0) } ?? .null,
+            "artboard": target.artboardId.map { .string($0) } ?? .null,
+            "selection": selection.map { .string($0) } ?? .null,
             "time": .number((time * 1000).rounded() / 1000), "playing": .bool(playing),
             "updated": .string(ISO8601DateFormatter().string(from: Date())),
         ]

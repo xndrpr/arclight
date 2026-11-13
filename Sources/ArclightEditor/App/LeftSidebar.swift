@@ -18,6 +18,17 @@ struct LeftSidebar: View {
         Tab(id: "assets", title: "Assets", icon: "photo.on.rectangle", help: "Images, audio and fonts in this project"),
     ]
 
+    /// In the Preview workspace the first tab lists preview pages and their artboards.
+    private var tabs: [Tab] {
+        guard doc.isPreview else { return Self.tabs }
+        var t = Self.tabs
+        t[0] = Tab(id: "scenes", title: "Previews", icon: "photo.on.rectangle.angled", help: "Thumbnail pages and their artboards")
+        t[1] = Tab(
+            id: "history", title: "History", icon: "clock.arrow.circlepath",
+            help: "Saved versions of the current preview page — yours and the AI's.")
+        return t
+    }
+
     /// Unknown ids show Scenes.
     private var current: String { Self.tabs.contains { $0.id == doc.leftTab } ? doc.leftTab : "scenes" }
 
@@ -45,14 +56,15 @@ struct LeftSidebar: View {
         switch id {
         case "history": HistoryPanel(doc: doc)
         case "assets": AssetsPanel(doc: doc)
-        default: ScenesSidebar(doc: doc)
+        default:
+            if doc.isPreview { PreviewsSidebar(doc: doc) } else { ScenesSidebar(doc: doc) }
         }
     }
 
     private func tabBar(compact: Bool) -> some View {
         // No gaps: every point of the strip belongs to a tab (see `tab`).
         HStack(spacing: 0) {
-            ForEach(Self.tabs, id: \.id) { tab($0, compact: compact) }
+            ForEach(tabs, id: \.id) { tab($0, compact: compact) }
             Spacer(minLength: 0)
         }
     }

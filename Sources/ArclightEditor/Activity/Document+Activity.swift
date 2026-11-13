@@ -6,8 +6,7 @@ extension EditorDocument {
     /// Shows a layer (and optionally a time) from the activity feed / notes, switching scene if needed.
     func reveal(scene sceneId: String?, layer: String?, time t: Double? = nil) {
         if let sceneId, sceneId != scene.id {
-            guard store.scenes[sceneId] != nil else { flash("Scene \(sceneId) no longer exists"); return }
-            open(scene: sceneId)
+            guard open(sceneOrArtboard: sceneId) else { flash("\(sceneId) no longer exists"); return }
         }
         if let layer {
             if scene.node(layer) != nil {
@@ -21,15 +20,18 @@ extension EditorDocument {
 
     /// Whether a layer still exists in a scene (the working copy for the open one).
     func layerExists(_ id: String, in sceneId: String?) -> Bool {
-        let s = sceneId == nil || sceneId == scene.id ? scene : store.scenes[sceneId!]
+        let s = sceneId == nil || sceneId == scene.id ? scene : sceneId.flatMap { id in
+            store.scenes[id] ?? id.split(separator: "~", maxSplits: 1).map(String.init).nonEmptyPair.flatMap {
+                store.previews[$0.0]?.artboard($0.1)?.asScene(preview: $0.0)
+            }
+        }
         return s?.node(id) != nil
     }
 
     /// Restores `rev` of a scene as a new revision, opening that scene first.
     func restore(scene sceneId: String?, rev: Int) {
         if let sceneId, sceneId != scene.id {
-            guard store.scenes[sceneId] != nil else { flash("Scene \(sceneId) no longer exists"); return }
-            open(scene: sceneId)
+            guard open(sceneOrArtboard: sceneId) else { flash("\(sceneId) no longer exists"); return }
         }
         restore(rev: rev)
     }
@@ -43,4 +45,9 @@ extension EditorDocument {
         let scale = max(0.02, min(1, width / Double(cw)))
         return try? renderer.image(scene: s, project: project, assets: assets, time: t, scale: scale)
     }
+}
+
+extension Array where Element == String {
+    /// `(a, b)` for a two-element array.
+    fileprivate var nonEmptyPair: (String, String)? { count == 2 ? (self[0], self[1]) : nil }
 }

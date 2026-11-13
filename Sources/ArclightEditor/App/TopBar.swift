@@ -38,8 +38,11 @@ struct TopBar: View {
                 own?.title = doc.project.name
             }
             .layoutPriority(1)
-            Text("/").foregroundStyle(UI.faint)
-            SceneNameRename(doc: doc)
+            WorkspaceSwitch(doc: doc).fixedSize().layoutPriority(3)
+            if !doc.isEmptyWorkspace {
+                Text("/").foregroundStyle(UI.faint)
+                SceneNameRename(doc: doc)
+            }
             Spacer(minLength: 12)
             right.fixedSize().layoutPriority(2)
         }
@@ -76,15 +79,19 @@ struct TopBar: View {
                 .help(b)
             }
             ThemeQuickButton(doc: doc)
-            CanvasMenu(doc: doc, showFPS: density > .compact)
-            PerformanceToggle(doc: doc, label: density == .full)
+            if !doc.isPreview {
+                CanvasMenu(doc: doc, showFPS: density > .compact)
+                PerformanceToggle(doc: doc, label: density == .full)
+            }
             IconButton(symbol: "keyboard", help: "Keyboard shortcuts (⌘?)") {
                 NotificationCenter.default.post(name: .showShortcuts, object: doc)
             }
             IconButton(symbol: "gearshape", help: "Settings (⌘,)") {
                 (NSApp.delegate as? AppDelegate)?.showSettings(nil)
             }
-            Button("Export", action: export).buttonStyle(PillButtonStyle(primary: true)).help("Export video (⌘E)")
+            Button("Export", action: export).buttonStyle(PillButtonStyle(primary: true))
+                .help(doc.isPreview ? "Export thumbnails (⌘E)" : "Export video (⌘E)")
+                .disabled(doc.isEmptyWorkspace)
         }
     }
 
@@ -145,9 +152,14 @@ private struct SceneNameRename: View {
     @State private var editing = false
     var body: some View {
         InlineRename(
-            text: doc.scene.name ?? doc.scene.id, placeholder: "Scene name", bold: false, editing: $editing,
-            help: "Current scene — click to rename"
-        ) { n in doc.renameScene(doc.scene.id, n) }
+            text: doc.scene.name ?? doc.target.artboardId ?? doc.scene.id,
+            placeholder: doc.isPreview ? "Artboard name" : "Scene name", bold: false, editing: $editing,
+            help: doc.isPreview ? "Current artboard — click to rename" : "Current scene — click to rename"
+        ) { n in
+            if case .artboard(let p, let a) = doc.target { doc.renameArtboard(a, in: p, n) } else {
+                doc.renameScene(doc.scene.id, n)
+            }
+        }
     }
 }
 
@@ -211,5 +223,36 @@ private struct HomeLogoButton: View {
         .onHover { h in withAnimation(UI.fade) { hover = h } }
         .help("All projects (⇧⌘H)")
         .padding(.leading, -6)  // the logo itself lines up with the bar's left inset, not its hover background
+    }
+}
+
+/// Motion | Preview: what this project window edits. ⌘1 / ⌘2.
+struct WorkspaceSwitch: View {
+    @ObservedObject var doc: EditorDocument
+    @Namespace private var ns
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Workspace.allCases) { ws in
+                let on = doc.workspace == ws
+                Button {
+                    ClickTrace.fired("workspace \(ws.rawValue)")
+                    withAnimation(Motion.snappy) { doc.setWorkspace(ws) }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: ws.symbol).font(.system(size: 11))
+                        Text(ws.title).font(.system(size: 12, weight: on ? .semibold : .regular)).lineLimit(1)
+                    }
+                    .tabPill(
+                        selected: on, padding: 8, height: 24, cornerRadius: 6, gap: 1, hitHeight: nil,
+                        id: "workspace", in: ns)
+                }
+                .buttonStyle(TracedPlainButtonStyle(name: "workspace \(ws.rawValue)")).cursor(.pointingHand)
+                .help(ws == .motion ? "Motion: scenes and the timeline (⌘1)" : "Preview: YouTube thumbnails and covers (⌘2)")
+            }
+        }
+        .padding(2)
+        .background(RoundedRectangle(cornerRadius: 8).fill(UI.panel))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(UI.border))
     }
 }

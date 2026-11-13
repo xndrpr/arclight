@@ -61,9 +61,14 @@ enum KeyCommands {
             case ("a", true): doc.selection = nil; return nil  // ⇧⌘A deselect all
             case ("l", false): doc.toggleLoop(); return nil
             case ("/", _), ("?", _): NotificationCenter.default.post(name: .showShortcuts, object: doc); return nil
+            case ("1", false): doc.setWorkspace(.motion); return nil
+            case ("2", false): doc.setWorkspace(.preview); return nil
             default: return e
             }
         }
+
+        // Preview workspace: stills, so no transport or timeline keys. Arrows nudge layers (Figma: 1 px, ⇧ 10 px).
+        if doc.isPreview { return previewKey(e, doc: doc, wc: wc, mods: mods) }
 
         guard !mods.contains(.control) else { return e }
         let shift = mods.contains(.shift), opt = mods.contains(.option)
@@ -105,6 +110,36 @@ enum KeyCommands {
         case "z" where shift: doc.zoomToFit()
         case "p": wc.setCinema(!doc.cinema)
         case "f" where shift: wc.setCinema(!doc.cinema)
+        case "?": NotificationCenter.default.post(name: .showShortcuts, object: doc)
+        default: return e
+        }
+        return nil
+    }
+
+    private static func previewKey(
+        _ e: NSEvent, doc: EditorDocument, wc: EditorWindowController, mods: NSEvent.ModifierFlags
+    ) -> NSEvent? {
+        guard mods.intersection([.control, .option, .command]).isEmpty else { return e }
+        let shift = mods.contains(.shift)
+        switch e.keyCode {
+        case 123...126:
+            let k: Double = shift ? 10 : 1
+            let d: (Double, Double) =
+                e.keyCode == 123 ? (-k, 0) : e.keyCode == 124 ? (k, 0) : e.keyCode == 125 ? (0, k) : (0, -k)
+            return doc.nudge(dx: d.0, dy: d.1) ? nil : e
+        case 51, 117: doc.deleteSelection(); return nil  // delete
+        case 53:  // esc
+            if AIPanelState.handleEscape(in: NSApp.keyWindow) { return nil }
+            if doc.cinema { wc.setCinema(false) } else if doc.viewerOnly { doc.viewerOnly = false } else {
+                doc.selection = nil
+            }
+            return nil
+        case 49: return nil  // space: nothing to play (pan is handled by the canvas)
+        default: break
+        }
+        switch (e.charactersIgnoringModifiers ?? "").lowercased() {
+        case "z" where shift: doc.zoomToFit()
+        case "p": wc.setCinema(!doc.cinema)
         case "?": NotificationCenter.default.post(name: .showShortcuts, object: doc)
         default: return e
         }
