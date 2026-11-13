@@ -55,7 +55,7 @@ extension MCPServer {
 
     static func artboardSize(_ v: JSONValue?) throws -> [Int]? {
         guard let v else { return nil }
-        if let preset = v.string {
+        if case .string(let preset) = v {
             guard let z = ArtboardPresets.size(preset) else {
                 throw ToolError("unknown size preset '\(preset)' — \(ArtboardPresets.names.joined(separator: ", "))")
             }
@@ -190,9 +190,12 @@ extension MCPServer {
                 let s = try requireStore()
                 let p = try s.preview(try a.str("preview"))
                 guard var ops = a["ops"]?.array, !ops.isEmpty else { throw ToolError("ops must be a non-empty array") }
-                // Size presets work in page ops too.
+                // Size presets ("shorts") work in artboard ops too. Only there, and only for text: a layer's `size` is
+                // its font size, and JSONValue.string also renders numbers as text.
                 ops = try ops.map { op in
-                    guard var o = op.object, let z = o["size"], z.string != nil else { return op }
+                    guard var o = op.object, o["op"]?.string?.hasPrefix("artboard_") == true,
+                        let z = o["size"], case .string = z
+                    else { return op }
                     o["size"] = .array((try MCPServer.artboardSize(z) ?? []).map { .number(Double($0)) })
                     return .object(o)
                 }

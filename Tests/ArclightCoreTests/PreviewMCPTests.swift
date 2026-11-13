@@ -65,11 +65,15 @@ import Testing
         #expect(b.nodes.first?.props["text"] == .value("I'M DONE"))
         #expect(store.previews["ep12"]?.artboard("a")?.nodes.first?.props["text"] == .value("I QUIT"))
 
+        // A text layer's font size is a number, not an artboard size preset.
+        let sized = text(try run(s, "preview_apply", ["preview": "ep12", "ops": [["op": "set", "id": "title", "size": 84]]]))
+        #expect(sized.contains("size=84"))
+        _ = try run(s, "preview_apply", ["preview": "ep12", "ops": [["op": "set", "id": "title", "size": 160]]])
         // Bad layer props are refused and nothing is saved.
         let bad = try? run(
             s, "preview_apply", ["preview": "ep12", "ops": [["op": "set", "id": "title", "colour": "#fff"]]])
         #expect(bad == nil)
-        #expect(try ProjectStore(url: tp.url).previews["ep12"]?.rev == 2)
+        #expect(try ProjectStore(url: tp.url).previews["ep12"]?.rev == 4)
 
         // Render: one image block plus a label line, with feed mock-ups.
         let r = try run(s, "preview_render", ["preview": "ep12", "feed": true, "scale": 0.2])

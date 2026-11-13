@@ -33,7 +33,7 @@ public enum PreviewVariants {
         var letters = (66...90).compactMap { UnicodeScalar($0).map { String(Character($0)) } }.filter { !used.contains($0) }.makeIterator()
         for spec in specs {
             let name = spec.name ?? letters.next() ?? "Variant"
-            let id = p.uniqueArtboardId(name.lowercased().replacingOccurrences(of: " ", with: "-"))
+            let id = p.uniqueArtboardId(PreviewVariants.slug(name))
             let r = try PreviewOps.apply(
                 [["op": "artboard_duplicate", "id": .string(a.id), "as": .string(id), "name": .string(name)]], to: p)
             p = r.preview
@@ -69,6 +69,14 @@ public enum PreviewVariants {
                 ])
             }
         }
+    }
+
+    /// An artboard id from a display name: ASCII letters, digits and dashes ("B · Дверь" → "b"); "variant" if none.
+    static func slug(_ name: String) -> String {
+        let words = name.lowercased().components(separatedBy: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789").inverted)
+            .filter { !$0.isEmpty }
+        let s = words.joined(separator: "-")
+        return s.isEmpty ? "variant" : String(s.prefix(32))
     }
 
     static func usesAccent(_ p: Prop?) -> Bool {
