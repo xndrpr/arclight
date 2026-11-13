@@ -65,6 +65,14 @@ extension Schema {
                 Field("src", .asset("image"), "File in assets/ (or an absolute path).", animatable: false),
                 Field("width", .number(min: 1, unit: "px"), "Width (keeps aspect if height is unset)."),
                 Field("height", .number(min: 1, unit: "px"), "Height (keeps aspect if width is unset)."),
+                Field(
+                    "fit", .choice(["stretch", "cover", "contain"]),
+                    "With both width and height: stretch the picture, fill the box and crop (cover), or fit inside it (contain).",
+                    default: "stretch", animatable: false),
+                Field(
+                    "crop", .vector(labels: ["x", "y", "w", "h"]),
+                    "Part of the picture to show, as fractions of it: [x, y, w, h], e.g. [0.2, 0, 0.6, 1] keeps the middle.",
+                    default: [0, 0, 1, 1], advanced: true),
             ], is3D: false),
         NodeSchema(
             type: "group", label: "Group", icon: "folder",
@@ -119,7 +127,12 @@ extension Schema {
     public static func node(_ type: String) -> NodeSchema? { nodes.first { $0.type == type } }
 
     /// Transform fields + the type's own fields.
-    public static func fields(for type: String) -> [Field] { transform + (node(type)?.fields ?? []) }
+    public static func fields(for type: String) -> [Field] {
+        transform + (effectTypes.contains(type) ? layerEffects : []) + (node(type)?.fields ?? [])
+    }
+
+    /// 2D layer types that take `blend`, `clip`, `mask`, `effects` and `adjust`.
+    public static let effectTypes: Set<String> = ["text", "shape", "symbol", "image"]
 
     public static func field(_ type: String, _ name: String) -> Field? { fields(for: type).first { $0.name == name } }
 

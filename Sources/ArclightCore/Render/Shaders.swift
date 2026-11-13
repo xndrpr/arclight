@@ -9,7 +9,7 @@
 enum ShaderSource {
     /// The whole library: common definitions and 2D shapes/text, instanced 3D (Shaders+World.swift) and post
     /// effects (Shaders+Post.swift).
-    static let main = [base, world, post].joined(separator: "\n\n")
+    static let main = [base, world, post, effects].joined(separator: "\n\n")
 
     private static let base = """
         #include <metal_stdlib>

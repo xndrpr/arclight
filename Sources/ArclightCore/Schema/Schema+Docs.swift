@@ -39,6 +39,7 @@ extension Schema {
 
     public static var transformReference: String {
         "# Common properties (every layer)\n" + fieldLines(transform)
+            + "\n\n# Effects (text, shape, symbol, image)\n" + fieldLines(layerEffects)
     }
 
     public static var sceneReference: String {

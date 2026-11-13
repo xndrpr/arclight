@@ -322,10 +322,14 @@ import simd
 }
 
 @Suite struct RenderTests {
-    /// The shader source is split across three files; together they must stay exactly the library that was
-    /// recorded (renders are compared against goldens made with it).
+    /// The shader source is split across files; the base, world and post parts must stay exactly the library that
+    /// was recorded (renders are compared against goldens made with it). Layer effects are appended after them and
+    /// only run for layers that use them.
     @Test func shaderSourceIsUnchanged() {
-        let hex = SHA256.hash(data: Array(ShaderSource.main.utf8)).map { String(format: "%02x", $0) }.joined()
+        let suffix = "\n\n" + ShaderSource.effects
+        #expect(ShaderSource.main.hasSuffix(suffix))
+        let recorded = String(ShaderSource.main.dropLast(suffix.count))
+        let hex = SHA256.hash(data: Array(recorded.utf8)).map { String(format: "%02x", $0) }.joined()
         #expect(hex == "790a0a1562cb6f9a40e080ec1c307d870501bd5454488fcc4563e053630300e1")
     }
 

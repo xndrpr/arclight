@@ -31,6 +31,7 @@ enum Guide {
         "assets": ["symbols", "image"],
         "artwork": ["symbols", "image"],
         "thumbnails": ["previews"],
+        "effects": ["previews"],
         "preview": ["previews"],
     ]
 
@@ -169,5 +170,14 @@ enum Guide {
         - Keep the bottom-right corner (about 20% x 15%) free of anything important: YouTube's timestamp badge covers it.
         - Leave a margin of about 40 px; the feed rounds the corners.
         Export {preview, format:"youtube"} writes 1280x720 JPGs under YouTube's 2 MB limit to <project>/exports/<preview>_<artboard>.jpg.
+
+        # Layer effects (text, shape, symbol and image layers — in previews and motion scenes alike)
+        - "blend": "multiply" | "screen" | "overlay" | "softLight" | "add" | "color" — mixes with everything below, background included.
+        - "clip": true — the layer only shows inside the layer directly below it (several clip layers in a row share that base).
+        - "mask": {"node":"shapeId","mode":"alpha"|"luma","invert":false} — show the layer only where another layer is; the mask layer isn't drawn.
+        - "effects": {"outline":{"color":"#FFF","width":12},"dropShadow":{"color":"#000","x":0,"y":12,"blur":24,"opacity":0.6},"glow":{"color":"$accent","radius":30,"intensity":1},"blur":0}
+          Outline is the cut-out sticker look for people and objects on thumbnails; widths and blurs are in canvas px.
+        - "adjust": {"brightness":0,"contrast":1,"saturation":1,"hue":0,"temperature":0}
+        - Images: "fit":"cover"|"contain" with both width and height; "crop":[x,y,w,h] as fractions of the picture.
         """
 }

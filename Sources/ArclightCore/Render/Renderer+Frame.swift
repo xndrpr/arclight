@@ -53,8 +53,28 @@ extension Renderer {
         }
         var enc = overlayPass(clear: true)
         let proj = M.ortho(width: W, height: H)
+        // Layers with effects (and the layers that clip layers rest on) are drawn alone and composited; mask layers
+        // are only drawn as masks.
+        let (maskIds, clipBases) = Renderer.maskAndClipBases(overlay)
+        let byId = Dictionary(overlay.map { ($0.node.id, $0) }, uniquingKeysWith: { a, _ in a })
+        var hasBase = false
         for n in overlay {
             guard let e = enc else { break }
+            if maskIds.contains(n.node.id) { continue }
+            let isBase = clipBases.contains(n.node.id)
+            let clips = n.props["clip"]?.bool == true && hasBase
+            if isBase || clips || Renderer.needsEffects(n) {
+                e.endEncoding()
+                let fxT = try? fx.targets(device: device, width: t.width, height: t.height)
+                drawWithEffects(
+                    n, proj: proj, scale: scale, assets: assets, cb: cb, t: t, target: ovTarget, world: cur,
+                    clipBase: clips ? fxT?.base : nil,
+                    maskNode: n.props["mask"]?["node"]?.string.flatMap { byId[$0] })
+                if isBase, let x = fxT { blit(cb, from: x.comp, to: x.base); hasBase = true }
+                enc = overlayPass(clear: false)
+                continue
+            }
+            if n.props["clip"]?.bool != true { hasBase = false }
             let mvp = proj * n.world
             let px = Float(scale) * M.maxScale(n.world)
             // Text whose glyphs touch sums their coverage in passes of its own (no seam at the joints).
