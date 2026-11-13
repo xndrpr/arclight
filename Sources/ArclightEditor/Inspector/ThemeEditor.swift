@@ -34,7 +34,7 @@ struct ThemeTokenList: View {
     private func kind(_ k: String, _ v: JSONValue) -> Kind {
         if v.string != nil, RGBA.parse(v) != nil { return .color }
         if ThemePresets.fontKeys.contains(k) { return .font }
-        if let s = v.string, !s.hasPrefix("$"), NSFont(name: s, size: 12) != nil { return .font }
+        if let s = v.string, !s.hasPrefix("$"), FontCatalog.exists(s) { return .font }
         return .other
     }
 
@@ -42,9 +42,10 @@ struct ThemeTokenList: View {
         let theme = doc.project.theme
         let keys = sortedKeys(theme)
         let groups: [(String, Kind)] = [("Colours", .color), ("Fonts", .font), ("Other", .other)]
+        let kinds = Dictionary(uniqueKeysWithValues: keys.map { ($0, kind($0, theme[$0]!)) })  // once per key
         VStack(alignment: .leading, spacing: UI.rowSpacing) {
             ForEach(groups, id: \.0) { name, kd in
-                let ks = keys.filter { kind($0, theme[$0]!) == kd }
+                let ks = keys.filter { kinds[$0] == kd }
                 if !ks.isEmpty {
                     Text(name).font(UI.small).foregroundStyle(UI.dim).frame(height: 18)
                     ForEach(ks, id: \.self) { k in row(k, theme[k]!, kd) }
@@ -140,7 +141,7 @@ private struct ThemeFontField: View {
     @State private var open = false
 
     var body: some View {
-        let missing = NSFont(name: value, size: 12) == nil
+        let missing = !FontCatalog.exists(value)
         FieldButton(spacing: 6, border: missing ? UI.warning.opacity(0.6) : UI.fieldBorder, action: { open = true }) {
             Text(missing ? value : FontCatalog.displayName(value)).font(.custom(value, size: 12.5))
                 .foregroundStyle(missing ? UI.warning : UI.text).lineLimit(1).truncationMode(.tail)

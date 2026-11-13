@@ -15,7 +15,20 @@ enum FontCatalog {
         return ok
     }
 
-    static func displayName(_ name: String) -> String { NSFont(name: name, size: 12)?.displayName ?? name }
+    /// Font lookups by name are slow (each `NSFont(name:)` resolves the font) and the theme editor asks several times
+    /// per token on every redraw: remember the answers. Fonts installed while the app runs are picked up on relaunch.
+    nonisolated(unsafe) private static var displayNames: [String: String?] = [:]
+
+    static func exists(_ name: String) -> Bool { info(name) != nil }
+
+    static func displayName(_ name: String) -> String { info(name) ?? name }
+
+    private static func info(_ name: String) -> String? {
+        if let c = displayNames[name] { return c }
+        let d = NSFont(name: name, size: 12)?.displayName
+        displayNames[name] = .some(d)
+        return d
+    }
 }
 
 /// Font picker: the current font in its own face; the popover lists theme font tokens first, then every
@@ -65,7 +78,7 @@ struct FontPicker: View {
 
     private var tokens: [(String, String)] {
         doc.project.theme.compactMap { k, v in
-            guard let s = v.string, NSFont(name: s, size: 12) != nil else { return nil }
+            guard let s = v.string, FontCatalog.exists(s) else { return nil }
             return ("$" + k, s)
         }.sorted { $0.0 < $1.0 }
     }

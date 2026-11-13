@@ -42,18 +42,41 @@ struct Tracks: View {
     /// Keys under the pointer (for the right-click menu).
     @State private var hoverKeys: Set<KeyRef> = []
 
+    /// Top of the scrolled-to part of the track area (content points), for drawing only what is in view.
+    @State private var visibleTop: CGFloat = 0
+
     var body: some View {
         let map = TimeMap(doc: doc, width: width)
         let d = doc.scene.duration
-        Canvas { ctx, size in
-            TrackDrawing(doc: doc, rows: rows, map: map, selected: ui.selectedKeys).draw(ctx, size)
-            if let box {
-                ctx.fill(Path(box), with: .color(TimelineInk.boxFill))
-                ctx.stroke(
-                    Path(box), with: .color(TimelineInk.boxStroke), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+        let fullH = max(CGFloat(rows.count) * TL.rowH, minHeight)
+        // The canvas covers only the visible window (`minHeight` is the scroll view's height), not the whole track
+        // area: a 70-layer scene is ~3000 pt tall, and rasterising all of it took ~65 ms on every scene change.
+        let top = min(max(0, visibleTop), max(0, fullH - minHeight))
+        let canvasH = min(fullH, minHeight + TL.rowH)
+        ZStack(alignment: .topLeading) {
+            Color.clear.frame(width: width, height: fullH)
+            Canvas(rendersAsynchronously: true) { ctx, size in
+                TrackDrawing(doc: doc, rows: rows, map: map, selected: ui.selectedKeys).draw(ctx, size, top: top)
+                if let box {
+                    var c = ctx
+                    c.translateBy(x: 0, y: -top)
+                    c.fill(Path(box), with: .color(TimelineInk.boxFill))
+                    c.stroke(
+                        Path(box), with: .color(TimelineInk.boxStroke), style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                }
             }
+            .frame(width: width, height: canvasH)
+            .offset(y: top)
+            .allowsHitTesting(false)
         }
-        .frame(width: width, height: max(CGFloat(rows.count) * TL.rowH, minHeight))
+        .background(
+            GeometryReader { g in
+                Color.clear
+                    .onAppear { visibleTop = -g.frame(in: .scrollView).minY }
+                    .onChange(of: g.frame(in: .scrollView).minY) { _, y in visibleTop = -y }
+            }
+        )
+        .frame(width: width, height: fullH)
         .clipped()
         .contentShape(Rectangle())
         .onContinuousHover { phase in hover(phase, map: map, d: d) }
