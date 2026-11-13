@@ -227,4 +227,130 @@ extension EditorDocument {
         applyPage(p.id, [["op": "preview", "theme": ["detached": true, "tokens": .object(theme)]]], summary: "theme")
         return true
     }
+
+    // MARK: Templates, variants, frames, references
+
+    /// A new artboard from a (thumbnail) template on the open page, or a new page when none is open.
+    func newArtboard(from t: Template, params: [String: JSONValue]) {
+        saveNow()
+        do {
+            addTokens(for: t)
+            var p: ArclightCore.Preview
+            if let open = openPreview {
+                p = open
+            } else {
+                var k = store.previews.count + 1
+                while store.previews["preview-\(k)"] != nil { k += 1 }
+                p = ArclightCore.Preview(id: "preview-\(k)", name: t.name)
+            }
+            let aid = p.uniqueArtboardId(String(t.id.replacingOccurrences(of: "thumb-", with: "").prefix(24)))
+            var a = try Templates.instantiateArtboard(t, params: params, artboardId: aid, store: store)
+            (a.x, a.y) = p.nextArtboardOrigin()
+            p.artboards.append(a)
+            let saved = try store.save(preview: p, summary: "template \(t.id)", source: .editor)
+            refreshProject()
+            if workspace != .preview { workspace = .preview }
+            open(preview: saved.id, artboard: aid)
+            libraryVersion += 1
+            flash("New artboard from \(t.name)")
+        } catch { flash("\(error)") }
+    }
+
+    /// Automatic A/B variants of the open artboard, each changing one thing.
+    func makeVariants(_ axis: PreviewVariants.Axis, count: Int = 2) {
+        saveNow()
+        guard let p = openPreview, let aid = target.artboardId else { return }
+        do {
+            let (np, ids) = try PreviewVariants.makeAuto(axis, count: count, of: aid, in: p)
+            _ = try store.save(preview: np, expectedRev: p.rev, summary: "variants (\(axis.rawValue)) of \(aid)", source: .editor)
+            refreshProject()
+            open(preview: p.id, artboard: aid)
+            postBoard(.fitAll)
+            flash("Added \(ids.count) \(axis.rawValue) variants — export the page to get the set")
+        } catch { flash("\(error)") }
+    }
+
+    /// Puts a still (asset) into the open artboard as a full-bleed background layer.
+    func placeBackground(asset: String) {
+        let w = canvasSize.width, h = canvasSize.height
+        let id = SceneOps.uniqueId("frame", in: scene)
+        apply([[
+            "op": "add", "index": 0,
+            "node": ["id": .string(id), "type": "image", "src": .string(asset), "x": .number(w / 2), "y": .number(h / 2),
+                     "width": .number(w), "height": .number(h), "fit": "cover"],
+        ]])
+        selection = id
+    }
+
+    /// Picks a video and places its best frame (sharpest, best face) as the background.
+    func frameFromVideo() {
+        guard let url = FilePicker.files([.movie]).first else { return }
+        let st = store
+        busy = "Finding the best frame…"
+        Task.detached {
+            do {
+                let f = try await FrameExtractor.best(video: url, count: 1, store: st)
+                await MainActor.run {
+                    self.busy = nil
+                    if let first = f.first { self.placeBackground(asset: first.asset); self.flash("Frame at \(fmt(first.time)) s") }
+                }
+            } catch { await MainActor.run { self.busy = nil; self.flash("\(error)") } }
+        }
+    }
+
+    /// A motion scene rendered at its middle, as the background.
+    func snapshotScene(_ id: String) {
+        guard let s = store.scenes[id] else { return }
+        do {
+            let r = try Renderer()
+            let f = try FrameExtractor.snapshot(scene: s, time: nil, project: store.project, store: store, renderer: r)
+            placeBackground(asset: f.asset)
+        } catch { flash("\(error)") }
+    }
+
+    /// Adds a reference picture (file, or a YouTube link's thumbnail) to the open page.
+    func addReference(_ source: String) {
+        guard let p = openPreview else { return }
+        let st = store
+        busy = "Adding reference…"
+        Task.detached {
+            do {
+                let name: String
+                if let yt = ReferenceAnalyzer.youtubeID(source) {
+                    let data = try await ReferenceAnalyzer.fetchYouTubeThumbnail(yt)
+                    name = try AssetWriter.writeImage(data, name: "ref-\(yt).jpg", to: st).src
+                } else {
+                    name = try st.importAsset(from: URL(fileURLWithPath: source))
+                }
+                await MainActor.run {
+                    self.busy = nil
+                    let refs = (p.references ?? []).filter { $0 != name } + [name]
+                    self.applyPage(p.id, [["op": "preview", "references": .array(refs.map { .string($0) })]], summary: "reference \(name)")
+                }
+            } catch { await MainActor.run { self.busy = nil; self.flash("\(error)") } }
+        }
+    }
+
+    func removeReference(_ name: String) {
+        guard let p = openPreview else { return }
+        let refs = (p.references ?? []).filter { $0 != name }
+        applyPage(p.id, [["op": "preview", "references": .array(refs.map { .string($0) })]], summary: "remove reference")
+    }
+
+    /// Takes a reference's palette into this page's own theme: background, text and accent.
+    func applyPalette(_ r: ReferenceAnalyzer.Report) {
+        let cols = r.palette.compactMap { c in RGBA.parse(.string(c)).map { (c, ReferenceAnalyzer.luminance($0)) } }
+        guard let dark = cols.min(by: { $0.1 < $1.1 }), let light = cols.max(by: { $0.1 < $1.1 }) else { return }
+        // Accent: the most saturated remaining colour.
+        func sat(_ hex: String) -> Double {
+            guard let c = RGBA.parse(.string(hex)) else { return 0 }
+            return max(c.r, c.g, c.b) - min(c.r, c.g, c.b)
+        }
+        let accent = r.palette.filter { $0 != dark.0 && $0 != light.0 }.max { sat($0) < sat($1) } ?? light.0
+        if !themeIsDetached { detachTheme() }
+        var t = project.theme
+        t["bg"] = .string(dark.0); t["fg"] = .string(light.0); t["accent"] = .string(accent)
+        _ = writeDetachedTheme(t)
+        flash("This page now uses the reference's colours (its own theme)")
+    }
 }

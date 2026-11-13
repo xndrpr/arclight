@@ -19,7 +19,10 @@ struct PreviewsSidebar: View {
                 .padding(.horizontal, 6).padding(.bottom, 10)
                 .animation(Motion.snappy, value: doc.target)
                 .animation(Motion.snappy, value: doc.previews.map(\.id))
-                if let p = doc.openPreview { ThemeLinkRow(doc: doc, preview: p).padding(.horizontal, 12) }
+                if let p = doc.openPreview {
+                    ThemeLinkRow(doc: doc, preview: p).padding(.horizontal, 12)
+                    ReferencesSection(doc: doc, preview: p).padding(.horizontal, 12)
+                }
                 if doc.previews.count == 1 && (doc.previews.first?.artboards.count ?? 0) == 1 {
                     Text(
                         "Add variants for A/B tests or a Shorts cover with + on the page. Ask the AI to make a thumbnail: it can create and edit previews too."
@@ -128,6 +131,27 @@ private struct AddArtboardMenu: View {
                 ForEach(ArtboardPresets.all, id: \.self) { p in
                     Button(p.title) { doc.addArtboard(preset: p, to: preview) }
                 }
+                Button("From Template…") {
+                    if doc.target.previewId != preview { doc.open(preview: preview) }
+                    LibrarySheets.templates(doc, mode: .newArtboard)
+                }
+            }
+            if doc.target.previewId == preview {
+                Section("A/B variants of the open artboard") {
+                    Button("2 colour variants") { doc.makeVariants(.color) }
+                    Button("2 zoom variants") { doc.makeVariants(.zoom) }
+                    Button("2 background variants") { doc.makeVariants(.background) }
+                }
+                Section("Background picture") {
+                    Button("Best Frame from a Video…") { doc.frameFromVideo() }
+                    if !doc.store.orderedScenes.isEmpty {
+                        Menu("Snapshot of a Motion Scene") {
+                            ForEach(doc.store.orderedScenes, id: \.id) { sc in
+                                Button(sc.name ?? sc.id) { doc.snapshotScene(sc.id) }
+                            }
+                        }
+                    }
+                }
             }
         } label: {
             Image(systemName: "plus").font(.system(size: 10.5, weight: .medium)).foregroundStyle(UI.dim)
@@ -142,11 +166,15 @@ private struct AddArtboardMenu: View {
 private struct NewPreviewMenu: View {
     @ObservedObject var doc: EditorDocument
     var body: some View {
-        Button { doc.newPreview() } label: {
+        Menu {
+            Button("New Thumbnail Page") { doc.newPreview() }
+            Button("New from Template…") { LibrarySheets.templates(doc, mode: .newArtboard) }
+        } label: {
             Image(systemName: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(UI.dim)
                 .frame(width: 24, height: 22).hitArea()
         }
-        .buttonStyle(.plain).help("New preview page (⇧⌘N)").cursor(.pointingHand)
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 24, height: 22)
+        .help("New preview page (⇧⌘N) or one from a thumbnail template").cursor(.pointingHand)
     }
 }
 
@@ -170,5 +198,93 @@ private struct ThemeLinkRow: View {
                     : "Give this page its own colours and fonts; project theme changes stop reaching it")
         }
         .padding(.vertical, 8)
+    }
+}
+
+/// Reference thumbnails kept with the page (never exported): add a picture or a YouTube link, analyse, remove.
+private struct ReferencesSection: View {
+    @ObservedObject var doc: EditorDocument
+    let preview: ArclightCore.Preview
+    @State private var link = ""
+    @State private var analyzing: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                SmallCapsLabel("References")
+                Spacer()
+                Button {
+                    if let u = FilePicker.files([.image]).first { doc.addReference(u.path) }
+                } label: { Image(systemName: "plus").font(.system(size: 10.5, weight: .medium)).foregroundStyle(UI.dim) }
+                    .buttonStyle(.plain).help("Add a reference picture").cursor(.pointingHand)
+            }
+            TextField("Paste a YouTube link…", text: $link).textFieldStyle(.roundedBorder).font(UI.small)
+                .onSubmit { if !link.isEmpty { doc.addReference(link); link = "" } }
+            let refs = preview.references ?? []
+            if refs.isEmpty {
+                Text("Thumbnails you like, to study their layout and colours (the AI can too). Never exported.")
+                    .font(UI.small).foregroundStyle(UI.faint).fixedSize(horizontal: false, vertical: true)
+            }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 6)], spacing: 6) {
+                ForEach(refs, id: \.self) { r in
+                    ReferenceThumb(url: doc.assets.appendingPathComponent(r))
+                        .onTapGesture { analyzing = r }
+                        .popover(isPresented: Binding(get: { analyzing == r }, set: { if !$0 { analyzing = nil } })) {
+                            ReferenceReportView(doc: doc, asset: r)
+                        }
+                        .contextMenu {
+                            Button("Analyse") { analyzing = r }
+                            Button("Remove") { doc.removeReference(r) }
+                        }
+                        .help("Click to analyse layout and colours")
+                }
+            }
+        }
+        .padding(.vertical, 8)
+    }
+}
+
+private struct ReferenceThumb: View {
+    let url: URL
+    var body: some View {
+        Group {
+            if let img = NSImage(contentsOf: url) { Image(nsImage: img).resizable().aspectRatio(contentMode: .fill) } else { UI.raised }
+        }
+        .frame(height: 48).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(UI.border)).cursor(.pointingHand)
+    }
+}
+
+/// What the on-device analysis found in a reference, with a button to take its colours.
+private struct ReferenceReportView: View {
+    @ObservedObject var doc: EditorDocument
+    let asset: String
+    @State private var report: ReferenceAnalyzer.Report?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(asset).font(UI.monoSmall).foregroundStyle(UI.dim)
+            if let r = report {
+                HStack(spacing: 4) {
+                    ForEach(Array(zip(r.palette, r.shares)), id: \.0) { c, share in
+                        VStack(spacing: 2) {
+                            RoundedRectangle(cornerRadius: 3).fill(Color(arclight: .string(c)) ?? .gray).frame(width: 40, height: 28)
+                            Text("\(Int(share * 100))%").font(UI.monoSmall).foregroundStyle(UI.faint)
+                        }
+                    }
+                }
+                Text("\(r.tone.capitalized), contrast \(String(format: "%.1f", r.contrast)):1").font(UI.small).foregroundStyle(UI.label2)
+                ForEach(r.layout, id: \.self) { Text("• " + $0).font(UI.small).foregroundStyle(UI.text).fixedSize(horizontal: false, vertical: true) }
+                Button("Use These Colours on This Page") { doc.applyPalette(r) }.buttonStyle(PillButtonStyle(primary: true))
+                Text("Follow the structure, not the artwork: use your own photos and words.").font(UI.small).foregroundStyle(UI.faint)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .padding(14).frame(width: 300)
+        .task {
+            let url = doc.assets.appendingPathComponent(asset)
+            report = await Task.detached { (try? ImageData.load(url)).map(ReferenceAnalyzer.analyze) }.value
+        }
     }
 }

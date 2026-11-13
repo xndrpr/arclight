@@ -5,7 +5,7 @@ import SwiftUI
 /// Gallery of templates with previews and a category filter; the selected template's parameters are edited in a
 /// generated form with a live preview. Creates a new scene, or inserts the layers into the current scene.
 struct TemplateGallery: View {
-    enum Mode { case newScene, insert }
+    enum Mode { case newScene, insert, newArtboard }
     @ObservedObject var doc: EditorDocument
     let mode: Mode
     let close: () -> Void
@@ -16,7 +16,10 @@ struct TemplateGallery: View {
     @State private var values: [String: String] = [:]
 
     var body: some View {
-        let all = Templates.all(project: doc.url)
+        // Thumbnails (preview templates) when adding an artboard; scene templates for new scenes.
+        let all = Templates.all(project: doc.url).filter {
+            mode == .newArtboard ? $0.isPreview : mode == .newScene ? !$0.isPreview : true
+        }
         let shown = all.filter { category == nil || ($0.category ?? "Other") == category }
         let current = all.first { $0.id == selected } ?? shown.first
         HStack(spacing: 0) {
@@ -25,7 +28,8 @@ struct TemplateGallery: View {
                 Hairline()
                 ScrollView {
                     TemplateGrid(
-                        templates: shown, selected: current?.id, canvas: doc.projectCanvas, project: doc.project,
+                        templates: shown, selected: current?.id,
+                        canvas: mode == .newArtboard ? (1280, 720) : doc.projectCanvas, project: doc.project,
                         projectURL: doc.url
                     ) { t in
                         select(t)
@@ -58,7 +62,7 @@ struct TemplateGallery: View {
     private func header(_ all: [Template]) -> some View {
         let cats = all.map { $0.category ?? "Other" }.uniqued { $0 }
         return HStack(spacing: 6) {
-            Text(mode == .newScene ? "New scene from template" : "Insert template").font(
+            Text(mode == .newScene ? "New scene from template" : mode == .newArtboard ? "New thumbnail from template" : "Insert template").font(
                 .system(size: 14, weight: .semibold)
             ).foregroundStyle(UI.text)
             Spacer()
@@ -202,12 +206,15 @@ private struct TemplateDetail: View {
             }
             Hairline()
             SheetFooter(
-                cancel: close, confirmTitle: mode == .newScene ? "Create scene" : "Insert layers",
+                cancel: close,
+                confirmTitle: mode == .newScene ? "Create scene" : mode == .newArtboard ? "Add artboard" : "Insert layers",
                 confirmDisabled: !parsed.invalid.isEmpty,
                 confirm: {
                     close()
                     if mode == .newScene {
                         doc.newScene(from: template, params: parsed.values)
+                    } else if mode == .newArtboard {
+                        doc.newArtboard(from: template, params: parsed.values)
                     } else {
                         doc.insertTemplate(template, params: parsed.values)
                     }

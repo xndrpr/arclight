@@ -5,7 +5,8 @@ import Foundation
 enum BuiltInTemplates {
     static let all: [Template] = sources.compactMap { try? JSONDecoder().decode(Template.self, from: Data($0.utf8)) }
 
-    static let sources: [String] = [title, counter, quote, lowerThird, statCrowd, spotlightCascade]
+    static let sources: [String] =
+        [title, counter, quote, lowerThird, statCrowd, spotlightCascade] + PreviewTemplates.sources
 
     static let title = #"""
         {"id":"title","name":"Title card","category":"Text","description":"Centred title with a line that draws on and a subtitle.",

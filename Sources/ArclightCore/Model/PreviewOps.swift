@@ -10,7 +10,7 @@ import Foundation
 /// - `{"op":"artboard_duplicate","id":"a","as":"b","name":"B"}`: a variant, placed to the right
 /// - `{"op":"artboard_remove","id":"b"}`
 /// - `{"op":"artboard_move","id":"b","index":0}`: order in the page (and in exports)
-/// - `{"op":"preview","name":"…","theme":"project" | {"detached":true,"tokens":{…}}}`
+/// - `{"op":"preview","name":"…","theme":"project" | {"detached":true,"tokens":{…}},"references":["ref.jpg"]}`
 public enum PreviewOps {
     public struct Result {
         public var preview: Preview
@@ -123,6 +123,10 @@ public enum PreviewOps {
         case "preview":
             if let n = o["name"] { p.name = n.string }
             if let t = o["theme"] { p.theme = try t.decoded(as: ThemeLink.self) }
+            if let r = o["references"] {
+                let list = r.array?.compactMap(\.string) ?? []
+                p.references = list.isEmpty ? nil : list
+            }
             return []
 
         default:
