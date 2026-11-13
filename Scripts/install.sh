@@ -10,8 +10,10 @@ cd "$(dirname "$0")/.."
 DEST="${DEST:-/Applications}"
 
 Scripts/bundle.sh
-if pgrep -xq arclight && pgrep -fl "$DEST/Arclight.app" >/dev/null; then
-  echo "Quit Arclight first (it is running from $DEST)." >&2; exit 1
+# Only the editor blocks the install. MCP servers (`arclight mcp`, started by AI agent sessions) keep running the old
+# copy until their session restarts, so replacing the app under them is safe.
+if pgrep -fl "$DEST/Arclight.app/Contents/MacOS/arclight" | grep -vq " mcp\b"; then
+  echo "Quit Arclight first (the editor is running from $DEST)." >&2; exit 1
 fi
 rm -rf "$DEST/Arclight.app"
 ditto dist/Arclight.app "$DEST/Arclight.app"

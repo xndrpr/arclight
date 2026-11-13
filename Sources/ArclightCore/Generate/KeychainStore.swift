@@ -8,7 +8,11 @@ public enum KeychainStore {
     static let service = "app.arclight.image-providers"
 
     /// Tests swap this for an in-memory store so they never touch the real Keychain.
-    nonisolated(unsafe) public static var backend: Backend = SystemKeychain()
+    nonisolated(unsafe) public static var backend: Backend = SystemKeychain() { didSet { cached = nil } }
+
+    /// The Keychain's answer, remembered: the editor asks on every redraw of the AI bar, and a Keychain lookup
+    /// costs about a millisecond. `setFalKey` refreshes it.
+    nonisolated(unsafe) private static var cached: String??
 
     public protocol Backend {
         func read(_ account: String) -> String?
@@ -19,12 +23,16 @@ public enum KeychainStore {
         for k in ["ARCLIGHT_FAL_KEY", "FAL_KEY"] {
             if let v = environment[k]?.trimmingCharacters(in: .whitespacesAndNewlines), !v.isEmpty { return v }
         }
-        return backend.read("fal")
+        if let c = cached { return c }
+        let v = backend.read("fal")
+        cached = .some(v)
+        return v
     }
 
     /// Saves (or with nil / empty, removes) the fal.ai key.
     public static func setFalKey(_ key: String?) throws {
         let k = key?.trimmingCharacters(in: .whitespacesAndNewlines)
+        cached = nil
         try backend.write("fal", k?.isEmpty == false ? k : nil)
     }
 
@@ -77,11 +85,18 @@ public enum ImageSettings {
 
     nonisolated(unsafe) static var overrideURL: URL?
 
+    /// Read once per process (and after each write); Settings is the only writer.
+    nonisolated(unsafe) private static var memo: Stored?
+
     static func read() -> Stored {
-        JSONFile.read(Stored.self, from: overrideURL ?? url) ?? Stored()
+        if let m = memo { return m }
+        let s = JSONFile.read(Stored.self, from: overrideURL ?? url) ?? Stored()
+        memo = s
+        return s
     }
 
     static func write(_ s: Stored) {
+        memo = s
         let u = overrideURL ?? url
         try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
         try? JSONEncoder().encode(s).write(to: u, options: .atomic)

@@ -82,6 +82,15 @@ extension ShaderSource {
             return u.c * saturate(u.p.x - d + 0.5);
         }
 
+        // Resampling between resolutions (wide blurs run at ½ or ¼ size). p.xy: half the source footprint of one
+        // target pixel in uv when shrinking (four bilinear taps average it); zero when enlarging (one bilinear tap).
+        fragment float4 fx_resample_fs(FS in [[stage_in]], texture2d<float> src [[texture(0)]], sampler s [[sampler(0)]],
+                                       constant float4& p [[buffer(0)]]) {
+            if (p.x == 0 && p.y == 0) return src.sample(s, in.uv);
+            return (src.sample(s, in.uv + float2(-p.x, -p.y)) + src.sample(s, in.uv + float2(p.x, -p.y))
+                  + src.sample(s, in.uv + float2(-p.x, p.y)) + src.sample(s, in.uv + float2(p.x, p.y))) * 0.25;
+        }
+
         // A texture scaled by p.x, drawn with premultiplied (or additive) blending by the pipeline.
         fragment float4 fx_layer_fs(FS in [[stage_in]], texture2d<float> src [[texture(0)]],
                                     constant float4& p [[buffer(0)]]) {

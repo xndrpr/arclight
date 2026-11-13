@@ -246,9 +246,15 @@ private struct ReferencesSection: View {
 
 private struct ReferenceThumb: View {
     let url: URL
+    @State private var image: CGImage?
     var body: some View {
         Group {
-            if let img = NSImage(contentsOf: url) { Image(nsImage: img).resizable().aspectRatio(contentMode: .fill) } else { UI.raised }
+            if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fill) } else { UI.raised }
+        }
+        // Off the main thread, once per file (not on every redraw).
+        .task(id: url) {
+            let u = url
+            image = await Task.detached(priority: .utility) { try? ImageData.load(u) }.value
         }
         .frame(height: 48).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 4))
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(UI.border)).cursor(.pointingHand)
