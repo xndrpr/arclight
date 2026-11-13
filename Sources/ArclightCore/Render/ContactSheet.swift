@@ -12,10 +12,16 @@ public enum ContactSheet {
         let frames = try times.map {
             try renderer.image(scene: scene, project: project, assets: assets, time: $0, scale: scale)
         }
-        guard let f0 = frames.first else { throw RenderError.readback }
+        return try tile(frames, labels: times.map { String(format: "t=%.2fs", $0) })
+    }
+
+    /// Images tiled in a grid (1, 2 or 3 columns), each with a label in its bottom-left corner. Cells take the size
+    /// of the largest image; smaller ones (other artboard ratios) are centred in theirs.
+    public static func tile(_ frames: [CGImage], labels: [String]) throws -> CGImage {
+        guard !frames.isEmpty else { throw RenderError.readback }
         let cols = frames.count <= 1 ? 1 : frames.count <= 4 ? 2 : 3
         let rows = (frames.count + cols - 1) / cols
-        let gap = 4, fw = f0.width, fh = f0.height
+        let gap = 4, fw = frames.map(\.width).max() ?? 1, fh = frames.map(\.height).max() ?? 1
         let W = cols * fw + (cols - 1) * gap, H = rows * fh + (rows - 1) * gap
         guard
             let ctx = CGContext(
@@ -28,9 +34,10 @@ public enum ContactSheet {
         let font = CTFontCreateWithName("Menlo-Bold" as CFString, max(10, CGFloat(fh) / 18), nil)
         for (i, img) in frames.enumerated() {
             let c = i % cols, r = i / cols
-            let x = c * (fw + gap), y = H - (r + 1) * fh - r * gap  // CG origin bottom-left
-            ctx.draw(img, in: CGRect(x: x, y: y, width: fw, height: fh))
-            let label = String(format: "t=%.2fs", times[i])
+            let cx = c * (fw + gap), cy = H - (r + 1) * fh - r * gap  // CG origin bottom-left
+            let x = cx + (fw - img.width) / 2, y = cy + (fh - img.height) / 2
+            ctx.draw(img, in: CGRect(x: x, y: y, width: img.width, height: img.height))
+            let label = i < labels.count ? labels[i] : ""
             let attr = NSAttributedString(
                 string: label,
                 attributes: [

@@ -95,6 +95,7 @@ extension EditorDocument {
     }
 
     private func writeTheme(_ theme: [String: JSONValue]) {
+        if writeDetachedTheme(theme) { return }
         var p = store.project
         p.theme = theme
         do { try store.update(project: p) } catch { flash("Couldn't save the theme: \(error.localizedDescription)") }

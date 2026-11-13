@@ -49,7 +49,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func paste(_ sender: Any?) { doc.paste() }
     @objc func duplicateLayer(_ sender: Any?) { doc.duplicateSelection() }
     @objc func clearKeyframes(_ sender: Any?) { if let id = doc.selection { doc.clearAllAnimation(id) } }
-    @objc func newScene(_ sender: Any?) { doc.newScene() }
+    /// ⇧⌘N: a new scene in Motion, a new preview page in Preview.
+    @objc func newScene(_ sender: Any?) { if doc.isPreview { doc.newPreview() } else { doc.newScene() } }
     @objc func saveDocument(_ sender: Any?) { doc.saveNow(); doc.flash("Saved") }
     @objc func togglePerformance(_ sender: Any?) { doc.performance.toggle() }
     @objc func toggleAIPanel(_ sender: Any?) { AIPanelState.toggle() }

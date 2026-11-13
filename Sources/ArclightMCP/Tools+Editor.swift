@@ -77,15 +77,28 @@ extension MCPServer {
             Tool(
                 name: "history",
                 description:
-                    "List a scene's saved revisions, or restore one with revert_to (saved as a new rev; nothing is lost).",
+                    "List a scene's (or preview page's) saved revisions, or restore one with revert_to (saved as a new rev; nothing is lost).",
                 schema: schema(
                     [
                         "scene": prop("string", "Scene id"),
+                        "preview": prop("string", "Preview id, instead of scene"),
                         "revert_to": prop("integer", "Rev to restore"),
                         "limit": prop("integer", "Entries to list, default 15"),
-                    ], required: ["scene"])
+                    ])
             ) { [unowned self] a in
                 let s = try requireStore()
+                if let pid = a["preview"]?.string {
+                    _ = try s.preview(pid)
+                    if let r = a["revert_to"]?.double {
+                        let rev = try SafeNumber.int(r, "revert_to", in: 0...SafeNumber.maxCount)
+                        let saved = try s.revertPreview(pid, to: rev, source: .ai)
+                        return text("restored rev \(rev) as rev \(saved.rev)\n" + previewOutline(saved, store: s))
+                    }
+                    let limit = try SafeNumber.int(a["limit"]?.double ?? 15, "limit", in: 0...SafeNumber.maxCount)
+                    return text(
+                        s.previewHistory(pid).suffix(limit).map { "rev \($0.rev)  \($0.time)  \($0.summary)" }
+                            .joined(separator: "\n"))
+                }
                 let id = try a.str("scene")
                 if let r = a["revert_to"]?.double {
                     let rev = try SafeNumber.int(r, "revert_to", in: 0...SafeNumber.maxCount)

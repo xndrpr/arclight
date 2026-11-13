@@ -16,6 +16,8 @@ extension EditorDocument {
     /// selection, solo, work area or highlights, and a stopped playhead at 0.
     func switchTo(_ s: Scene) {
         savePending?.cancel(); savePending = nil
+        // Artboards (`<preview>~<artboard>`) and the placeholder set their target before switching.
+        if !s.id.contains("~") { target = .scene(s.id) }
         scene = s; baseRev = s.rev
         undoStack.removeAll(); redoStack.removeAll()
         selection = nil; multiSelection = []; soloIds = []; workArea = nil; flashIds = []
@@ -25,6 +27,7 @@ extension EditorDocument {
 
     func newScene() {
         saveNow()
+        if workspace != .motion { workspace = .motion }
         var k = store.scenes.count + 1
         while store.scenes["scene-\(k)"] != nil { k += 1 }
         var s = Scene(id: "scene-\(k)", duration: 5)
@@ -53,7 +56,7 @@ extension EditorDocument {
         if id == scene.id, let first = store.orderedScenes.first { switchTo(first) }
     }
 
-    func refreshProject() { project = store.project; stamps = fileStamps() }
+    func refreshProject() { project = effectiveProject(); stamps = fileStamps() }
 
     // MARK: Canvas & frame rate
 

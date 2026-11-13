@@ -18,7 +18,7 @@ private final class RevisionThumbs: ObservableObject {
     func snapshot(_ doc: EditorDocument, _ sceneId: String, _ rev: Int) -> Scene? {
         let k = "\(sceneId):\(rev)"
         if let s = snapshots[k] { return s }
-        let s = doc.store.snapshot(sceneId, rev: rev)
+        let s = sceneId == doc.scene.id ? doc.snapshotScene(rev) : doc.store.snapshot(sceneId, rev: rev)
         if let s { snapshots[k] = s }
         return s
     }

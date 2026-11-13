@@ -6,16 +6,19 @@ import Foundation
 /// Name.arclight/        (or Name.apogee/, the old extension)
 ///   project.json
 ///   scenes/<id>.json
+///   previews/<id>.json  (thumbnail pages; optional)
 ///   assets/
 ///   .arclight/          activity log and notes (copied once from an old .apogee/)
 /// ```
 public final class ProjectStore {
     public let url: URL
-    public private(set) var project: Project
+    public internal(set) var project: Project
     public private(set) var scenes: [String: Scene]
+    public internal(set) var previews: [String: Preview] = [:]
 
     public var assetsURL: URL { url.appendingPathComponent("assets") }
     var scenesURL: URL { url.appendingPathComponent("scenes") }
+    var previewsURL: URL { url.appendingPathComponent("previews") }
 
     public init(url: URL) throws {
         self.url = url
@@ -58,6 +61,19 @@ public final class ProjectStore {
         // Scene order follows project.json, with scenes found on disk appended.
         let known = Set(scenes.keys)
         project.scenes = project.scenes.filter(known.contains) + known.subtracting(project.scenes).sorted()
+        previews = [:]
+        for f in (try? fm.contentsOfDirectory(at: previewsURL, includingPropertiesForKeys: nil)) ?? []
+        where f.pathExtension == "json" {
+            do {
+                let p = try JSONDecoder().decode(Preview.self, from: Data(contentsOf: f))
+                previews[p.id] = p
+            } catch {
+                throw ModelError.invalid("previews/\(f.lastPathComponent): \(error)")
+            }
+        }
+        let knownPreviews = Set(previews.keys)
+        project.previews =
+            project.previews.filter(knownPreviews.contains) + knownPreviews.subtracting(project.previews).sorted()
     }
 
     public static func create(at url: URL, name: String) throws -> ProjectStore {
@@ -69,6 +85,7 @@ public final class ProjectStore {
     }
 
     public var orderedScenes: [Scene] { project.scenes.compactMap { scenes[$0] } }
+    public var orderedPreviews: [Preview] { project.previews.compactMap { previews[$0] } }
 
     public func scene(_ id: String?) throws -> Scene {
         if let id { guard let s = scenes[id] else { throw ModelError.notFound("scene '\(id)'") }; return s }
@@ -126,22 +143,31 @@ public final class ProjectStore {
 
     /// History logs keep the default encoder and whole-second times: existing logs must stay readable and uniform.
     func snapshot(_ s: Scene, summary: String, source: String? = nil, changed: [String]? = nil) {
-        let dir = historyDir(s.id)
+        recordHistory(s, key: s.id, rev: s.rev, summary: summary, source: source, changed: changed)
+    }
+
+    /// Writes revision `rev` of a scene or preview to `.history/<key>/` and logs it; keeps the newest `historyLimit`.
+    func recordHistory<T: Encodable>(
+        _ value: T, key: String, rev: Int, summary: String, source: String?, changed: [String]?
+    ) {
+        let dir = historyDir(key)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try? ProjectStore.write(s, to: historyFile(s.id, s.rev))
+        try? ProjectStore.write(value, to: historyFile(key, rev))
         let e = HistoryEntry(
-            rev: s.rev, time: ISO8601DateFormatter().string(from: Date()), summary: summary,
+            rev: rev, time: ISO8601DateFormatter().string(from: Date()), summary: summary,
             source: source, changed: changed?.isEmpty == true ? nil : changed)
         JSONL.append(e, to: dir.appendingPathComponent("log.jsonl"), encoder: JSONEncoder())
         let files = ((try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []).compactMap {
             Int($0.replacingOccurrences(of: ".json", with: ""))
         }.sorted()
         for r in files.dropLast(ProjectStore.historyLimit) {
-            try? FileManager.default.removeItem(at: historyFile(s.id, r))
+            try? FileManager.default.removeItem(at: historyFile(key, r))
         }
     }
 
-    public func history(_ id: String) -> [HistoryEntry] {
+    public func history(_ id: String) -> [HistoryEntry] { history(key: id) }
+
+    func history(key id: String) -> [HistoryEntry] {
         guard SafeName.isComponent(id),
             let data = try? String(contentsOf: historyDir(id).appendingPathComponent("log.jsonl"), encoding: .utf8)
         else { return [] }

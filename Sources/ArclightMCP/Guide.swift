@@ -11,12 +11,14 @@ enum Guide {
         Use theme tokens ($fg, $display, …) instead of literal colours/fonts so styles stay consistent. \
         Every call is shown to the user in the editor's AI panel (with one-click revert), so keep changes purposeful. \
         The user can leave notes for you while watching (editor_state lists open notes); do what they ask, then note_resolve with a short reply.
+        YouTube previews (thumbnails) live in the same project: preview_create with ALL artboards and layers in one call → \
+        preview_render (feed:true) to check → preview_apply for fixes → export {preview, format:"youtube"}. See guide("previews").
         """
 
     /// Topics in reading order. Layer-type topics and "scene"/"common"/"symbols" are generated.
     static var topicNames: [String] {
         ["overview", "animation", "common"] + Schema.nodes.map(\.type) + [
-            "scene", "symbols", "ops", "export", "recipes",
+            "scene", "symbols", "ops", "export", "previews", "recipes",
         ]
     }
 
@@ -28,6 +30,8 @@ enum Guide {
         "instancer": ["repeater"],
         "assets": ["symbols", "image"],
         "artwork": ["symbols", "image"],
+        "thumbnails": ["previews"],
+        "preview": ["previews"],
     ]
 
     static func topic(_ name: String) -> String? {
@@ -38,6 +42,7 @@ enum Guide {
         case "ops": return ops
         case "export": return export
         case "recipes": return recipes
+        case "previews": return previews
         case "common": return Schema.transformReference
         case "scene": return Schema.sceneReference
         case "symbols": return symbols
@@ -142,5 +147,27 @@ enum Guide {
         Title card: text centred (align "center", x = width/2) with reveal by word + a line shape whose trim animates [0,0]→[0,1].
         Vertical short: project_update {"size":[1080,1920]} (or a scene override {"op":"scene","size":[1080,1920]}); keep text within x 80…1000.
         Dark backdrop behind type: rect 1920x1080 at 960,540 with a linear gradient fill from opaque top-left to transparent.
+        """
+
+    static let previews = """
+        # Previews (YouTube thumbnails)
+        A preview page (previews/<id>.json) holds artboards: still images such as the 1280x720 thumbnail, its A/B variants and a 1080x1920 Shorts cover. \
+        An artboard is {"id","name","size":[w,h],"x","y","background","post","nodes":[...]}; layers are exactly the scene nodes in guide(text), guide(image) and so on, \
+        rendered at t=0 (no animation needed). Size presets: \(ArtboardPresets.names.joined(separator: ", ")).
+        Theme and assets are shared with the motion scenes: use tokens ($fg, $accent, $display…) and the brand stays in sync. A page can take its own tokens with \
+        "theme":{"detached":true,"tokens":{...}} (tokens it lacks still come from the project); "theme":"project" links it back.
+        Tools: preview_list · preview_create · preview_get (outline; artboard + ids for full JSON) · preview_apply · preview_render · preview_delete · \
+        history {preview} · export {preview, artboards, format: youtube|jpg|png}.
+        preview_apply ops: the scene ops (add, set, key, remove, move, duplicate, scene) on the call's "artboard" (default: the first) or an op's own "artboard"; plus \
+        artboard_add {id,name,size,x,y,background,copy_from}, artboard_set {id,…}, artboard_duplicate {id,as,name}, artboard_remove {id}, artboard_move {id,index}, preview {name,theme}.
+        Variants for A/B tests (YouTube Test & Compare takes up to 3): artboard_duplicate the finished artboard, then change ONE thing per variant (the words, the accent colour, the crop) \
+        so the test says what worked.
+        Thumbnail rules that hold up in the feed (always check with preview_render feed:true; most viewers see it about 360 px wide):
+        - One focal point: a large face or object filling a third or more of the frame, cut out with a strong outline or glow if the background is busy.
+        - 3–5 words at most, very heavy display font, 110 px or more on a 1280x720 artboard; never repeat the video title word for word.
+        - High contrast: light text on dark or the reverse, plus one accent colour. Avoid thin strokes and small detail.
+        - Keep the bottom-right corner (about 20% x 15%) free of anything important: YouTube's timestamp badge covers it.
+        - Leave a margin of about 40 px; the feed rounds the corners.
+        Export {preview, format:"youtube"} writes 1280x720 JPGs under YouTube's 2 MB limit to <project>/exports/<preview>_<artboard>.jpg.
         """
 }

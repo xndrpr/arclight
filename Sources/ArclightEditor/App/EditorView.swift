@@ -25,8 +25,10 @@ struct EditorView: View {
                     Hairline()
                     ViewportView(doc: doc)
                         .overlay { FloatingAIPanel(doc: doc, pill: pill) }
-                    Hairline()
-                    TransportBar(doc: doc).background(UI.panel)
+                    if !doc.isPreview {
+                        Hairline()
+                        TransportBar(doc: doc).background(UI.panel)
+                    }
                 }
             } else {
                 VStack(spacing: 0) {
@@ -41,7 +43,13 @@ struct EditorView: View {
         .onPreferenceChange(AIPillFrameKey.self) { pill = $0 }
         .background(UI.bg)
         .themedRoot()
-        .sheet(isPresented: $showExport) { ExportSheet(doc: doc, isPresented: $showExport) }
+        .sheet(isPresented: $showExport) {
+            if doc.isPreview {
+                StillExportSheet(doc: doc, isPresented: $showExport)
+            } else {
+                ExportSheet(doc: doc, isPresented: $showExport)
+            }
+        }
         .sheet(isPresented: $showShortcuts) { ShortcutsSheet(isPresented: $showShortcuts) }
         .onReceive(NotificationCenter.default.publisher(for: .showExport)) { n in
             if (n.object as? EditorDocument) === doc { showExport = true }
@@ -57,8 +65,12 @@ struct EditorView: View {
             SideResizeHandle(width: $leftW, range: 160...420, growsRight: true, defaultWidth: 210)
             VStack(spacing: 0) {
                 ViewportView(doc: doc)
-                ResizeHandle(height: $timelineH)
-                TimelineView(doc: doc).frame(height: timelineH)
+                    .overlay { if doc.isEmptyWorkspace { EmptyWorkspaceView(doc: doc) } }
+                // Previews are stills: no timeline.
+                if !doc.isPreview && !doc.isEmptyWorkspace {
+                    ResizeHandle(height: $timelineH)
+                    TimelineView(doc: doc).frame(height: timelineH)
+                }
             }
             .frame(minWidth: PanelWidths.minCenter)
             .zIndex(1)
@@ -95,5 +107,33 @@ struct PanelWidths: Equatable {
         take(&w.left, mins.left)
         take(&w.right, mins.right)
         return w
+    }
+}
+
+/// Shown over the viewport when the open workspace has nothing yet (a thumbnail-only project in Motion, or a
+/// motion project's Preview before the first page).
+struct EmptyWorkspaceView: View {
+    @ObservedObject var doc: EditorDocument
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: doc.isPreview ? "photo.on.rectangle.angled" : "film")
+                .font(.system(size: 30, weight: .light)).foregroundStyle(UI.dim)
+            Text(doc.isPreview ? "No previews yet" : "No scenes yet")
+                .font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
+            Text(
+                doc.isPreview
+                    ? "Make a YouTube thumbnail with the same theme and assets as your motion scenes — or ask the AI to make one."
+                    : "This project only has previews so far. Add a scene to start on motion graphics."
+            )
+            .font(UI.font).foregroundStyle(UI.dim).multilineTextAlignment(.center).frame(maxWidth: 340)
+            Button(doc.isPreview ? "Create Thumbnail" : "Create Scene") {
+                if doc.isPreview { doc.newPreview() } else { doc.newScene() }
+            }
+            .buttonStyle(PillButtonStyle(primary: true))
+        }
+        .padding(28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(UI.bg)
     }
 }
