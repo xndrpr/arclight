@@ -10,7 +10,8 @@ enum AIPromptKind: String { case generate, fill, expand }
 extension EditorDocument {
     /// fal.ai when the user enabled it and saved a key.
     var falProvider: ImageProvider? { ImageSettings.enabled ? KeychainStore.falProvider() : nil }
-    var hasFal: Bool { falProvider != nil }
+    /// Cheap enough for every redraw: no provider is built.
+    var hasFal: Bool { ImageSettings.enabled && KeychainStore.falKey() != nil }
 
     var selectedImageLayer: String? {
         guard let id = selection, scene.node(id)?.type == "image" else { return nil }

@@ -237,7 +237,8 @@ struct WorkspaceSwitch: View {
                 let on = doc.workspace == ws
                 Button {
                     ClickTrace.fired("workspace \(ws.rawValue)")
-                    withAnimation(Motion.snappy) { doc.setWorkspace(ws) }
+                    // No animation: animating the whole editor layout re-sizes (and re-renders) the canvas every frame.
+                    doc.setWorkspace(ws)
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: ws.symbol).font(.system(size: 11))

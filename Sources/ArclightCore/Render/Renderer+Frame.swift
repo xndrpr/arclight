@@ -173,7 +173,7 @@ extension Renderer {
 
     func fullscreen<P>(
         _ cb: MTLCommandBuffer, target: MTLTexture, pso: MTLRenderPipelineState, textures: [MTLTexture],
-        params: inout P, loadAction: MTLLoadAction = .dontCare
+        params: inout P, loadAction: MTLLoadAction = .dontCare, scissor: MTLScissorRect? = nil
     ) {
         let rp = MTLRenderPassDescriptor()
         rp.colorAttachments[0].texture = target
@@ -182,6 +182,8 @@ extension Renderer {
         rp.colorAttachments[0].storeAction = .store
         guard let enc = cb.makeRenderCommandEncoder(descriptor: rp) else { return }
         enc.setRenderPipelineState(pso)
+        // Effects limit their passes to the layer's area (the rest of a cleared target stays clear).
+        if let scissor { enc.setScissorRect(scissor) }
         for (i, tx) in textures.enumerated() { enc.setFragmentTexture(tx, index: i) }
         enc.setFragmentSamplerState(sampler, index: 0)
         withUnsafeBytes(of: &params) { enc.setFragmentBytes($0.baseAddress!, length: $0.count, index: 0) }
