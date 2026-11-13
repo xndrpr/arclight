@@ -58,6 +58,12 @@ struct AISettings: View {
             }
             Hairline()
             SettingRow(
+                label: "Image generation",
+                note:
+                    "Optional. With your own fal.ai key, previews get Generate image, Generative fill, Expand and Upscale — in the editor and for AI agents. The key stays in your Keychain. Background removal always works on this Mac, without a key."
+            ) { ImageGenerationSettings() }
+            Hairline()
+            SettingRow(
                 label: "Try asking",
                 note:
                     "Changes appear live in the editor; every call is listed in the AI panel (⌥⌘A) with one-click revert."
@@ -68,6 +74,7 @@ struct AISettings: View {
                             "Open this Arclight project and make a 9:16 version of the intro scene.",
                             "Make the selected text bigger and slow down its reveal.",
                             "Add a counter to 72% with a crowd where 72% of the pieces light up.",
+                            "Make a YouTube thumbnail for this episode with two A/B variants.",
                         ], id: \.self
                     ) { s in
                         Text("“\(s)”").font(UI.small).foregroundStyle(UI.label2).fixedSize(
@@ -76,5 +83,65 @@ struct AISettings: View {
                 }
             }
         }
+    }
+}
+
+/// fal.ai key (Keychain), on/off, and the models used.
+struct ImageGenerationSettings: View {
+    @State private var key = ""
+    @State private var saved = KeychainStore.falKey() != nil
+    @State private var enabled = ImageSettings.enabled
+    @State private var models = ImageSettings.models
+    @State private var message: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Use fal.ai for image generation", isOn: $enabled).toggleStyle(.switch).controlSize(.small)
+                .onChange(of: enabled) { _, v in ImageSettings.enabled = v }
+            HStack(spacing: 8) {
+                SecureField(saved ? "Key saved — paste a new one to replace it" : "fal.ai API key", text: $key)
+                    .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 300)
+                Button("Save") { save(key) }.buttonStyle(PillButtonStyle(primary: true)).disabled(key.isEmpty)
+                if saved { Button("Remove") { save(nil) }.buttonStyle(PillButtonStyle()) }
+            }
+            HStack(spacing: 6) {
+                StatusDot(color: saved && enabled ? UI.success : UI.faint)
+                Text(saved ? (enabled ? "Ready" : "Key saved, turned off") : "No key — get one at fal.ai ▸ Dashboard ▸ Keys")
+                    .font(UI.small).foregroundStyle(UI.label2)
+                if !saved {
+                    Link("Open fal.ai", destination: URL(string: "https://fal.ai/dashboard/keys")!).font(UI.small)
+                }
+            }
+            if let message { Text(message).font(UI.small).foregroundStyle(UI.dim) }
+            DisclosureGroup("Models") {
+                VStack(alignment: .leading, spacing: 5) {
+                    model("Generate", \.generate)
+                    model("Fill / expand", \.fill)
+                    model("Background", \.removeBackground)
+                    model("Upscale", \.upscale)
+                    Button("Reset to defaults") { models = FalProvider.Models(); ImageSettings.models = models }
+                        .buttonStyle(PillButtonStyle()).controlSize(.small)
+                }
+                .padding(.top, 4)
+            }
+            .font(UI.small)
+        }
+    }
+
+    private func model(_ label: String, _ kp: WritableKeyPath<FalProvider.Models, String>) -> some View {
+        HStack(spacing: 6) {
+            Text(label).font(UI.small).foregroundStyle(UI.label2).frame(width: 90, alignment: .leading)
+            TextField("", text: Binding(get: { models[keyPath: kp] }, set: { models[keyPath: kp] = $0; ImageSettings.models = models }))
+                .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 240)
+        }
+    }
+
+    private func save(_ k: String?) {
+        do {
+            try KeychainStore.setFalKey(k)
+            saved = KeychainStore.falKey() != nil
+            key = ""
+            message = k == nil ? "Key removed" : "Key saved in your Keychain"
+        } catch { message = "\(error)" }
     }
 }

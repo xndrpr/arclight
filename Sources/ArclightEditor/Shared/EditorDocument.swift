@@ -24,6 +24,10 @@ final class EditorDocument: ObservableObject {
     @Published var target: EditTarget = .none
     /// Preview workspace tool (Figma / Photoshop style): move, text, shapes, hand, zoom.
     @Published var tool: PreviewTool = .move
+    /// Preview: the marquee selection (canvas px) that generative fill works on.
+    @Published var marquee: CGRect?
+    /// Which AI prompt field the contextual bar shows (generate / fill / expand), when open.
+    @Published var aiPrompt: AIPromptKind?
     @Published var selection: String? { didSet { if selection != oldValue { stateChanged() } } }
     /// Playhead (scene seconds). Published at a reduced rate while playing; see `playTime`.
     @Published var time: Double = 0 { didSet { if !playing { playTime = time }; stateChanged() } }

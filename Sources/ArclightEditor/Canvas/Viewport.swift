@@ -41,6 +41,7 @@ struct ViewportView: View {
                         GuidesOverlay(canvas: cs, scale: s, preview: doc.isPreview)
                         GizmoOverlay(doc: doc, vp: vp, scale: s)
                         FlashOverlay(doc: doc, scale: s)
+                        if doc.isPreview, let m = doc.marquee { MarqueeOverlay(rect: m, scale: s) }
                         if doc.isPreview && doc.tool.capturesCanvas { PreviewToolOverlay(doc: doc, vp: vp, scale: s) }
                     }
                 }
@@ -92,9 +93,12 @@ struct ViewportView: View {
                     }
             }
         }
+        .overlay(alignment: .bottom) {
+            if doc.isPreview && !doc.cinema && !doc.isEmptyWorkspace { AIContextBar(doc: doc).padding(.bottom, 14) }
+        }
         .overlay(alignment: .bottomTrailing) {
             if doc.isPreview && feedPreview && !doc.cinema && !doc.isEmptyWorkspace {
-                FeedPreview(doc: doc).padding(12)
+                FeedPreview(doc: doc).padding(.trailing, 12).padding(.bottom, 60)
             }
         }
         .onChange(of: doc.cinema) { _, on in if on { hint = true } }

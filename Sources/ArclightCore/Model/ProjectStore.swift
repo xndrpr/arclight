@@ -199,7 +199,8 @@ public final class ProjectStore {
             if ProjectStore.sameFile(src, dest) { return n }
             try FileManager.default.removeItem(at: dest)
         }
-        try FileManager.default.copyItem(at: src, to: dest)
+        // Copy what a symlink points to: a copied (often relative) link would dangle inside assets/.
+        try FileManager.default.copyItem(at: src.resolvingSymlinksInPath(), to: dest)
         return n
     }
 

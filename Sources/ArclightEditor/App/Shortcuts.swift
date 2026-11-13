@@ -106,6 +106,8 @@ extension Shortcuts {
             "Tools",
             [
                 (["V"], "Move / select"),
+                (["M"], "Marquee — select an area for generative fill"),
+                (["W"], "Select subject of the selected picture (on-device)"),
                 (["T"], "Text — click to place"),
                 (["R", "O", "L"], "Rectangle · ellipse · line — drag to draw (⇧ = square / circle)"),
                 (["⇧⌘K"], "Place image"),
@@ -147,6 +149,15 @@ extension Shortcuts {
                 (["⌫"], "Delete"),
                 (["double-click"], "Edit text on canvas"),
                 (["⇧ scale", "⇧ rotate"], "Uniform scale · 15° steps"),
+            ]
+        ),
+        (
+            "AI",
+            [
+                (["⌥⌘B"], "Remove background (on-device, free)"),
+                (["⇧⌘F"], "Generative fill on the marquee (fal.ai key)"),
+                (["⌘K"], "Generate an image from a prompt (fal.ai key)"),
+                (["Esc"], "Close the prompt · clear the marquee"),
             ]
         ),
         (

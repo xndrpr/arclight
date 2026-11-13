@@ -124,4 +124,20 @@ import Testing
         #expect(tp.store.previews.isEmpty && tp.store.project.previews.isEmpty)
         #expect(!FileManager.default.fileExists(atPath: tp.url.appendingPathComponent("previews/thumb.json").path))
     }
+
+    @Test func importingASymlinkCopiesTheFileItPointsTo() throws {
+        let tp = try TempProject("symlink-import")
+        defer { tp.remove() }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-link-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir.appendingPathComponent("real"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try Data("png".utf8).write(to: dir.appendingPathComponent("real/pic.png"))
+        try FileManager.default.createSymbolicLink(
+            atPath: dir.appendingPathComponent("pic.png").path, withDestinationPath: "real/pic.png")
+        let name = try tp.store.importAsset(from: dir.appendingPathComponent("pic.png"))
+        let copied = tp.store.assetsURL.appendingPathComponent(name)
+        let attrs = try FileManager.default.attributesOfItem(atPath: copied.path)
+        #expect(attrs[.type] as? FileAttributeType == .typeRegular)
+        #expect(try Data(contentsOf: copied) == Data("png".utf8))
+    }
 }
