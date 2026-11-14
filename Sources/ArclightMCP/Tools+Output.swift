@@ -64,7 +64,7 @@ extension MCPServer {
             ) { [unowned self] a in
                 let s = try requireStore()
                 if let pid = a["thumbnail"]?.string { return try exportThumbnail(pid, a, store: s) }
-                let ids = a["scenes"]?.array?.compactMap(\.string) ?? s.project.scenes
+                let ids = a["scenes"]?.array?.compactMap(\.string) ?? s.orderedScenes.map(\.id)
                 guard !ids.isEmpty else { throw ToolError("nothing to export") }
                 // Scene ids become file names in out_dir.
                 for id in ids { try SafeName.component(id, what: "scene id") }

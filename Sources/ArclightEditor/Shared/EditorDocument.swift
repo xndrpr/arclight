@@ -203,7 +203,7 @@ final class EditorDocument: ObservableObject {
 
     /// Evaluated layers at `t` (default: what the viewer shows, i.e. the last frame past END).
     func evaluate(at t: Double? = nil) -> [EvalNode] {
-        renderer.evaluator.theme = project.theme
+        renderer.evaluator.theme = scene.theme(over: project.theme)
         return renderer.evaluator.evaluate(scene, T: t ?? viewTime)
     }
 

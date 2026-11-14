@@ -16,6 +16,10 @@ public enum ChatPrompt {
         Keep replies short: say what you changed, not how. After visual changes, render a frame at low scale and \
         look at it before saying you're done. Every change is listed in the AI panel with one-click revert.
 
+        Before building a new scene from a description, settle the direction with the user in the stages of \
+        guide("direction") (read it first), asking each stage with ask_choice. Each user message says in <direction> \
+        which stages the user wants; stages answered earlier in the chat stay settled.
+
         Arclight's own notes for agents:
         \(instructions)
         """
@@ -31,7 +35,7 @@ public enum ChatPrompt {
             "stream": true,
             "system": [["type": "text", "text": .string(system)]],
             // Sorted, so the tool list (the start of the cached prefix) is byte-identical on every request.
-            "tools": .array(tools.sorted { $0.name < $1.name }.map(tool)),
+            "tools": .array(tools.sorted { $0.name < $1.name }.map(tool) + [ChatChoice.tool]),
             "messages": .array(messages),
             "thinking": ["type": "adaptive", "display": "summarized"],
             "output_config": ["effort": .string(effort.rawValue)],
@@ -100,6 +104,13 @@ public enum ChatPrompt {
     static func declined(_ details: JSONValue?) -> String {
         if let c = details?["category"]?.string { return "The model declined this request (\(c))." }
         return "The model declined this request."
+    }
+
+    /// Which direction stages the user wants before a new scene is built, sent with each user message.
+    public static func directionNote(_ stages: [ChatChoice.Stage]) -> String {
+        stages.isEmpty
+            ? "<direction>off: build new scenes directly, no stages</direction>"
+            : "<direction>ask first: " + stages.map(\.rawValue).joined(separator: ", ") + "</direction>"
     }
 
     /// The note on what the editor shows, put at the start of each user message.

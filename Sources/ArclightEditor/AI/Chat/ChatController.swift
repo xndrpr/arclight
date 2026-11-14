@@ -47,14 +47,40 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !running else { return }
         draft = ""
+        noteBackendSwitch()
+        // Typed while a question waits: that's the answer, in the user's own words.
+        let waiting = transcript.pendingChoice
+        transcript.items.append(ChatItem(kind: .user, text: text))
+        if let c = waiting {
+            let a = ChatChoice.Answer(comment: text, typed: true)
+            transcript.answer(c.id, a)
+            run(c.resultText(a))
+        } else {
+            run(text)
+        }
+    }
+
+    /// The user answered a choice card.
+    func answer(_ choice: ChatChoice, picked: [String], comment: String) {
+        guard !running, transcript.pendingChoice?.id == choice.id else { return }
+        noteBackendSwitch()
+        let a = ChatChoice.Answer(picked: picked, comment: comment)
+        transcript.answer(choice.id, a)
+        run(choice.resultText(a))
+    }
+
+    private func noteBackendSwitch() {
         if let lastKind, lastKind != kind, !transcript.items.isEmpty {
             transcript.items.append(
                 ChatItem(kind: .notice, text: "Switched how the chat runs: the AI doesn't see the messages above."))
         }
         lastKind = kind
-        transcript.items.append(ChatItem(kind: .user, text: text))
+    }
+
+    private func run(_ text: String) {
         running = true
-        let context = note()
+        let context = [note(), ChatPrompt.directionNote(ChatSettings.directionStages)].compactMap { $0 }
+            .joined(separator: "\n")
         let setup = Setup(
             kind: kind, model: ChatSettings.model, effort: ChatSettings.effort, cliPath: ChatSettings.cliPath,
             key: kind == .api ? KeychainStore.chatKey() : nil, history: transcript.history,

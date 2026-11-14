@@ -78,6 +78,12 @@ public struct Scene: Codable, Equatable, Sendable {
     /// Reference audio (voiceover/music) played with the scene and mixed into exports.
     public var audio: AudioRef?
     public var nodes: [Node]
+    /// A throwaway scene for deciding a direction before the real build (look frames, storyboards, motion tests).
+    /// Drafts are left out of the scene list, default exports and checks; `scene_delete {drafts:true}` clears them.
+    public var draft: Bool?
+    /// Theme tokens for this scene only, over the project's (a look draft tries a palette without changing the
+    /// project's theme).
+    public var theme: [String: JSONValue]?
     /// Incremented on every saved change; used for conflict detection between editor and MCP.
     public var rev: Int
 
@@ -86,7 +92,7 @@ public struct Scene: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, duration, size, fps, background, camera, fog, post, markers, audio, nodes, rev
+        case id, name, duration, size, fps, background, camera, fog, post, markers, audio, nodes, draft, theme, rev
     }
 
     public init(from decoder: Decoder) throws {
@@ -103,10 +109,20 @@ public struct Scene: Codable, Equatable, Sendable {
         markers = try c.decodeIfPresent([Marker].self, forKey: .markers)
         audio = try c.decodeIfPresent(AudioRef.self, forKey: .audio)
         nodes = try c.decodeIfPresent([Node].self, forKey: .nodes) ?? []
+        draft = try c.decodeIfPresent(Bool.self, forKey: .draft)
+        theme = try c.decodeIfPresent([String: JSONValue].self, forKey: .theme)
         rev = try c.decodeIfPresent(Int.self, forKey: .rev) ?? 0
     }
 
     public func node(_ id: String) -> Node? { nodes.first { $0.id == id } }
+
+    public var isDraft: Bool { draft == true }
+
+    /// The project's theme with this scene's own tokens on top.
+    public func theme(over project: [String: JSONValue]) -> [String: JSONValue] {
+        guard let theme, !theme.isEmpty else { return project }
+        return project.merging(theme) { $1 }
+    }
 
     public func marker(_ name: String) -> Marker? { markers?.first { $0.name == name } }
 }

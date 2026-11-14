@@ -127,6 +127,13 @@ another app. Add your Anthropic API key in **Settings ▸ AI ▸ Chat** (it stay
 your API account), and pick the model and effort there. The chat uses the same tools as an outside agent, so every
 change is listed under **Activity** with one-click revert.
 
+Before building a new scene from a description, the chat settles the direction with you in quick steps, each a card
+you answer with a click and an optional comment: a short **brief**, a few **looks** (style frames of the key moment,
+each with its own palette and type), a **storyboard** of still beats, and the **motion feel** (the hero element moving
+in two or three styles, on a loop). Only then does it build the real scene. The steps are cheap draft scenes, kept out
+of the scene list and exports and deleted after the build. Choose which steps you want under **Settings ▸ AI ▸ Chat ▸
+Ask first**, or say "just build it". Outside agents get the same steps from `guide("direction")`.
+
 Experimental, off by default: the chat can run through your own installed Claude Code instead of an API key. Turn
 the option on with `defaults write com.xndrpr.arclight experimental.cliChat -bool true` (or
 `ARCLIGHT_EXPERIMENTAL_CLI_CHAT=1`), then choose it in **Settings ▸ AI ▸ Experimental**. It uses that install's

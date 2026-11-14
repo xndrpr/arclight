@@ -20,6 +20,12 @@ extension MCPServer {
                         "nodes": prop("array", "Node objects (see guide)", extra: ["items": ["type": "object"]]),
                         "copy_from": prop("string", "Existing scene id to copy nodes/settings from"),
                         "overwrite": prop("boolean", "Replace an existing scene with this id"),
+                        "draft": prop(
+                            "boolean",
+                            "A draft for deciding a direction (look frame, storyboard, motion test; see guide direction): hidden from the scene list and exports"
+                        ),
+                        "theme": prop(
+                            "object", "Tokens for this scene only, over the project theme (e.g. a look draft's palette and fonts)"),
                     ],
                     required: ["id"])
             ) { [unowned self] a in
@@ -31,6 +37,13 @@ extension MCPServer {
                 var scene = Scene(id: id)
                 if let from = a["copy_from"]?.string {
                     scene = try s.scene(from); scene.id = id; scene.rev = s.scenes[id]?.rev ?? 0
+                    // A real scene built from a draft doesn't stay a draft or keep the draft's own tokens.
+                    scene.draft = nil; scene.theme = nil
+                }
+                if a["draft"]?.bool == true { scene.draft = true }
+                if let t = a["theme"] {
+                    guard let o = t.object else { throw ToolError("theme must be an object of tokens") }
+                    scene.theme = o.isEmpty ? nil : o
                 }
                 if let d = a["duration"]?.double { scene.duration = try SceneOps.duration(d) }
                 if let bg = a["background"] { scene.background = try Prop(json: bg) }
@@ -99,10 +112,18 @@ extension MCPServer {
 
             Tool(
                 name: "scene_delete",
-                description: "Delete a scene (its history stays in .history).",
-                schema: schema(["scene": prop("string", "Scene id")], required: ["scene"])
+                description: "Delete a scene (its history stays in .history), or with drafts:true every draft scene.",
+                schema: schema([
+                    "scene": prop("string", "Scene id"),
+                    "drafts": prop("boolean", "Delete all draft scenes (after the real build)"),
+                ])
             ) { [unowned self] a in
                 let s = try requireStore()
+                if a["drafts"]?.bool == true {
+                    let ids = s.draftScenes.map(\.id)
+                    for id in ids { try s.deleteScene(id) }
+                    return text(ids.isEmpty ? "no drafts" : "deleted drafts: \(ids.joined(separator: ", "))")
+                }
                 let id = try a.str("scene")
                 _ = try s.scene(id)
                 try s.deleteScene(id)

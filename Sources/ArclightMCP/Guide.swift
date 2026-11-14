@@ -13,12 +13,14 @@ enum Guide {
         The user can leave notes for you while watching (editor_state lists open notes); do what they ask, then note_resolve with a short reply.
         YouTube thumbnails (thumbnails) live in the same project: thumbnail_create with ALL artboards and layers in one call → \
         thumbnail_render (feed:true) to check → thumbnail_apply for fixes → export {thumbnail, format:"youtube"}. See guide("thumbnails").
+        For a new scene from a description, settle the direction with the user before the full build: brief → look → storyboard → motion feel, \
+        each a cheap draft they choose from. See guide("direction").
         """
 
     /// Topics in reading order. Layer-type topics and "scene"/"common"/"symbols" are generated.
     static var topicNames: [String] {
         ["overview", "animation", "common"] + Schema.nodes.map(\.type) + [
-            "scene", "symbols", "ops", "export", "thumbnails", "recipes",
+            "scene", "symbols", "ops", "export", "direction", "thumbnails", "recipes",
         ]
     }
 
@@ -36,6 +38,9 @@ enum Guide {
         "images": ["thumbnails", "image"],
         "thumbnail": ["thumbnails"],
         "preview": ["thumbnails"],
+        "storyboard": ["direction"],
+        "styleframes": ["direction"],
+        "look": ["direction"],
     ]
 
     static func topic(_ name: String) -> String? {
@@ -46,6 +51,7 @@ enum Guide {
         case "ops": return ops
         case "export": return export
         case "recipes": return recipes
+        case "direction": return direction
         case "thumbnails": return thumbnails
         case "common": return Schema.transformReference
         case "scene": return Schema.sceneReference
@@ -143,6 +149,36 @@ enum Guide {
         Floors, light pools, cones, contact shadows and the ambient wash are all optional looks — add only what the style needs.
         """,
     ]
+
+    static let direction = """
+        # Direction: decide early, build once
+        A description leaves the style open, and a full build takes long to judge. So for a new scene (or a big restyle) agree on the \
+        direction in cheap steps first, and build the real thing only after that. Skip the stages the user turned off \
+        (the chat says which, in <direction>), skip everything when they say "just build it" or ask for a small change, \
+        and never repeat a stage they already settled.
+        Each stage ends with ONE question. In the in-app chat, ask it with ask_choice and stop: the user answers by clicking. \
+        Elsewhere, show the renders and ask in a short message, then wait for the answer.
+
+        1. Brief (stage "brief"): 3 short lines on how you read the idea: mood and references, structure (beats), length and format. \
+           ask_choice with no options: the user confirms it or writes what to change.
+        2. Look (stage "look"): 3 style frames (2 for a tight brief, 4 at most): the key moment of the scene as ONE still, each a clearly \
+           different direction (palette, type, composition, texture; not three shades of one idea). Each is a draft scene: \
+           scene_create {id:"look-a", draft:true, duration:1, theme:{bg,fg,muted,accent,display,body…}, nodes} with at most ~10 layers and \
+           no animation; style everything through tokens so the chosen theme carries over. theme_presets lists ready palettes to start from. \
+           Render all of them in one render_frames call per draft (times:[0.5], scale 0.25) to check them yourself, fix what's broken, \
+           then ask_choice with one option per draft: visual {scene:"look-a", time:0.5}, a 2–4 word title and a one-line note on the idea.
+        3. Storyboard (stage "storyboard"): in the chosen look, 3–6 beats of the scene in order as ONE draft scene ("board") where each beat \
+           holds still for 1 s (a group per beat with "in":n-1, "out":n). Real words, real layout, no motion yet. \
+           ask_choice with one option: visual {scene:"board", times:[0.5, 1.5, …]}, title "Storyboard", note listing the beats. \
+           If the user comments, change the board and ask again.
+        4. Motion feel (stage "motion"): the hero element of the board animating in, 2–3 ways that differ in timing and character: \
+           snappy (fast ease-out, ~0.35 s, slight overshoot), smooth (ease-in-out, ~0.8 s), playful (spring/bounce, staggered) — or what fits the brief. \
+           Draft scenes "motion-a"… of 1.5–2 s with only that element. ask_choice with visual {scene:"motion-a", loop:true} per option.
+        Then build: theme_set the chosen look's tokens on the project (so every scene shares them), scene_create the real scene with \
+        copy_from "board" (drafts and their tokens are dropped from the copy) and animate the beats in the chosen motion style; \
+        render_frames to check; finally scene_delete {drafts:true}.
+        Keep the stages fast: drafts are small and still, one render call per draft, no export.
+        """
 
     static let recipes = """
         # Recipes

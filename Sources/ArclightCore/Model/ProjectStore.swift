@@ -89,7 +89,10 @@ public final class ProjectStore {
         return try ProjectStore(url: url)
     }
 
-    public var orderedScenes: [Scene] { project.scenes.compactMap { scenes[$0] } }
+    /// The project's scenes in order, without drafts.
+    public var orderedScenes: [Scene] { project.scenes.compactMap { scenes[$0] }.filter { !$0.isDraft } }
+    /// Draft scenes (direction stages) in order.
+    public var draftScenes: [Scene] { project.scenes.compactMap { scenes[$0] }.filter(\.isDraft) }
     public var orderedThumbnails: [Thumbnail] { project.thumbnails.compactMap { thumbnails[$0] } }
 
     public func scene(_ id: String?) throws -> Scene {
