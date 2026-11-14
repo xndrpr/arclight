@@ -69,6 +69,12 @@ final class EditorDocument: ObservableObject {
     @Published var soloIds: Set<String> = []
     /// Left sidebar tab id: "scenes", "history" or "assets".
     @Published var leftTab = "scenes"
+    /// The AI panel's chat (Document+Chat.swift). Made when the panel first shows it.
+    lazy var chat: ChatController = {
+        let c = ChatController(project: url)
+        c.note = { [weak self] in self?.chatNote() }
+        return c
+    }()
 
     /// Primary + extra selection.
     var selectedIds: Set<String> { multiSelection.union(selection.map { [$0] } ?? []) }

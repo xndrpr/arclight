@@ -8,7 +8,7 @@ import SwiftUI
 /// Options: `--time`, `--select <layer id>`, `--tab scenes|history|assets|ai`, `--setup` (see `applySetup`; for thumbnails
 /// `board` fits all artboards and `tool:rect` picks a tool),
 /// `--theme <AppTheme raw value>`, `--size WxH`, `--panel settings|installhelp|shortcuts|inspector|themepopover|timeline|
-/// newproject|welcome|templates|inserttemplate|savetemplate` (library panels fill `--size`, e.g. 980x640).
+/// newproject|welcome|templates|inserttemplate|savetemplate|chat` (library panels fill `--size`, e.g. 980x640).
 public enum EditorSnapshot {
     public struct Options {
         public var project: String
@@ -63,6 +63,7 @@ public enum EditorSnapshot {
     private static func rootView(_ o: Options, doc: EditorDocument) -> AnyView {
         switch o.panel {
         case "settings": return AnyView(SettingsView(doc: doc, initialTab: o.tab))
+        case "chat": return AnyView(ChatView(doc: doc, chat: doc.chat).frame(width: CGFloat(o.width)).background(UI.panel))
         case "installhelp": return AnyView(InstallHelpView(close: {}))
         case "shortcuts": return AnyView(ShortcutsSheet(isPresented: .constant(true)))
         case "inspector": return AnyView(InspectorView(doc: doc).frame(width: CGFloat(o.width)))

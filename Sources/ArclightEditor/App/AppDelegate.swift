@@ -131,7 +131,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// ⌘, — settings for the frontmost project (or editor-only settings from the home screen).
-    @objc func showSettings(_ sender: Any?) {
+    @objc func showSettings(_ sender: Any?) { showSettings(tab: nil) }
+
+    /// Settings opened on one tab ("AI", …).
+    func showSettings(tab: String?) {
         let doc =
             (NSApp.keyWindow?.windowController as? EditorWindowController)?.doc
             ?? (NSApp.mainWindow?.windowController as? EditorWindowController)?.doc
@@ -139,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsWindow?.close()
         settingsWindow = AppWindows.open(
             width: 640, height: 560, title: doc.map { "Settings — \($0.project.name)" } ?? "Settings",
-            background: .panel, content: SettingsView(doc: doc))
+            background: .panel, content: SettingsView(doc: doc, initialTab: tab))
     }
 
     /// Help ▸ Install & Security Guide…: keeping macOS from blocking or trashing the unsigned app.
