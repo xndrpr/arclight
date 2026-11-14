@@ -22,12 +22,15 @@ enum AIPanelState {
     }
 }
 
-/// The AI panel's body: who's connected (or how to connect), notes for the AI, and the live activity feed of
-/// every AI call and editor save, with revert. Shown in `FloatingAIPanel` under `AIPanelHeader`.
+/// The AI panel's body, in two tabs. Chat: talk to the AI right here. Activity: who's connected (or how to
+/// connect an outside agent), notes for the AI, and the live feed of every AI call and editor save, with revert.
+/// Shown in `FloatingAIPanel` under `AIPanelHeader`.
 struct AIPanelContent: View {
     @ObservedObject var doc: EditorDocument
     @ObservedObject private var monitor = AgentMonitor.shared
     @AppStorage private var seen: String
+    @AppStorage(Pref.aiPanelTab) private var tab = "chat"
+    @Namespace private var tabNS
 
     init(doc: EditorDocument) {
         self.doc = doc
@@ -36,16 +39,41 @@ struct AIPanelContent: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            connection
+            tabs
             Hairline()
-            NotesSection(doc: doc)
-            Hairline()
-            ActivityPanel(doc: doc)
+            if tab == "chat" {
+                ChatView(doc: doc, chat: doc.chat)
+            } else {
+                connection
+                Hairline()
+                NotesSection(doc: doc)
+                Hairline()
+                ActivityPanel(doc: doc)
+            }
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(UI.panel)
+        // The chat shows its own changes as they happen, so both tabs count as having seen the feed.
         .onAppear { seen = doc.activity.last?.id ?? "" }
         .onChange(of: doc.activity.last?.id) { _, id in seen = id ?? "" }
+    }
+
+    private var tabs: some View {
+        HStack(spacing: 0) {
+            ForEach([("chat", "Chat"), ("activity", "Activity")], id: \.0) { id, title in
+                Button {
+                    withMotion(Motion.snappy) { tab = id }
+                } label: {
+                    Text(title).font(.system(size: 11.5, weight: tab == id ? .semibold : .regular))
+                        .tabPill(
+                            selected: tab == id, padding: 9, height: 22, cornerRadius: 5, gap: 1, hitHeight: 32,
+                            id: "aitab", in: tabNS)
+                }
+                .buttonStyle(.plain).cursor(.pointingHand)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 8).padding(.vertical, 3)
     }
 
     @ViewBuilder private var connection: some View {

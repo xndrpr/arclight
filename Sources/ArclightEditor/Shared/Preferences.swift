@@ -1,3 +1,4 @@
+import ArclightCore
 import Foundation
 
 /// Every UserDefaults key the editor uses. Views read them with `@AppStorage(Pref.x)`. The strings are stored in
@@ -43,6 +44,10 @@ enum Pref {
     static let aiFloat = "ui.aiFloat"
     /// Width of the docked AI panel before it floated; read once by `AIPanelLayout.load`, then removed.
     static let legacyAIWidth = "ui.aiWidth"
+    /// The AI panel's tab: "chat" or "activity".
+    static let aiPanelTab = "ui.aiPanel.tab"
+    /// Experimental: lets the chat run through the user's own command-line agent (`ChatSettings.cliAllowed`).
+    static let experimentalCLIChat = ChatSettings.cliFlagKey
     /// The last activity entry seen in this project (unread badge).
     static func activitySeen(_ project: URL) -> String { "ui.activitySeen." + project.standardizedFileURL.path }
 
