@@ -40,7 +40,9 @@ struct ChatSettingsView: View {
                     ForEach(ChatModel.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
                 .labelsHidden().frame(width: 130)
-                .onChange(of: model) { _, v in ChatSettings.model = v; ChatSettingsChange.post() }
+                .onChange(of: model) { _, v in
+                    ChatSettings.model = v; ChatSettingsChange.post()
+                }
             }
             HStack(spacing: 8) {
                 Text("Effort").font(UI.small).foregroundStyle(UI.label2).frame(width: 50, alignment: .leading)
@@ -48,7 +50,9 @@ struct ChatSettingsView: View {
                     ForEach(ChatEffort.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden().frame(width: 200)
-                .onChange(of: effort) { _, v in ChatSettings.effort = v; ChatSettingsChange.post() }
+                .onChange(of: effort) { _, v in
+                    ChatSettings.effort = v; ChatSettingsChange.post()
+                }
             }
             Text("Higher effort thinks longer: better on big changes, slower and costlier on small ones.")
                 .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
@@ -87,12 +91,18 @@ struct ChatCLISettingsView: View {
             .background(RoundedRectangle(cornerRadius: 6).fill(UI.warning.opacity(0.1)))
             Toggle("Run the chat through my installed Claude Code", isOn: $useCLI).toggleStyle(.switch)
                 .controlSize(.small)
-                .onChange(of: useCLI) { _, v in ChatSettings.backend = v ? .cli : .api; ChatSettingsChange.post() }
+                .onChange(of: useCLI) { _, v in
+                    ChatSettings.backend = v ? .cli : .api; ChatSettingsChange.post()
+                }
             HStack(spacing: 8) {
                 TextField("Path (empty: find it automatically)", text: $path)
                     .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 300)
-                    .onSubmit { ChatSettings.cliPath = path; detect() }
-                Button("Detect") { ChatSettings.cliPath = path; detect() }.buttonStyle(PillButtonStyle())
+                    .onSubmit {
+                        ChatSettings.cliPath = path; detect()
+                    }
+                Button("Detect") {
+                    ChatSettings.cliPath = path; detect()
+                }.buttonStyle(PillButtonStyle())
                     .disabled(checking)
             }
             HStack(spacing: 6) {

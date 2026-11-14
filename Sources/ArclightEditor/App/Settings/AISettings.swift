@@ -120,8 +120,12 @@ struct ImageGenerationSettings: View {
             }
             HStack(spacing: 6) {
                 StatusDot(color: saved && enabled ? UI.success : UI.faint)
-                Text(saved ? (enabled ? "Ready" : "Key saved, turned off") : "No key — get one at fal.ai ▸ Dashboard ▸ Keys")
-                    .font(UI.small).foregroundStyle(UI.label2)
+                Text(
+                    saved
+                        ? (enabled ? "Ready" : "Key saved, turned off")
+                        : "No key — get one at fal.ai ▸ Dashboard ▸ Keys"
+                )
+                .font(UI.small).foregroundStyle(UI.label2)
                 if !saved {
                     Link("Open fal.ai", destination: URL(string: "https://fal.ai/dashboard/keys")!).font(UI.small)
                 }
@@ -133,8 +137,10 @@ struct ImageGenerationSettings: View {
                     model("Fill / expand", \.fill)
                     model("Background", \.removeBackground)
                     model("Upscale", \.upscale)
-                    Button("Reset to defaults") { models = FalProvider.Models(); ImageSettings.models = models }
-                        .buttonStyle(PillButtonStyle()).controlSize(.small)
+                    Button("Reset to defaults") {
+                        models = FalProvider.Models(); ImageSettings.models = models
+                    }
+                    .buttonStyle(PillButtonStyle()).controlSize(.small)
                 }
                 .padding(.top, 4)
             }
@@ -145,8 +151,15 @@ struct ImageGenerationSettings: View {
     private func model(_ label: String, _ kp: WritableKeyPath<FalProvider.Models, String>) -> some View {
         HStack(spacing: 6) {
             Text(label).font(UI.small).foregroundStyle(UI.label2).frame(width: 90, alignment: .leading)
-            TextField("", text: Binding(get: { models[keyPath: kp] }, set: { models[keyPath: kp] = $0; ImageSettings.models = models }))
-                .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 240)
+            TextField(
+                "",
+                text: Binding(
+                    get: { models[keyPath: kp] },
+                    set: {
+                        models[keyPath: kp] = $0; ImageSettings.models = models
+                    })
+            )
+            .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 240)
         }
     }
 
