@@ -22,7 +22,7 @@ extension EditorDocument {
     func layerExists(_ id: String, in sceneId: String?) -> Bool {
         let s = sceneId == nil || sceneId == scene.id ? scene : sceneId.flatMap { id in
             store.scenes[id] ?? id.split(separator: "~", maxSplits: 1).map(String.init).nonEmptyPair.flatMap {
-                store.previews[$0.0]?.artboard($0.1)?.asScene(preview: $0.0)
+                store.thumbnails[$0.0]?.artboard($0.1)?.asScene(thumbnail: $0.0)
             }
         }
         return s?.node(id) != nil

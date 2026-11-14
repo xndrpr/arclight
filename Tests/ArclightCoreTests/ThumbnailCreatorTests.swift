@@ -6,17 +6,17 @@ import Testing
 @testable import ArclightMCP
 
 /// Phase 5: thumbnail templates, A/B variants, frames from video / scenes, references.
-@Suite(.serialized) struct PreviewCreatorTests {
-    @Test func everyPreviewTemplateDecodesValidatesAndKeepsTheTimestampCornerClear() throws {
-        let previews = BuiltInTemplates.all.filter(\.isPreview)
-        #expect(previews.count == PreviewTemplates.sources.count)  // none silently failed to decode
-        #expect(previews.count >= 6)
+@Suite(.serialized) struct ThumbnailCreatorTests {
+    @Test func everyThumbnailTemplateDecodesValidatesAndKeepsTheTimestampCornerClear() throws {
+        let thumbnails = BuiltInTemplates.all.filter(\.isThumbnail)
+        #expect(thumbnails.count == ThumbnailTemplates.sources.count)  // none silently failed to decode
+        #expect(thumbnails.count >= 6)
         let tp = try TempProject("tpl")
         defer { tp.remove() }
-        for t in previews {
+        for t in thumbnails {
             let a = try Templates.instantiateArtboard(t, params: [:], artboardId: "a", store: tp.store)
             #expect(a.size == [1280, 720], "\(t.id)")
-            let issues = Validator.validate(a.asScene(preview: "p"))
+            let issues = Validator.validate(a.asScene(thumbnail: "p"))
             #expect(issues.isEmpty, "\(t.id): \(issues)")
             // Image params fall back to the placeholder, which exists.
             for n in a.nodes where n.type == "image" {
@@ -25,7 +25,7 @@ import Testing
         }
         #expect(FileManager.default.fileExists(atPath: tp.store.assetsURL.appendingPathComponent(Templates.placeholderPhoto).path))
         // Scene templates stay scene templates.
-        #expect(BuiltInTemplates.all.filter { !$0.isPreview }.map(\.id).contains("title"))
+        #expect(BuiltInTemplates.all.filter { !$0.isThumbnail }.map(\.id).contains("title"))
     }
 
     @Test(.requiresMetal) func templatesRenderAndInstantiateOverMCP() throws {
@@ -35,18 +35,18 @@ import Testing
         func run(_ n: String, _ a: [String: JSONValue]) throws -> String {
             try s.tools.first { $0.name == n }!.run(a).compactMap { $0.object?["text"]?.string }.joined()
         }
-        #expect(try run("template_list", ["kind": "preview"]).contains("thumb-face-words (preview)"))
-        #expect(!(try run("template_list", ["kind": "preview"])).contains("lower-third"))
+        #expect(try run("template_list", ["kind": "thumbnail"]).contains("thumb-face-words (thumbnail)"))
+        #expect(!(try run("template_list", ["kind": "thumbnail"])).contains("lower-third"))
         let out = try run(
             "template_instantiate",
-            ["template": "thumb-face-words", "preview": "ep", "params": ["line1": "NEW", "line2": "LIFE"]])
-        #expect(out.contains("saved preview ep rev 1"))
-        _ = try run("template_instantiate", ["template": "thumb-minimal", "preview": "ep"])
-        let p = try ProjectStore(url: tp.url).preview("ep")
+            ["template": "thumb-face-words", "thumbnail": "ep", "params": ["line1": "NEW", "line2": "LIFE"]])
+        #expect(out.contains("saved thumbnail ep rev 1"))
+        _ = try run("template_instantiate", ["template": "thumb-minimal", "thumbnail": "ep"])
+        let p = try ProjectStore(url: tp.url).thumbnail("ep")
         #expect(p.artboards.map(\.id) == ["face-words", "minimal"])
         #expect(p.artboards[1].x > p.artboards[0].x)
         #expect(p.artboards[0].nodes.first { $0.id == "line1" }?.props["text"] == .value("NEW"))
-        let r = try s.tools.first { $0.name == "preview_render" }!.run(["preview": "ep", "scale": 0.2])
+        let r = try s.tools.first { $0.name == "thumbnail_render" }!.run(["thumbnail": "ep", "scale": 0.2])
         #expect(r.first?.object?["type"]?.string == "image")
     }
 
@@ -58,26 +58,26 @@ import Testing
             Node(id: "body", type: "text", props: ["text": .value("x"), "color": .value("$fg")]),
             Node(id: "pic", type: "image", props: ["src": .value("p.png")]),
         ]
-        let p = ArclightCore.Preview(id: "p", artboards: [a])
-        let (c, ids) = try PreviewVariants.makeAuto(.color, count: 2, of: "a", in: p)
+        let p = ArclightCore.Thumbnail(id: "p", artboards: [a])
+        let (c, ids) = try ThumbnailVariants.makeAuto(.color, count: 2, of: "a", in: p)
         #expect(ids == ["b", "c"])
         #expect(c.artboards.map(\.name) == ["A", "B", "C"])
         let b = try #require(c.artboard("b"))
         #expect(b.nodes[0].props["color"] != a.nodes[0].props["color"])  // the accent layer changed
         #expect(b.nodes[1] == a.nodes[1] && b.nodes[2] == a.nodes[2])  // nothing else did
         #expect(b.background == a.background)
-        let (z, _) = try PreviewVariants.makeAuto(.zoom, count: 1, of: "a", in: p)
+        let (z, _) = try ThumbnailVariants.makeAuto(.zoom, count: 1, of: "a", in: p)
         #expect(z.artboard("b")?.nodes[2].props["scale"] == .value(1.15))
         #expect(z.artboard("b")?.nodes[0] == a.nodes[0])
-        let (bg, _) = try PreviewVariants.makeAuto(.background, count: 1, of: "a", in: p)
+        let (bg, _) = try ThumbnailVariants.makeAuto(.background, count: 1, of: "a", in: p)
         #expect(bg.artboard("b")?.background != a.background && bg.artboard("b")?.nodes == a.nodes)
-        let (m, mids) = try PreviewVariants.make(
+        let (m, mids) = try ThumbnailVariants.make(
             [.init(name: "Words", ops: [["op": "set", "id": "title", "text": "BYE"]])], of: "a", in: p)
         #expect(m.artboard(mids[0])?.name == "Words")
         #expect(m.artboard(mids[0])?.nodes[0].props["text"] == .value("BYE"))
         #expect(m.artboard("a")?.nodes[0].props["text"] == .value("HI"))
         // Names in any script make valid ids.
-        let (u, uids) = try PreviewVariants.make([.init(name: "B · Дверь", ops: []), .init(name: "Пирс", ops: [])], of: "a", in: p)
+        let (u, uids) = try ThumbnailVariants.make([.init(name: "B · Дверь", ops: []), .init(name: "Пирс", ops: [])], of: "a", in: p)
         #expect(uids == ["b", "variant"])
         #expect(u.artboard("variant")?.name == "Пирс")
     }
@@ -105,10 +105,10 @@ import Testing
         #expect(snap.width == 320 && snap.asset.hasPrefix("scene-clip"))
 
         // Over MCP, a frame lands as the bottom layer of an artboard, filling it.
-        try tp.store.save(preview: ArclightCore.Preview(id: "p", artboards: [Artboard(id: "a")]))
+        try tp.store.save(thumbnail: ArclightCore.Thumbnail(id: "p", artboards: [Artboard(id: "a")]))
         let server = MCPServer(projectPath: tp.url.path)
-        _ = try server.tools.first { $0.name == "frame_extract" }!.run(["video": .string(video.path), "times": [1], "preview": "p"])
-        let a = try #require(try ProjectStore(url: tp.url).preview("p").artboards.first)
+        _ = try server.tools.first { $0.name == "frame_extract" }!.run(["video": .string(video.path), "times": [1], "thumbnail": "p"])
+        let a = try #require(try ProjectStore(url: tp.url).thumbnail("p").artboards.first)
         #expect(a.nodes.first?.type == "image" && a.nodes.first?.props["fit"] == .value("cover"))
     }
 

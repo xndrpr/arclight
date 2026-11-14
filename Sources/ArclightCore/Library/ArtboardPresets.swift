@@ -2,7 +2,7 @@ import CoreGraphics
 import CoreText
 import Foundation
 
-/// Named artboard sizes for previews.
+/// Named artboard sizes for thumbnails.
 public enum ArtboardPresets {
     public struct Preset: Sendable, Hashable {
         public let id: String

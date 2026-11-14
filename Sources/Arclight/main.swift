@@ -9,7 +9,7 @@ let usage = """
     USAGE
       arclight [open <project.arclight>]
           Open the editor (no arguments: welcome window). Projects from Apogee (.apogee) open too.
-      arclight render <project.arclight> [--scene ID | --preview ID [--artboard ID]] [--time S]... [--scale F] [--transparent] [--out FILE.png]
+      arclight render <project.arclight> [--scene ID | --thumbnail ID [--artboard ID]] [--time S]... [--scale F] [--transparent] [--out FILE.png]
           Render frames to PNG. Several --time values write FILE_0.png, FILE_1.png, ...
       arclight export <project.arclight> [--scene ID]... [--format mp4|hevc|prores|png] [--scale F] [--fps N] [--out DIR]
           Export scenes to video or a PNG sequence (default: all scenes, mp4, into <project>/exports).
@@ -100,12 +100,12 @@ case "render":
     let store = openStore(args.positional.first)
     let scene: Scene
     var renderProject = store.project
-    if let pid = args.one("preview") {
-        // A preview artboard: rendered as its scene (t = 0) with the page's theme.
+    if let pid = args.one("thumbnail") {
+        // A thumbnail artboard: rendered as its scene (t = 0) with the page's theme.
         do {
-            let p = try store.preview(pid)
+            let p = try store.thumbnail(pid)
             guard let a = p.artboard(args.one("artboard")) else { fail("no artboard '\(args.one("artboard") ?? "")'") }
-            scene = a.asScene(preview: p.id, rev: p.rev)
+            scene = a.asScene(thumbnail: p.id, rev: p.rev)
             renderProject = store.project.rendering(p)
         } catch { fail("\(error)") }
     } else {

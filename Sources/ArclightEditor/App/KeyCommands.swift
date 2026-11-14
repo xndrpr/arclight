@@ -11,7 +11,7 @@ enum KeyCommands {
     }
 
     /// The tool to return to when a held Space (temporary Hand) is released.
-    private static var springTool: PreviewTool?
+    private static var springTool: ThumbnailTool?
 
     static func handleUp(_ e: NSEvent) -> NSEvent? {
         if e.keyCode == 49, let t = springTool {
@@ -27,8 +27,8 @@ enum KeyCommands {
         // project unless the user is typing, or a focused button/switch should press (keyboard navigation).
         if e.keyCode == 49, e.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             let fr = NSApp.keyWindow?.firstResponder
-            // Preview: hold Space for the Hand tool (Figma / Photoshop); released in `handleUp`.
-            if let wc = EditorWindowController.frontmost, wc.doc.isPreview, !(fr is NSTextView && (fr as? NSTextView)?.isEditable == true),
+            // Thumbnail: hold Space for the Hand tool (Figma / Photoshop); released in `handleUp`.
+            if let wc = EditorWindowController.frontmost, wc.doc.isThumbnail, !(fr is NSTextView && (fr as? NSTextView)?.isEditable == true),
                 NSApp.keyWindow?.attachedSheet == nil
             {
                 if !e.isARepeat, wc.doc.tool != .hand { springTool = wc.doc.tool; wc.doc.tool = .hand }
@@ -40,7 +40,7 @@ enum KeyCommands {
                 let wc = EditorWindowController.frontmost
             {
                 if fr is NSText { NSApp.keyWindow?.makeFirstResponder(nil) }
-                if !wc.doc.isPreview { wc.doc.togglePlay() }  // previews are stills
+                if !wc.doc.isThumbnail { wc.doc.togglePlay() }  // thumbnails are stills
             }
             return nil
         }
@@ -67,8 +67,8 @@ enum KeyCommands {
                 e.keyCode == 123 ? (-k, 0) : e.keyCode == 124 ? (k, 0) : e.keyCode == 125 ? (0, k) : (0, -k)
             return doc.nudge(dx: d.0, dy: d.1) ? nil : e
         }
-        // Preview workspace: Figma / Photoshop command keys first (they differ from the Resolve-style motion map).
-        if doc.isPreview, previewCommand(e, doc: doc, mods: mods) { return nil }
+        // Thumbnail workspace: Figma / Photoshop command keys first (they differ from the Resolve-style motion map).
+        if doc.isThumbnail, thumbnailCommand(e, doc: doc, mods: mods) { return nil }
         // Command shortcuts handled here so they work no matter which SwiftUI view has focus.
         if mods.contains(.command) && !mods.contains(.control) {
             switch (chars, mods.contains(.shift)) {
@@ -84,13 +84,13 @@ enum KeyCommands {
             case ("l", false): doc.toggleLoop(); return nil
             case ("/", _), ("?", _): NotificationCenter.default.post(name: .showShortcuts, object: doc); return nil
             case ("1", false): doc.setWorkspace(.motion); return nil
-            case ("2", false): doc.setWorkspace(.preview); return nil
+            case ("2", false): doc.setWorkspace(.thumbnail); return nil
             default: return e
             }
         }
 
-        // Preview workspace: stills, so no transport or timeline keys. Arrows nudge layers (Figma: 1 px, ⇧ 10 px).
-        if doc.isPreview { return previewKey(e, doc: doc, wc: wc, mods: mods) }
+        // Thumbnail workspace: stills, so no transport or timeline keys. Arrows nudge layers (Figma: 1 px, ⇧ 10 px).
+        if doc.isThumbnail { return thumbnailKey(e, doc: doc, wc: wc, mods: mods) }
 
         guard !mods.contains(.control) else { return e }
         let shift = mods.contains(.shift), opt = mods.contains(.option)
@@ -138,8 +138,8 @@ enum KeyCommands {
         return nil
     }
 
-    /// ⌘ shortcuts of the Preview workspace (Figma first, Photoshop where Figma has none). True if handled.
-    private static func previewCommand(_ e: NSEvent, doc: EditorDocument, mods: NSEvent.ModifierFlags) -> Bool {
+    /// ⌘ shortcuts of the Thumbnail workspace (Figma first, Photoshop where Figma has none). True if handled.
+    private static func thumbnailCommand(_ e: NSEvent, doc: EditorDocument, mods: NSEvent.ModifierFlags) -> Bool {
         guard mods.contains(.command), !mods.contains(.control) else { return false }
         let chars = (e.charactersIgnoringModifiers ?? "").lowercased()
         let shift = mods.contains(.shift), opt = mods.contains(.option)
@@ -161,14 +161,14 @@ enum KeyCommands {
         case ("=", _, false), ("+", _, false): doc.postBoard(.zoomIn)
         case ("-", _, false): doc.postBoard(.zoomOut)
         case ("0", false, false): doc.postBoard(.actualSize)
-        case ("l", false, false): return true  // no loop in Preview
+        case ("l", false, false): return true  // no loop in Thumbnail
         default: return false
         }
         return true
     }
 
-    /// Plain keys of the Preview workspace: tools (V T R O L H Z), view (⇧0 ⇧1 ⇧2), artboards (A/F), nudges.
-    private static func previewKey(
+    /// Plain keys of the Thumbnail workspace: tools (V T R O L H Z), view (⇧0 ⇧1 ⇧2), artboards (A/F), nudges.
+    private static func thumbnailKey(
         _ e: NSEvent, doc: EditorDocument, wc: EditorWindowController, mods: NSEvent.ModifierFlags
     ) -> NSEvent? {
         guard mods.intersection([.control, .option, .command]).isEmpty else { return e }
@@ -215,8 +215,8 @@ enum KeyCommands {
         case "h": doc.tool = .hand
         case "z": doc.tool = .zoom
         case "a", "f":  // Figma's frame / artboard key: a new artboard like this one, to the right
-            if let a = doc.target.artboardId, let p = doc.target.previewId,
-                let ab = doc.openPreview?.artboard(a)
+            if let a = doc.target.artboardId, let p = doc.target.thumbnailId,
+                let ab = doc.openThumbnail?.artboard(a)
             {
                 doc.addArtboard(
                     preset: ArtboardPresets.all.first { $0.size == ab.size }

@@ -6,7 +6,7 @@ import simd
 /// AI pixel tools for agents: background removal (on-device, free), and with the user's fal.ai key generation,
 /// generative fill, expand and upscale. Every result is a new asset plus a normal (revertible) layer edit.
 extension MCPServer {
-    /// Where a layer lives: a motion scene, or an artboard of a preview page.
+    /// Where a layer lives: a motion scene, or an artboard of a thumbnail page.
     struct LayerHost {
         let scene: Scene
         let project: Project
@@ -15,19 +15,19 @@ extension MCPServer {
     }
 
     func layerHost(_ a: [String: JSONValue], store s: ProjectStore) throws -> LayerHost {
-        if let pid = a["preview"]?.string {
-            let p = try s.preview(pid)
+        if let pid = a["thumbnail"]?.string {
+            let p = try s.thumbnail(pid)
             guard let ab = p.artboard(a["artboard"]?.string) else {
-                throw ToolError("no artboard '\(a["artboard"]?.string ?? "")' in preview \(pid)")
+                throw ToolError("no artboard '\(a["artboard"]?.string ?? "")' in thumbnail \(pid)")
             }
             return LayerHost(
-                scene: ab.asScene(preview: p.id, rev: p.rev), project: s.project.rendering(p),
+                scene: ab.asScene(thumbnail: p.id, rev: p.rev), project: s.project.rendering(p),
                 describe: "\(p.id)/\(ab.id)"
             ) { [unowned self] ops, summary in
                 guard !ops.isEmpty else { return "" }
-                let r = try PreviewOps.apply(ops, to: p, artboard: ab.id)
-                let saved = try saveValidated(r.preview, store: s, expectedRev: p.rev, summary: summary)
-                return previewReport(saved, changed: r.changed, store: s)
+                let r = try ThumbnailOps.apply(ops, to: p, artboard: ab.id)
+                let saved = try saveValidated(r.thumbnail, store: s, expectedRev: p.rev, summary: summary)
+                return thumbnailReport(saved, changed: r.changed, store: s)
             }
         }
         let scene = try s.scene(try a.str("scene"))
@@ -47,8 +47,8 @@ extension MCPServer {
     }
 
     private static let hostProps: [String: JSONValue] = [
-        "scene": prop("string", "Scene id (or use preview + artboard)"),
-        "preview": prop("string", "Preview page id"),
+        "scene": prop("string", "Scene id (or use thumbnail + artboard)"),
+        "thumbnail": prop("string", "Thumbnail page id"),
         "artboard": prop("string", "Artboard id (default: the page's first)"),
     ]
 
@@ -122,7 +122,7 @@ extension MCPServer {
             Tool(
                 name: "image_generate",
                 description:
-                    "Generate a picture from a prompt (fal.ai, needs the user's key). Saved as an asset; with scene or preview it is also placed as a new image layer (centred on x,y, default the canvas centre). Describe subject, style, lighting; no text in the picture — add words as text layers.",
+                    "Generate a picture from a prompt (fal.ai, needs the user's key). Saved as an asset; with scene or thumbnail it is also placed as a new image layer (centred on x,y, default the canvas centre). Describe subject, style, lighting; no text in the picture — add words as text layers.",
                 schema: schema(
                     MCPServer.with([
                         "prompt": prop("string", "What to make"),
@@ -133,7 +133,7 @@ extension MCPServer {
             ) { [unowned self] a in
                 let s = try requireStore()
                 let provider = try falProvider()
-                let place = a["scene"] != nil || a["preview"] != nil
+                let place = a["scene"] != nil || a["thumbnail"] != nil
                 let h = place ? try layerHost(a, store: s) : nil
                 let w = try SafeNumber.int(a["width"]?.double ?? 1280, "width", in: 64...4096)
                 let hh = try SafeNumber.int(a["height"]?.double ?? 720, "height", in: 64...4096)

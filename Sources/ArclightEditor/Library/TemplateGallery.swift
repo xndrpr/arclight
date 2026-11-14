@@ -16,9 +16,9 @@ struct TemplateGallery: View {
     @State private var values: [String: String] = [:]
 
     var body: some View {
-        // Thumbnails (preview templates) when adding an artboard; scene templates for new scenes.
+        // Thumbnails (thumbnail templates) when adding an artboard; scene templates for new scenes.
         let all = Templates.all(project: doc.url).filter {
-            mode == .newArtboard ? $0.isPreview : mode == .newScene ? !$0.isPreview : true
+            mode == .newArtboard ? $0.isThumbnail : mode == .newScene ? !$0.isThumbnail : true
         }
         let shown = all.filter { category == nil || ($0.category ?? "Other") == category }
         let current = all.first { $0.id == selected } ?? shown.first

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Batch edits applied atomically to a preview page. Layer ops are the scene ops (`SceneOps`: add, set, key, remove,
+/// Batch edits applied atomically to a thumbnail page. Layer ops are the scene ops (`SceneOps`: add, set, key, remove,
 /// move, duplicate, scene) run on one artboard: the call's default artboard, or an op's own `"artboard"`.
 ///
 /// Page ops:
@@ -10,20 +10,20 @@ import Foundation
 /// - `{"op":"artboard_duplicate","id":"a","as":"b","name":"B"}`: a variant, placed to the right
 /// - `{"op":"artboard_remove","id":"b"}`
 /// - `{"op":"artboard_move","id":"b","index":0}`: order in the page (and in exports)
-/// - `{"op":"preview","name":"…","theme":"project" | {"detached":true,"tokens":{…}},"references":["ref.jpg"]}`
-public enum PreviewOps {
+/// - `{"op":"thumbnail","name":"…","theme":"project" | {"detached":true,"tokens":{…}},"references":["ref.jpg"]}`
+public enum ThumbnailOps {
     public struct Result {
-        public var preview: Preview
+        public var thumbnail: Thumbnail
         public var changed: [String]
         public var summary: String
     }
 
     static let pageOps: Set<String> = [
-        "artboard_add", "artboard_set", "artboard_duplicate", "artboard_remove", "artboard_move", "preview",
+        "artboard_add", "artboard_set", "artboard_duplicate", "artboard_remove", "artboard_move", "thumbnail",
     ]
 
-    public static func apply(_ ops: [JSONValue], to preview: Preview, artboard: String? = nil) throws -> Result {
-        var p = preview
+    public static func apply(_ ops: [JSONValue], to thumbnail: Thumbnail, artboard: String? = nil) throws -> Result {
+        var p = thumbnail
         var changed: [String] = [], summary: [String] = []
         for (i, op) in ops.enumerated() {
             guard let o = op.object, let kind = o["op"]?.string else { throw ModelError.invalid("op \(i): missing 'op'") }
@@ -34,11 +34,11 @@ public enum PreviewOps {
                     summary.append("\(kind) \(ids.joined(separator: ","))")
                 } else {
                     let target = o["artboard"]?.string ?? artboard ?? p.artboards.first?.id
-                    guard let target else { throw ModelError.invalid("the preview has no artboard yet (artboard_add)") }
+                    guard let target else { throw ModelError.invalid("the thumbnail has no artboard yet (artboard_add)") }
                     let k = try p.index(of: target)
                     var op = o
                     op["artboard"] = nil
-                    let r = try SceneOps.apply([.object(op)], to: p.artboards[k].asScene(preview: p.id))
+                    let r = try SceneOps.apply([.object(op)], to: p.artboards[k].asScene(thumbnail: p.id))
                     p.artboards[k].update(from: r.scene)
                     changed += r.changed.map { "\(target)/\($0)" }
                     summary.append("\(target): \(r.summary)")
@@ -49,7 +49,7 @@ public enum PreviewOps {
         }
         var seen = Set<String>()
         return Result(
-            preview: p, changed: changed.filter { seen.insert($0).inserted }, summary: summary.joined(separator: "; "))
+            thumbnail: p, changed: changed.filter { seen.insert($0).inserted }, summary: summary.joined(separator: "; "))
     }
 
     static func size(_ v: JSONValue) throws -> [Int] {
@@ -73,7 +73,7 @@ public enum PreviewOps {
         if let g = o["post"] { a.post = g == .null ? nil : try Prop(json: g) }
     }
 
-    static func page(_ kind: String, _ o: [String: JSONValue], _ p: inout Preview) throws -> [String] {
+    static func page(_ kind: String, _ o: [String: JSONValue], _ p: inout Thumbnail) throws -> [String] {
         switch kind {
         case "artboard_add":
             let id = try SafeName.id(o["id"]?.string ?? p.uniqueArtboardId("artboard"), what: "artboard id")
@@ -120,7 +120,7 @@ public enum PreviewOps {
             p.artboards.insert(a, at: try SafeNumber.clampedInt(at, "index", to: 0...p.artboards.count))
             return [id]
 
-        case "preview":
+        case "thumbnail":
             if let n = o["name"] { p.name = n.string }
             if let t = o["theme"] { p.theme = try t.decoded(as: ThemeLink.self) }
             if let r = o["references"] {

@@ -1,6 +1,6 @@
 import Foundation
 
-/// A still image on a preview page (a YouTube thumbnail, a Shorts cover, a variant of either). Layers are the same
+/// A still image on a thumbnail page (a YouTube thumbnail, a Shorts cover, a variant of either). Layers are the same
 /// `Node` JSON as motion scenes and render through the same renderer (see `asScene`); keyframes are allowed but the
 /// artboard is always rendered at t = 0.
 ///
@@ -41,14 +41,14 @@ public struct Artboard: Codable, Equatable, Sendable {
     public var width: Int { size.count > 0 ? size[0] : Artboard.youtubeSize[0] }
     public var height: Int { size.count > 1 ? size[1] : Artboard.youtubeSize[1] }
 
-    /// Id of the scene an artboard is edited and rendered as: `<preview>~<artboard>`. `~` never occurs in scene ids
+    /// Id of the scene an artboard is edited and rendered as: `<thumbnail>~<artboard>`. `~` never occurs in scene ids
     /// (`SafeName.id`), so it can't collide with a real scene.
-    public static func sceneId(preview: String, artboard: String) -> String { "\(preview)~\(artboard)" }
+    public static func sceneId(thumbnail: String, artboard: String) -> String { "\(thumbnail)~\(artboard)" }
 
     /// The artboard as a one-second scene of its own size, rendered at t = 0. Everything that works on scenes
     /// (renderer, bounds, validation, `SceneOps`, the editor's canvas and inspector) works on artboards through this.
-    public func asScene(preview: String, rev: Int = 0) -> Scene {
-        var s = Scene(id: Artboard.sceneId(preview: preview, artboard: id), duration: 1, nodes: nodes)
+    public func asScene(thumbnail: String, rev: Int = 0) -> Scene {
+        var s = Scene(id: Artboard.sceneId(thumbnail: thumbnail, artboard: id), duration: 1, nodes: nodes)
         s.name = name
         s.size = [width, height]
         s.background = background
@@ -67,7 +67,7 @@ public struct Artboard: Codable, Equatable, Sendable {
     }
 }
 
-/// How a preview gets its design tokens: shared with the project (default), or a detached copy that no longer
+/// How a thumbnail gets its design tokens: shared with the project (default), or a detached copy that no longer
 /// follows project theme changes.
 public enum ThemeLink: Codable, Equatable, Sendable {
     case project
@@ -92,8 +92,8 @@ public enum ThemeLink: Codable, Equatable, Sendable {
     public var isDetached: Bool { if case .detached = self { return true }; return false }
 }
 
-/// A preview page: one or more artboards (variants, formats) laid out on a board, stored as `previews/<id>.json`.
-public struct Preview: Codable, Equatable, Sendable {
+/// A thumbnail page: one or more artboards (variants, formats) laid out on a board, stored as `thumbnails/<id>.json`.
+public struct Thumbnail: Codable, Equatable, Sendable {
     public var id: String
     public var name: String?
     public var artboards: [Artboard]
@@ -126,12 +126,12 @@ public struct Preview: Codable, Equatable, Sendable {
 
     public func index(of artboard: String) throws -> Int {
         guard let i = artboards.firstIndex(where: { $0.id == artboard }) else {
-            throw ModelError.notFound("artboard '\(artboard)' in preview '\(id)'")
+            throw ModelError.notFound("artboard '\(artboard)' in thumbnail '\(id)'")
         }
         return i
     }
 
-    /// An artboard id not used in this preview: `base`, `base-2`, …
+    /// An artboard id not used in this thumbnail: `base`, `base-2`, …
     public func uniqueArtboardId(_ base: String) -> String {
         let ids = Set(artboards.map(\.id))
         if !ids.contains(base) { return base }
@@ -148,19 +148,19 @@ public struct Preview: Codable, Equatable, Sendable {
 }
 
 extension Project {
-    /// The tokens a preview renders with: the project theme, or its detached copy laid over it (tokens the copy
-    /// lacks still come from the project, so a detached preview never loses a token it references).
-    public func theme(for preview: Preview) -> [String: JSONValue] {
-        switch preview.theme {
+    /// The tokens a thumbnail renders with: the project theme, or its detached copy laid over it (tokens the copy
+    /// lacks still come from the project, so a detached thumbnail never loses a token it references).
+    public func theme(for thumbnail: Thumbnail) -> [String: JSONValue] {
+        switch thumbnail.theme {
         case .project: return theme
         case .detached(let t): return theme.merging(t) { _, mine in mine }
         }
     }
 
-    /// This project as seen by a preview's renderer: same everything, with the preview's theme.
-    public func rendering(_ preview: Preview) -> Project {
+    /// This project as seen by a thumbnail's renderer: same everything, with the thumbnail's theme.
+    public func rendering(_ thumbnail: Thumbnail) -> Project {
         var p = self
-        p.theme = theme(for: preview)
+        p.theme = theme(for: thumbnail)
         return p
     }
 }

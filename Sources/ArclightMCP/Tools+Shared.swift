@@ -48,9 +48,9 @@ extension MCPServer {
             lines.append(
                 "scene \(sc.id)  \(String(format: "%g", sc.duration))s  \(sc.nodes.count) nodes  rev \(sc.rev)")
         }
-        for pv in s.orderedPreviews {
+        for pv in s.orderedThumbnails {
             lines.append(
-                "preview \(pv.id)  " + pv.artboards.map { "\($0.id) \($0.width)x\($0.height)" }.joined(separator: ", ")
+                "thumbnail \(pv.id)  " + pv.artboards.map { "\($0.id) \($0.width)x\($0.height)" }.joined(separator: ", ")
                     + "  rev \(pv.rev)" + (pv.theme.isDetached ? "  (own theme)" : ""))
         }
         return lines.joined(separator: "\n")

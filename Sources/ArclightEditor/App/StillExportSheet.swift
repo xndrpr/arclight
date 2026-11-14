@@ -2,7 +2,7 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// Export for the Preview workspace: the open artboard (or every artboard of the page) as images.
+/// Export for the Thumbnail workspace: the open artboard (or every artboard of the page) as images.
 struct StillExportSheet: View {
     @ObservedObject var doc: EditorDocument
     @Binding var isPresented: Bool
@@ -24,7 +24,7 @@ struct StillExportSheet: View {
 
     var body: some View {
         let outDir = dest ?? doc.url.appendingPathComponent("exports")
-        let page = doc.openPreview
+        let page = doc.openThumbnail
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Export").font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
@@ -83,7 +83,7 @@ struct StillExportSheet: View {
         .themedRoot()
     }
 
-    private func summary(_ page: ArclightCore.Preview?) -> String {
+    private func summary(_ page: ArclightCore.Thumbnail?) -> String {
         guard let page else { return "Nothing to export" }
         if allArtboards && page.artboards.count > 1 { return "“\(page.name ?? page.id)” · \(page.artboards.count) artboards" }
         let a = doc.target.artboardId.flatMap { page.artboard($0) }
@@ -99,7 +99,7 @@ struct StillExportSheet: View {
 
     private func run(_ dir: URL) {
         doc.saveNow()
-        guard let page = doc.openPreview else { return }
+        guard let page = doc.openThumbnail else { return }
         let boards = allArtboards ? page.artboards : page.artboards.filter { $0.id == doc.target.artboardId }
         let project = doc.store.project, assets = doc.assets, kind = kind, alpha = transparent
         running = true; results = []; error = nil
@@ -119,7 +119,7 @@ struct StillExportSheet: View {
                     let name = "\(page.id)_\(a.id).\(o.format.ext)"
                     out.append(
                         try ex.export(
-                            artboard: a, preview: page, project: project, assets: assets,
+                            artboard: a, thumbnail: page, project: project, assets: assets,
                             to: dir.appendingPathComponent(name), options: o))
                 }
                 DispatchQueue.main.async {

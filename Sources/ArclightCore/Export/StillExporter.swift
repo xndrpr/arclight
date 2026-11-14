@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// Image formats for preview artboards.
+/// Image formats for thumbnail artboards.
 public enum StillFormat: String, CaseIterable, Sendable {
     case png, jpg
     public var ext: String { rawValue }
@@ -37,7 +37,7 @@ extension ImageFile {
     }
 }
 
-/// Exports preview artboards as PNG or JPG. The YouTube preset renders 1280×720 (or the artboard's own size scaled
+/// Exports thumbnail artboards as PNG or JPG. The YouTube preset renders 1280×720 (or the artboard's own size scaled
 /// to 720p height for other ratios) as a JPG under YouTube's 2 MB thumbnail limit.
 public struct StillExporter {
     public static let youtubeMaxBytes = 2 * 1024 * 1024
@@ -69,15 +69,15 @@ public struct StillExporter {
     public init(renderer: Renderer) { self.renderer = renderer }
 
     public func export(
-        artboard: Artboard, preview: Preview, project: Project, assets: URL?, to url: URL, options o: Options
+        artboard: Artboard, thumbnail: Thumbnail, project: Project, assets: URL?, to url: URL, options o: Options
     ) throws -> Result {
         let saved = (renderer.draft, renderer.only)
         renderer.draft = false; renderer.only = nil
         defer { renderer.draft = saved.0; renderer.only = saved.1 }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let scene = artboard.asScene(preview: preview.id, rev: preview.rev)
+        let scene = artboard.asScene(thumbnail: thumbnail.id, rev: thumbnail.rev)
         let img = try renderer.image(
-            scene: scene, project: project.rendering(preview), assets: assets, time: 0, scale: o.scale,
+            scene: scene, project: project.rendering(thumbnail), assets: assets, time: 0, scale: o.scale,
             transparent: o.transparent && o.format == .png)
         switch o.format {
         case .png:

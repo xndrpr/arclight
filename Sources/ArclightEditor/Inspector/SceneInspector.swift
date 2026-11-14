@@ -10,10 +10,10 @@ struct SceneInspector: View {
         let (w, h) = doc.project.size(for: Scene(id: "_"))
         return Schema.sceneFields.compactMap { f in
             // Artboards are stills of a fixed size: no duration, frame rate or audio; size via presets.
-            if doc.isPreview, ["duration", "fps", "audio", "markers"].contains(f.name) { return nil }
+            if doc.isThumbnail, ["duration", "fps", "audio", "markers"].contains(f.name) { return nil }
             switch f.name {
             case "camera", "fog", "post": return nil
-            case "size" where doc.isPreview:
+            case "size" where doc.isThumbnail:
                 return Field(
                     f.name, f.kind, "Artboard size in pixels (YouTube thumbnails: 1280×720).", label: "Size",
                     default: [.number(1280), .number(720)], animatable: false)
@@ -34,9 +34,9 @@ struct SceneInspector: View {
         let s = doc.scene
         VStack(alignment: .leading, spacing: 0) {
             InspectorHeader(
-                icon: doc.isPreview ? "photo" : "film", title: s.name ?? doc.target.artboardId ?? s.id,
-                subtitle: doc.isPreview ? "Artboard" : "Scene",
-                doc: doc.isPreview
+                icon: doc.isThumbnail ? "photo" : "film", title: s.name ?? doc.target.artboardId ?? s.id,
+                subtitle: doc.isThumbnail ? "Artboard" : "Scene",
+                doc: doc.isThumbnail
                     ? "Nothing selected: artboard size, background, look and theme."
                     : "Nothing selected: scene settings, camera, look and theme."
             ) {
@@ -50,7 +50,7 @@ struct SceneInspector: View {
             let shown = fields.filter { $0.matches(query) }
             let nameShown = matches("scene name")
             if nameShown || !shown.isEmpty {
-                CollapsibleSection(title: doc.isPreview ? "Artboard" : "Scene", forceOpen: !query.isEmpty) {
+                CollapsibleSection(title: doc.isThumbnail ? "Artboard" : "Scene", forceOpen: !query.isEmpty) {
                     VStack(alignment: .leading, spacing: UI.rowSpacing) {
                         if nameShown {
                             HStack(spacing: 6) {
@@ -75,7 +75,7 @@ struct SceneInspector: View {
                 CollapsibleSection(title: "3D & Look", forceOpen: !query.isEmpty) {
                     VStack(spacing: UI.rowSpacing) {
                         // Artboards keep no camera (flat stills); the Look grade does apply to them.
-                        if !doc.isPreview {
+                        if !doc.isThumbnail {
                             NavRow(
                                 icon: "video", title: "Camera",
                                 detail: s.camera == nil

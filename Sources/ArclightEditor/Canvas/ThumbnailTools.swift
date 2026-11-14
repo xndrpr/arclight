@@ -3,8 +3,8 @@ import ArclightCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Tools of the Preview workspace (Figma letters first, Photoshop's where Figma has none).
-enum PreviewTool: String, CaseIterable, Identifiable {
+/// Tools of the Thumbnail workspace (Figma letters first, Photoshop's where Figma has none).
+enum ThumbnailTool: String, CaseIterable, Identifiable {
     case move, marquee, text, rect, ellipse, line, image, hand, zoom
     var id: String { rawValue }
 
@@ -63,7 +63,7 @@ extension EditorDocument {
     /// Every artboard of the open page in board pixels relative to the open artboard (which sits at 0,0 in its own
     /// canvas pixels), with the open one using the working copy's size.
     func boardRects() -> [(artboard: Artboard, rect: CGRect)] {
-        guard let p = openPreview, let aid = target.artboardId, let active = p.artboard(aid) else { return [] }
+        guard let p = openThumbnail, let aid = target.artboardId, let active = p.artboard(aid) else { return [] }
         return p.artboards.map { a in
             let size = a.id == aid ? canvasSize : CGSize(width: a.width, height: a.height)
             return (a, CGRect(x: a.x - active.x, y: a.y - active.y, width: size.width, height: size.height))
@@ -76,7 +76,7 @@ extension EditorDocument {
 
     /// Moves an artboard on the board by `d` canvas pixels.
     func moveArtboard(_ aid: String, by d: CGSize) {
-        guard let pid = target.previewId, let a = store.previews[pid]?.artboard(aid) else { return }
+        guard let pid = target.thumbnailId, let a = store.thumbnails[pid]?.artboard(aid) else { return }
         applyPage(
             pid,
             [["op": "artboard_set", "id": .string(aid), "x": .number((a.x + d.width).rounded()),
@@ -85,7 +85,7 @@ extension EditorDocument {
     }
 
     /// Creates a layer with a drawing tool from a dragged rectangle in canvas pixels (a click gives a default size).
-    func createLayer(with tool: PreviewTool, from a: CGPoint, to b: CGPoint, square: Bool = false) {
+    func createLayer(with tool: ThumbnailTool, from a: CGPoint, to b: CGPoint, square: Bool = false) {
         let m = Double(min(canvasSize.width, canvasSize.height))
         var w = Double(abs(b.x - a.x)), h = Double(abs(b.y - a.y))
         let clicked = w < 4 && h < 4
@@ -117,17 +117,17 @@ extension EditorDocument {
     }
 }
 
-/// The vertical tool bar on the left of the Preview canvas.
-struct PreviewToolBar: View {
+/// The vertical tool bar on the left of the Thumbnail canvas.
+struct ThumbnailToolBar: View {
     @ObservedObject var doc: EditorDocument
 
     var body: some View {
         VStack(spacing: 2) {
-            ForEach([PreviewTool.move, .marquee, .text, .rect, .ellipse, .line, .image], id: \.self) { button($0) }
+            ForEach([ThumbnailTool.move, .marquee, .text, .rect, .ellipse, .line, .image], id: \.self) { button($0) }
             Hairline().frame(width: 18).padding(.vertical, 3)
             ArtboardToolMenu(doc: doc)
             Hairline().frame(width: 18).padding(.vertical, 3)
-            ForEach([PreviewTool.hand, .zoom], id: \.self) { button($0) }
+            ForEach([ThumbnailTool.hand, .zoom], id: \.self) { button($0) }
         }
         .padding(3)
         .background(RoundedRectangle(cornerRadius: 8).fill(UI.panel.opacity(0.94)))
@@ -135,7 +135,7 @@ struct PreviewToolBar: View {
         .fixedSize()
     }
 
-    private func button(_ t: PreviewTool) -> some View {
+    private func button(_ t: ThumbnailTool) -> some View {
         let on = doc.tool == t
         return Button {
             ClickTrace.fired("tool \(t.rawValue)")
@@ -160,7 +160,7 @@ private struct ArtboardToolMenu: View {
             Section("Add artboard") {
                 ForEach(ArtboardPresets.all, id: \.self) { p in Button(p.title) { doc.addArtboard(preset: p) } }
             }
-            if let a = doc.target.artboardId, let p = doc.target.previewId {
+            if let a = doc.target.artboardId, let p = doc.target.thumbnailId {
                 Divider()
                 Button("Duplicate as variant") { doc.duplicateArtboard(a, in: p) }
             }
@@ -174,7 +174,7 @@ private struct ArtboardToolMenu: View {
 }
 
 /// Over the open canvas while a drawing, hand or zoom tool is active: turns clicks and drags into that tool's action.
-struct PreviewToolOverlay: View {
+struct ThumbnailToolOverlay: View {
     @ObservedObject var doc: EditorDocument
     @ObservedObject var vp: ViewportState
     let scale: CGFloat

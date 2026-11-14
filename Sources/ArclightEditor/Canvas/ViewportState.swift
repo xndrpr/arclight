@@ -14,7 +14,7 @@ final class ViewportState: ObservableObject {
     /// Plain NSView behind the viewport, used to hit-test AppKit events (scroll, pinch, clicks).
     weak var anchorView: NSView?
     let events = CanvasEvents()
-    /// Preview workspace: every artboard of the page, in the open artboard's pixel coordinates (it sits at 0,0).
+    /// Thumbnail workspace: every artboard of the page, in the open artboard's pixel coordinates (it sits at 0,0).
     /// Panning may then reach any artboard, and "fit all" frames the whole page. nil for motion scenes.
     var board: CGRect?
 

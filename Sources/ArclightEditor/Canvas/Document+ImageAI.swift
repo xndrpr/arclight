@@ -120,7 +120,7 @@ extension EditorDocument {
     }
 }
 
-/// Floating bar at the bottom of the Preview canvas: AI actions for the selection (Photoshop's contextual task bar).
+/// Floating bar at the bottom of the Thumbnail canvas: AI actions for the selection (Photoshop's contextual task bar).
 struct AIContextBar: View {
     @ObservedObject var doc: EditorDocument
     @State private var prompt = ""

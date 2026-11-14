@@ -141,16 +141,16 @@ public struct Project: Codable, Equatable, Sendable {
     public var theme: [String: JSONValue]
     /// Scene order for the timeline/export.
     public var scenes: [String]
-    /// Preview page order (`previews/<id>.json`).
-    public var previews: [String]
-    /// The workspace the editor last showed: "motion" or "preview".
+    /// Thumbnail page order (`thumbnails/<id>.json`).
+    public var thumbnails: [String]
+    /// The workspace the editor last showed: "motion" or "thumbnail".
     public var workspace: String?
 
     public init(
         name: String, size: [Int] = [1920, 1080], fps: Double = 30, theme: [String: JSONValue] = Project.defaultTheme
     ) {
         self.name = name; self.size = size; self.fps = fps; self.theme = theme; self.scenes = []
-        self.previews = []
+        self.thumbnails = []
     }
 
     public static let defaultTheme: [String: JSONValue] = [
@@ -158,7 +158,8 @@ public struct Project: Codable, Equatable, Sendable {
         "display": "HelveticaNeue-CondensedBlack", "body": "HelveticaNeue-Medium",
     ]
 
-    enum CodingKeys: String, CodingKey { case name, size, fps, theme, scenes, previews, workspace }
+    enum CodingKeys: String, CodingKey { case name, size, fps, theme, scenes, thumbnails, workspace }
+    enum LegacyKeys: String, CodingKey { case previews }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Untitled"
@@ -166,11 +167,14 @@ public struct Project: Codable, Equatable, Sendable {
         fps = try c.decodeIfPresent(Double.self, forKey: .fps) ?? 30
         theme = try c.decodeIfPresent([String: JSONValue].self, forKey: .theme) ?? Project.defaultTheme
         scenes = try c.decodeIfPresent([String].self, forKey: .scenes) ?? []
-        previews = try c.decodeIfPresent([String].self, forKey: .previews) ?? []
-        workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
+        // Before the rename, thumbnails were "previews" (key, folder and workspace name).
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        thumbnails = try c.decodeIfPresent([String].self, forKey: .thumbnails)
+            ?? legacy.decodeIfPresent([String].self, forKey: .previews) ?? []
+        workspace = try c.decodeIfPresent(String.self, forKey: .workspace).map { $0 == "preview" ? "thumbnail" : $0 }
     }
 
-    /// Old projects have no previews: leave the key out so their project.json is rewritten unchanged.
+    /// Old projects have no thumbnails: leave the key out so their project.json is rewritten unchanged.
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(name, forKey: .name)
@@ -178,7 +182,7 @@ public struct Project: Codable, Equatable, Sendable {
         try c.encode(fps, forKey: .fps)
         try c.encode(theme, forKey: .theme)
         try c.encode(scenes, forKey: .scenes)
-        if !previews.isEmpty { try c.encode(previews, forKey: .previews) }
+        if !thumbnails.isEmpty { try c.encode(thumbnails, forKey: .thumbnails) }
         try c.encodeIfPresent(workspace, forKey: .workspace)
     }
 

@@ -79,7 +79,7 @@ struct TopBar: View {
                 .help(b)
             }
             ThemeQuickButton(doc: doc)
-            if !doc.isPreview {
+            if !doc.isThumbnail {
                 CanvasMenu(doc: doc, showFPS: density > .compact)
                 PerformanceToggle(doc: doc, label: density == .full)
             }
@@ -90,7 +90,7 @@ struct TopBar: View {
                 (NSApp.delegate as? AppDelegate)?.showSettings(nil)
             }
             Button("Export", action: export).buttonStyle(PillButtonStyle(primary: true))
-                .help(doc.isPreview ? "Export thumbnails (⌘E)" : "Export video (⌘E)")
+                .help(doc.isThumbnail ? "Export thumbnails (⌘E)" : "Export video (⌘E)")
                 .disabled(doc.isEmptyWorkspace)
         }
     }
@@ -153,8 +153,8 @@ private struct SceneNameRename: View {
     var body: some View {
         InlineRename(
             text: doc.scene.name ?? doc.target.artboardId ?? doc.scene.id,
-            placeholder: doc.isPreview ? "Artboard name" : "Scene name", bold: false, editing: $editing,
-            help: doc.isPreview ? "Current artboard — click to rename" : "Current scene — click to rename"
+            placeholder: doc.isThumbnail ? "Artboard name" : "Scene name", bold: false, editing: $editing,
+            help: doc.isThumbnail ? "Current artboard — click to rename" : "Current scene — click to rename"
         ) { n in
             if case .artboard(let p, let a) = doc.target { doc.renameArtboard(a, in: p, n) } else {
                 doc.renameScene(doc.scene.id, n)
@@ -226,7 +226,7 @@ private struct HomeLogoButton: View {
     }
 }
 
-/// Motion | Preview: what this project window edits. ⌘1 / ⌘2.
+/// Motion | Thumbnail: what this project window edits. ⌘1 / ⌘2.
 struct WorkspaceSwitch: View {
     @ObservedObject var doc: EditorDocument
     @Namespace private var ns
@@ -257,7 +257,7 @@ struct WorkspaceSwitch: View {
                         id: "workspace", in: ns)
                 }
                 .buttonStyle(TracedPlainButtonStyle(name: "workspace \(ws.rawValue)")).cursor(.pointingHand)
-                .help(ws == .motion ? "Motion: scenes and the timeline (⌘1)" : "Preview: YouTube thumbnails and covers (⌘2)")
+                .help(ws == .motion ? "Motion: scenes and the timeline (⌘1)" : "Thumbnails: YouTube thumbnails and Shorts covers (⌘2)")
             }
         }
         .padding(2)

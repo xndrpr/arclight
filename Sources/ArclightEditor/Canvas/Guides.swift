@@ -5,7 +5,7 @@ import SwiftUI
 struct GuidesOverlay: View {
     let canvas: CGSize
     let scale: CGFloat
-    var preview = false
+    var thumbnail = false
     @AppStorage(Pref.timestampBadge) private var badge = true
     @AppStorage(Pref.centerLines) private var center = false
     @AppStorage(Pref.safeAreas) private var safe = false
@@ -31,7 +31,7 @@ struct GuidesOverlay: View {
                 seg(CGPoint(x: w / 2, y: 0), CGPoint(x: w / 2, y: h), dash: [6, 4])
                 seg(CGPoint(x: 0, y: h / 2), CGPoint(x: w, y: h / 2), dash: [6, 4])
             }
-            if preview && badge {
+            if thumbnail && badge {
                 // Where YouTube draws the video length: keep faces and words out of it.
                 let r = FeedMock.badgeRect(width: Double(canvas.width), height: Double(canvas.height))
                 let rect = Path(

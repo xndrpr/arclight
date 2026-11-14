@@ -7,53 +7,53 @@ extension MCPServer {
     func creatorTools() -> [Tool] {
         [
             Tool(
-                name: "preview_variants",
+                name: "thumbnail_variants",
                 description:
-                    "Make A/B variants of a finished thumbnail artboard for YouTube Test & Compare (up to 3 thumbnails). Each variant is a copy placed to the right, named B, C…, that should change ONE thing. Either give variants [{name?, ops:[…]}] (ops as in preview_apply, run on the copy), or auto: color | zoom | background with count.",
+                    "Make A/B variants of a finished thumbnail artboard for YouTube Test & Compare (up to 3 thumbnails). Each variant is a copy placed to the right, named B, C…, that should change ONE thing. Either give variants [{name?, ops:[…]}] (ops as in thumbnail_apply, run on the copy), or auto: color | zoom | background with count.",
                 schema: schema(
                     [
-                        "preview": prop("string", "Preview id"),
+                        "thumbnail": prop("string", "Thumbnail id"),
                         "artboard": prop("string", "The artboard to vary (default: the first)"),
                         "variants": prop(
                             "array", "[{\"name\":\"B\",\"ops\":[{\"op\":\"set\",\"id\":\"title\",\"text\":\"I'M DONE\"}]}]",
                             extra: ["items": ["type": "object"]]),
                         "auto": prop("string", "Automatic: what each copy changes", extra: ["enum": ["color", "zoom", "background"]]),
                         "count": prop("integer", "With auto: how many copies (default 2)"),
-                    ], required: ["preview"])
+                    ], required: ["thumbnail"])
             ) { [unowned self] a in
                 let s = try requireStore()
-                let p = try s.preview(try a.str("preview"))
+                let p = try s.thumbnail(try a.str("thumbnail"))
                 guard let base = p.artboard(a["artboard"]?.string) else { throw ToolError("no such artboard") }
-                let made: (Preview, [String])
+                let made: (Thumbnail, [String])
                 if let axis = a["auto"]?.string {
-                    guard let ax = PreviewVariants.Axis(rawValue: axis) else { throw ToolError("auto must be color, zoom or background") }
+                    guard let ax = ThumbnailVariants.Axis(rawValue: axis) else { throw ToolError("auto must be color, zoom or background") }
                     let n = try SafeNumber.int(a["count"]?.double ?? 2, "count", in: 1...5)
-                    made = try PreviewVariants.makeAuto(ax, count: n, of: base.id, in: p)
+                    made = try ThumbnailVariants.makeAuto(ax, count: n, of: base.id, in: p)
                 } else {
-                    let specs = try (a["variants"]?.array ?? []).map { v -> PreviewVariants.Spec in
+                    let specs = try (a["variants"]?.array ?? []).map { v -> ThumbnailVariants.Spec in
                         guard let o = v.object else { throw ToolError("each variant is an object") }
-                        return PreviewVariants.Spec(name: o["name"]?.string, ops: o["ops"]?.array ?? [])
+                        return ThumbnailVariants.Spec(name: o["name"]?.string, ops: o["ops"]?.array ?? [])
                     }
                     guard !specs.isEmpty else { throw ToolError("give variants or auto") }
-                    made = try PreviewVariants.make(specs, of: base.id, in: p)
+                    made = try ThumbnailVariants.make(specs, of: base.id, in: p)
                 }
                 let saved = try saveValidated(made.0, store: s, expectedRev: p.rev, summary: "variants of \(base.id)")
                 return text(
-                    previewReport(saved, changed: made.1, store: s)
-                        + "\nexport the set with export {preview:\"\(p.id)\"}; check them side by side with preview_render")
+                    thumbnailReport(saved, changed: made.1, store: s)
+                        + "\nexport the set with export {thumbnail:\"\(p.id)\"}; check them side by side with thumbnail_render")
             },
 
             Tool(
                 name: "frame_extract",
                 description:
-                    "Still frames for a thumbnail: from a video file (times in seconds, or best: the sharpest frames with the best faces), or a motion scene rendered at a time. Saved as image assets; with preview (+ artboard) the first one is also placed as a new image layer filling the artboard (fit cover), at the bottom.",
+                    "Still frames for a thumbnail: from a video file (times in seconds, or best: the sharpest frames with the best faces), or a motion scene rendered at a time. Saved as image assets; with thumbnail (+ artboard) the first one is also placed as a new image layer filling the artboard (fit cover), at the bottom.",
                 schema: schema(
                     [
                         "video": prop("string", "Video file path or an asset name (mov, mp4, m4v)"),
                         "scene": prop("string", "Instead of video: a motion scene id to render"),
                         "times": prop("array", "Seconds", extra: ["items": ["type": "number"]]),
                         "best": prop("integer", "Pick this many best frames (video only)"),
-                        "preview": prop("string", "Place the first frame in this preview"),
+                        "thumbnail": prop("string", "Place the first frame in this thumbnail"),
                         "artboard": prop("string", "Artboard (default: the first)"),
                     ])
             ) { [unowned self] a in
@@ -82,10 +82,10 @@ extension MCPServer {
                     "\($0.asset)  t=\(String(format: "%.2f", $0.time))s  \($0.width)x\($0.height)"
                         + ($0.score.map { "  score \(String(format: "%.2f", $0))" } ?? "")
                 }
-                if let pid = a["preview"]?.string, let f = frames.first {
-                    let p = try s.preview(pid)
+                if let pid = a["thumbnail"]?.string, let f = frames.first {
+                    let p = try s.thumbnail(pid)
                     guard let ab = p.artboard(a["artboard"]?.string) else { throw ToolError("no such artboard") }
-                    let id = SceneOps.uniqueId("frame", in: ab.asScene(preview: p.id))
+                    let id = SceneOps.uniqueId("frame", in: ab.asScene(thumbnail: p.id))
                     let op: JSONValue = [
                         "op": "add", "index": 0,
                         "node": [
@@ -94,9 +94,9 @@ extension MCPServer {
                             "width": .number(Double(ab.width)), "height": .number(Double(ab.height)), "fit": "cover",
                         ],
                     ]
-                    let r = try PreviewOps.apply([op], to: p, artboard: ab.id)
-                    let saved = try saveValidated(r.preview, store: s, expectedRev: p.rev, summary: "frame \(f.asset)")
-                    lines.append(previewReport(saved, changed: r.changed, store: s))
+                    let r = try ThumbnailOps.apply([op], to: p, artboard: ab.id)
+                    let saved = try saveValidated(r.thumbnail, store: s, expectedRev: p.rev, summary: "frame \(f.asset)")
+                    lines.append(thumbnailReport(saved, changed: r.changed, store: s))
                 }
                 return text(lines.joined(separator: "\n"))
             },
@@ -104,15 +104,15 @@ extension MCPServer {
             Tool(
                 name: "reference_add",
                 description:
-                    "Keep a reference thumbnail with a preview page (never exported): a YouTube video URL or id (its public thumbnail is fetched), an image path, or an asset name. Then reference_analyze it.",
+                    "Keep a reference thumbnail with a thumbnail page (never exported): a YouTube video URL or id (its public thumbnail is fetched), an image path, or an asset name. Then reference_analyze it.",
                 schema: schema(
                     [
-                        "preview": prop("string", "Preview id"),
+                        "thumbnail": prop("string", "Thumbnail id"),
                         "source": prop("string", "YouTube URL / id, image path, or asset name"),
-                    ], required: ["preview", "source"])
+                    ], required: ["thumbnail", "source"])
             ) { [unowned self] a in
                 let s = try requireStore()
-                let p = try s.preview(try a.str("preview"))
+                let p = try s.thumbnail(try a.str("thumbnail"))
                 let src = try a.str("source")
                 let name: String
                 if let yt = ReferenceAnalyzer.youtubeID(src) {
@@ -127,8 +127,8 @@ extension MCPServer {
                     name = src
                 }
                 let refs = (p.references ?? []).filter { $0 != name } + [name]
-                let r = try PreviewOps.apply([["op": "preview", "references": .array(refs.map { .string($0) })]], to: p)
-                _ = try saveValidated(r.preview, store: s, expectedRev: p.rev, summary: "reference \(name)")
+                let r = try ThumbnailOps.apply([["op": "thumbnail", "references": .array(refs.map { .string($0) })]], to: p)
+                _ = try saveValidated(r.thumbnail, store: s, expectedRev: p.rev, summary: "reference \(name)")
                 return text("reference \(name) added to \(p.id) (\(refs.count) total) — reference_analyze {asset:\"\(name)\"}")
             },
 
