@@ -2,13 +2,27 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// Settings ▸ AI: who's connected, how to connect Claude Code or any other MCP client, and this project's path.
+/// Settings ▸ AI: the in-app chat, who's connected, how to connect Claude Code or any other MCP client, and this
+/// project's path.
 struct AISettings: View {
     let doc: EditorDocument?
     @ObservedObject private var monitor = AgentMonitor.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            SettingRow(
+                label: "Chat",
+                note:
+                    "Talk to the AI in the AI panel's Chat tab. Uses your own Anthropic API key, billed by Anthropic per use. The key stays in your Keychain."
+            ) { ChatSettingsView() }
+            if ChatSettings.cliAllowed(defaults: Pref.store) {
+                Hairline()
+                SettingRow(
+                    label: "Experimental",
+                    note: "Shown because the experimental command-line chat flag is on."
+                ) { ChatCLISettingsView() }
+            }
+            Hairline()
             SettingRow(
                 label: "Connected",
                 note: "AI agents using Arclight right now. Each agent session runs its own Arclight MCP server."
