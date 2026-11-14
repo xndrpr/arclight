@@ -38,7 +38,7 @@ extension MCPServer {
         case "scene_get":
             if let i = a["ids"]?.array?.compactMap(\.string) { return "read layers " + i.joined(separator: ", ") }
             return a["full"]?.bool == true ? "read full scene" : "read scene outline"
-        case "scene_delete": return "delete scene \(a["scene"]?.string ?? "")"
+        case "scene_delete": return a["drafts"]?.bool == true ? "delete drafts" : "delete scene \(a["scene"]?.string ?? "")"
         case "render_frames":
             let t = a["times"]?.doubles?.map { String(format: "%g", $0) }.joined(separator: ", ") ?? "4 frames"
             return "preview at t = \(t)"

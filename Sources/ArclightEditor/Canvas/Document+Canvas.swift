@@ -143,7 +143,7 @@ extension EditorDocument {
     private func cameraState(at T: Double? = nil) -> CameraState {
         let t = T ?? time
         let cs = canvasSize
-        renderer.evaluator.theme = project.theme
+        renderer.evaluator.theme = scene.theme(over: project.theme)
         return CameraState.make(
             renderer.evaluator.sceneValue(scene.camera, scene, T: t),
             width: Float(cs.width), height: Float(cs.height), time: t)
@@ -151,7 +151,7 @@ extension EditorDocument {
 
     /// Resolved camera value at the playhead (eye/target with defaults).
     func cameraEyeTarget() -> (eye: SIMD3<Float>, target: SIMD3<Float>) {
-        renderer.evaluator.theme = project.theme
+        renderer.evaluator.theme = scene.theme(over: project.theme)
         let v = renderer.evaluator.sceneValue(scene.camera, scene, T: time)
         return Space3D.eyeTarget(v, width: Float(canvasSize.width), height: Float(canvasSize.height))
     }

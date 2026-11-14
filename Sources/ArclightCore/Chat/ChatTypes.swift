@@ -40,11 +40,13 @@ public enum ChatEvent: Sendable, Equatable {
     case toolEnd(id: String, ok: Bool, summary: String, image: Data?)
     /// Something the user should know that isn't the model's words (cut off, declined, retrying…).
     case notice(String)
+    /// The model asked the user to decide a direction stage; the turn ends and waits for the answer.
+    case choice(ChatChoice)
 }
 
 /// One row of the chat as the user sees it. The model's own history lives in `ChatTranscript.history`.
 public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
-    public enum Kind: String, Codable, Sendable { case user, assistant, thinking, tool, notice, error }
+    public enum Kind: String, Codable, Sendable { case user, assistant, thinking, tool, notice, error, choice }
     public var id: String
     public var kind: Kind
     public var text: String
@@ -54,15 +56,18 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
     public var ok: Bool?
     /// Tool rows: the first image the tool returned (kept in memory only; not saved with the transcript).
     public var image: Data?
+    /// Choice rows: the question, its options and (once given) the user's answer.
+    public var choice: ChatChoice?
 
     public init(
         id: String = UUID().uuidString, kind: Kind, text: String, tool: String? = nil, input: String? = nil,
-        ok: Bool? = nil
+        ok: Bool? = nil, choice: ChatChoice? = nil
     ) {
         self.id = id; self.kind = kind; self.text = text; self.tool = tool; self.input = input; self.ok = ok
+        self.choice = choice
     }
 
-    enum CodingKeys: String, CodingKey { case id, kind, text, tool, input, ok }
+    enum CodingKeys: String, CodingKey { case id, kind, text, tool, input, ok, choice }
 }
 
 /// A project's chat, saved at `<project>/.arclight/chat.json` so it survives closing the project.
@@ -101,7 +106,21 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
                 items[i].ok = ok; items[i].text = summary; items[i].image = image
             }
         case .notice(let s): items.append(ChatItem(kind: .notice, text: s))
+        case .choice(let c): items.append(ChatItem(id: c.id, kind: .choice, text: c.question, choice: c))
         }
+    }
+
+    /// The question still waiting for the user, if the last turn ended on one.
+    public var pendingChoice: ChatChoice? {
+        guard let i = items.lastIndex(where: { $0.kind == .choice }), let c = items[i].choice, c.answer == nil,
+            !items[(i + 1)...].contains(where: { $0.kind == .user })
+        else { return nil }
+        return c
+    }
+
+    /// Records the user's answer on the choice row.
+    public mutating func answer(_ id: String, _ a: ChatChoice.Answer) {
+        if let i = items.lastIndex(where: { $0.id == id && $0.kind == .choice }) { items[i].choice?.answer = a }
     }
 
     private mutating func extend(_ kind: ChatItem.Kind, _ s: String) {
@@ -121,6 +140,7 @@ public enum ChatSettings {
         var effort: ChatEffort?
         var backend: ChatBackendKind?
         var cliPath: String?
+        var direction: [ChatChoice.Stage]?
     }
 
     nonisolated(unsafe) public static var overrideURL: URL? { didSet { memo = nil } }
@@ -155,6 +175,12 @@ public enum ChatSettings {
     public static var backend: ChatBackendKind {
         get { cliAllowed() ? (read().backend ?? .api) : .api }
         set { update { $0.backend = newValue } }
+    }
+
+    /// The direction stages the AI asks about before building a new scene (Settings ▸ AI ▸ Chat). All by default.
+    public static var directionStages: [ChatChoice.Stage] {
+        get { read().direction ?? ChatChoice.Stage.allCases }
+        set { update { $0.direction = ChatChoice.Stage.allCases.filter(newValue.contains) } }
     }
 
     /// A path to the command-line agent set by hand (empty: look in the usual places).

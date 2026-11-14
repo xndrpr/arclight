@@ -8,7 +8,7 @@ extension Renderer {
         scene: Scene, project: Project, assets: URL?, time T: Double, scale: Double, transparent: Bool,
         commandBuffer cb: MTLCommandBuffer, targets t: RenderTargets, output: MTLTexture
     ) {
-        evaluator.theme = project.theme
+        evaluator.theme = scene.theme(over: project.theme)
         currentAssets = assets
         let (cw, ch) = project.size(for: scene)
         let W = Float(cw), H = Float(ch)

@@ -49,7 +49,16 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(chat.transcript.items) { ChatRow(item: $0).id($0.id) }
+                    ForEach(chat.transcript.items) { item in
+                        Group {
+                            if item.kind == .choice, let c = item.choice {
+                                ChoiceCard(doc: doc, chat: chat, choice: c)
+                            } else {
+                                ChatRow(item: item)
+                            }
+                        }
+                        .id(item.id)
+                    }
                     if chat.running { ChatWorking().id("working") }
                 }
                 .padding(12)
@@ -92,6 +101,8 @@ struct ChatRow: View {
             ChatToolRow(item: item)
         case .notice:
             Text(item.text).font(UI.small).foregroundStyle(UI.dim).frame(maxWidth: .infinity, alignment: .leading)
+        case .choice:
+            EmptyView()  // drawn by ChoiceCard (it needs the document and the chat)
         case .error:
             HStack(alignment: .top, spacing: 6) {
                 Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 10)).foregroundStyle(UI.danger)

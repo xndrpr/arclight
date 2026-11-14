@@ -14,6 +14,7 @@ struct ChatSettingsView: View {
     @State private var saved = KeychainStore.chatKey() != nil
     @State private var model = ChatSettings.model
     @State private var effort = ChatSettings.effort
+    @State private var stages = Set(ChatSettings.directionStages)
     @State private var message: String?
 
     var body: some View {
@@ -56,7 +57,27 @@ struct ChatSettingsView: View {
             }
             Text("Higher effort thinks longer: better on big changes, slower and costlier on small ones.")
                 .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("Ask first").font(UI.small).foregroundStyle(UI.label2).frame(width: 50, alignment: .leading)
+                ForEach(ChatChoice.Stage.allCases, id: \.self) { st in
+                    Toggle(st.label, isOn: binding(st)).toggleStyle(.checkbox).font(UI.small)
+                }
+            }
+            .padding(.top, 4)
+            Text(
+                "Before building a new scene, the AI checks these with you in the chat: a short brief, a few style frames to pick from, a storyboard of still beats, and how things move. Turn all off to build straight away, or say “just build it”."
+            )
+            .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private func binding(_ st: ChatChoice.Stage) -> Binding<Bool> {
+        Binding(
+            get: { stages.contains(st) },
+            set: { on in
+                if on { stages.insert(st) } else { stages.remove(st) }
+                ChatSettings.directionStages = Array(stages)
+            })
     }
 
     private func save(_ k: String?) {

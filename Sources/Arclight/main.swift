@@ -136,7 +136,7 @@ case "render":
 
 case "export":
     let store = openStore(args.positional.first)
-    let ids = args.options["scene"] ?? store.project.scenes
+    let ids = args.options["scene"] ?? store.orderedScenes.map(\.id)
     var o = ExportOptions()
     if let f = args.one("format") {
         guard let ff = ExportFormat(rawValue: f) else { fail("format must be mp4, hevc, prores or png") }; o.format = ff

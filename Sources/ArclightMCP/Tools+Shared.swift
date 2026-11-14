@@ -23,7 +23,7 @@ extension MCPServer {
         lines += shown.map { "  " + Outline.node($0) }
         if changed.count > shown.count { lines.append("  … \(changed.count - shown.count) more") }
         // Fonts that are not installed silently fall back, so say so.
-        let ev = Evaluator(theme: s.project.theme)
+        let ev = Evaluator(theme: scene.theme(over: s.project.theme))
         var missing = Set<String>()
         for n in scene.nodes where n.type == "text" {
             let f = Doctor.fontName(of: n, evaluator: ev)
@@ -47,6 +47,10 @@ extension MCPServer {
         for sc in s.orderedScenes {
             lines.append(
                 "scene \(sc.id)  \(String(format: "%g", sc.duration))s  \(sc.nodes.count) nodes  rev \(sc.rev)")
+        }
+        let drafts = s.draftScenes
+        if !drafts.isEmpty {
+            lines.append("drafts (direction stages; scene_delete drafts:true when done): " + drafts.map(\.id).joined(separator: ", "))
         }
         for pv in s.orderedThumbnails {
             lines.append(
