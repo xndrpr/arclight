@@ -84,6 +84,27 @@ import Testing
         #expect(bad.error == "the agent stopped: error_during_execution")
     }
 
+    @Test func cliAskChoiceBecomesACardOnceTheServerAcceptsIt() {
+        var p = CLIStreamParser()
+        let call =
+            #"{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"mcp__arclight__ask_choice","input":{"stage":"look","question":"Which?","options":[{"id":"A","title":"Warm","visual":{"scene":"look-a","time":0.5}}]}}]}}"#
+        #expect(p.feed(Data(call.utf8)).isEmpty)
+        let ok = #"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"Shown"}]}}"#
+        guard case .choice(let c)? = p.feed(Data(ok.utf8)).first else {
+            Issue.record("expected a choice")
+            return
+        }
+        #expect(c.id == "t1" && c.stage == .look && c.options.first?.visual?.scene == "look-a")
+
+        var q = CLIStreamParser()
+        _ = q.feed(Data(call.replacingOccurrences(of: "t1", with: "t2").utf8))
+        let bad =
+            #"{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t2","content":"ask_choice: nope","is_error":true}]}}"#
+        let events = q.feed(Data(bad.utf8))
+        #expect(events.count == 2)
+        #expect(events.last == .toolEnd(id: "t2", ok: false, summary: "ask_choice: nope", image: nil))
+    }
+
     @Test func cliArgumentsAttachOnlyArclightTools() {
         let b = CLIChatBackend(
             executable: URL(fileURLWithPath: "/bin/echo"), model: .sonnet, projectPath: "/p.arclight",
@@ -93,7 +114,9 @@ import Testing
         #expect(first[first.firstIndex(of: "--tools")! + 1] == "")
         #expect(first[first.firstIndex(of: "--allowedTools")! + 1] == "mcp__arclight__*")
         #expect(first.suffix(2) == ["--session-id", "u-1"])
-        #expect(first[first.firstIndex(of: "--mcp-config")! + 1].contains(#""args":["mcp","--project","/p.arclight"]"#))
+        #expect(
+            first[first.firstIndex(of: "--mcp-config")! + 1].contains(
+                #""args":["mcp","--project","/p.arclight","--chat"]"#))
         #expect(b.arguments(resume: "u-1", newSession: "x").suffix(2) == ["--resume", "u-1"])
     }
 

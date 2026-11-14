@@ -130,7 +130,8 @@ change is listed under **Activity** with one-click revert.
 Before building a new scene from a description, the chat settles the direction with you in quick steps, each a card
 you answer with a click and an optional comment: a short **brief**, a few **looks** (style frames of the key moment,
 each with its own palette and type), a **storyboard** of still beats, and the **motion feel** (the hero element moving
-in two or three styles, on a loop). Only then does it build the real scene. The steps are cheap draft scenes, kept out
+in two or three styles, on a loop). **View large** on a card opens the options full size to compare at leisure (← →
+to flip through them and the storyboard's beats, Space to pick, Return to go). Only then does it build the real scene. The steps are cheap draft scenes, kept out
 of the scene list and exports and deleted after the build. Choose which steps you want under **Settings ▸ AI ▸ Chat ▸
 Ask first**, or say "just build it". Outside agents get the same steps from `guide("direction")`.
 
