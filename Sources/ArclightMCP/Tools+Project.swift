@@ -50,8 +50,8 @@ extension MCPServer {
                         "fps": prop("number", "Default 30"),
                         "start": prop(
                             "string",
-                            "What the editor opens first: motion (default) or preview (a thumbnail-only project needs no scenes)",
-                            extra: ["enum": ["motion", "preview"]]),
+                            "What the editor opens first: motion (default) or thumbnail (a thumbnail-only project needs no scenes)",
+                            extra: ["enum": ["motion", "thumbnail"]]),
                     ], required: ["path"])
             ) { [unowned self] a in
                 let url = URL(expandingPath: try a.str("path"))
@@ -62,7 +62,7 @@ extension MCPServer {
                 let size = try a["size"].map(MCPServer.canvasSize)
                 let fps = try a["fps"].map(MCPServer.frameRate)
                 let start = a["start"]?.string
-                if let start, !["motion", "preview"].contains(start) { throw ToolError("start must be motion or preview") }
+                if let start, !["motion", "thumbnail"].contains(start) { throw ToolError("start must be motion or thumbnail") }
                 let s = try ProjectStore.create(
                     at: url, name: a["name"]?.string ?? url.deletingPathExtension().lastPathComponent)
                 var p = s.project

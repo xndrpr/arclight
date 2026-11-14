@@ -44,16 +44,16 @@ extension EditorDocument {
         }
     }
 
-    /// The working artboard written back into its preview page (rev-checked like scenes: if the AI saved the page
+    /// The working artboard written back into its thumbnail page (rev-checked like scenes: if the AI saved the page
     /// first, theirs wins and our edit stays in undo).
     private func saveArtboard(_ pid: String, _ aid: String) {
-        guard let disk = store.previews[pid], let ab = disk.artboard(aid) else { return }
-        let stored = ab.asScene(preview: pid, rev: disk.rev)
+        guard let disk = store.thumbnails[pid], let ab = disk.artboard(aid) else { return }
+        let stored = ab.asScene(thumbnail: pid, rev: disk.rev)
         guard scene != stored else { return }
         do {
             let diff = SceneDiff.diff(stored, scene)
             let saved = try store.save(
-                artboardScene: scene, preview: pid, artboard: aid, expectedRev: baseRev, summary: diff.summary,
+                artboardScene: scene, thumbnail: pid, artboard: aid, expectedRev: baseRev, summary: diff.summary,
                 source: .editor)
             ActivityLog.append(
                 ActivityEntry(
@@ -66,10 +66,10 @@ extension EditorDocument {
             stamps = fileStamps()
         } catch {
             try? store.reload()
-            if let p = store.previews[pid], let a = p.artboard(aid) {
+            if let p = store.thumbnails[pid], let a = p.artboard(aid) {
                 undoStack.append(scene)
-                scene = a.asScene(preview: pid, rev: p.rev); baseRev = p.rev
-                flash("Preview changed outside the editor — reloaded (⌘Z restores your edit)")
+                scene = a.asScene(thumbnail: pid, rev: p.rev); baseRev = p.rev
+                flash("Thumbnail changed outside the editor — reloaded (⌘Z restores your edit)")
             }
         }
     }
@@ -83,8 +83,8 @@ extension EditorDocument {
         for f in [url.appendingPathComponent("project.json")] + list("scenes") {
             out[f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
         }
-        for f in list("previews") {
-            out["previews/" + f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
+        for f in list("thumbnails") {
+            out["thumbnails/" + f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
         }
         return out
     }
@@ -111,7 +111,7 @@ extension EditorDocument {
         project = effectiveProject()
         switch target {
         case .none:
-            // Something was created outside the editor (an agent's first scene or preview): open it.
+            // Something was created outside the editor (an agent's first scene or thumbnail): open it.
             let (s, t, rev) = EditorDocument.initialTarget(workspace, store: store)
             if t != .none { open(s, target: t, rev: rev) }
             objectWillChange.send()
@@ -142,16 +142,16 @@ extension EditorDocument {
         objectWillChange.send()
     }
 
-    /// Live reload of the open artboard when its page changed on disk (an agent's preview_apply).
+    /// Live reload of the open artboard when its page changed on disk (an agent's thumbnail_apply).
     private func pollArtboard(_ pid: String, _ aid: String) {
-        guard let p = store.previews[pid] else {
-            let (s, t, rev) = EditorDocument.initialTarget(.preview, store: store)  // page deleted on disk
+        guard let p = store.thumbnails[pid] else {
+            let (s, t, rev) = EditorDocument.initialTarget(.thumbnail, store: store)  // page deleted on disk
             open(s, target: t, rev: rev)
             return
         }
         guard p.rev != baseRev else { return }
-        guard let a = p.artboard(aid) else { open(preview: pid); return }  // artboard removed: show the page's first
-        let disk = a.asScene(preview: pid, rev: p.rev)
+        guard let a = p.artboard(aid) else { open(thumbnail: pid); return }  // artboard removed: show the page's first
+        let disk = a.asScene(thumbnail: pid, rev: p.rev)
         let diff = SceneDiff.diff(scene, disk)
         if diff.isEmpty { baseRev = p.rev; scene = disk; return }  // another artboard of this page changed
         undoStack.append(scene)
@@ -177,7 +177,7 @@ extension EditorDocument {
     func history() -> [ProjectStore.HistoryEntry] {
         switch target {
         case .scene(let id): return store.history(id)
-        case .artboard(let pid, _): return store.previewHistory(pid)
+        case .artboard(let pid, _): return store.thumbnailHistory(pid)
         case .none: return []
         }
     }
@@ -186,7 +186,7 @@ extension EditorDocument {
     func snapshotScene(_ rev: Int) -> Scene? {
         switch target {
         case .scene(let id): return store.snapshot(id, rev: rev)
-        case .artboard(let pid, let aid): return store.previewSnapshot(pid, rev: rev)?.artboard(aid)?.asScene(preview: pid)
+        case .artboard(let pid, let aid): return store.thumbnailSnapshot(pid, rev: rev)?.artboard(aid)?.asScene(thumbnail: pid)
         case .none: return nil
         }
     }
@@ -213,8 +213,8 @@ extension EditorDocument {
     private func writeState() {
         let state: JSONValue = [
             "workspace": .string(workspace.rawValue),
-            "scene": target.previewId == nil && target != .none ? .string(scene.id) : .null,
-            "preview": target.previewId.map { .string($0) } ?? .null,
+            "scene": target.thumbnailId == nil && target != .none ? .string(scene.id) : .null,
+            "thumbnail": target.thumbnailId.map { .string($0) } ?? .null,
             "artboard": target.artboardId.map { .string($0) } ?? .null,
             "selection": selection.map { .string($0) } ?? .null,
             "time": .number((time * 1000).rounded() / 1000), "playing": .bool(playing),

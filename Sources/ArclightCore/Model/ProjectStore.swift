@@ -6,7 +6,7 @@ import Foundation
 /// Name.arclight/        (or Name.apogee/, the old extension)
 ///   project.json
 ///   scenes/<id>.json
-///   previews/<id>.json  (thumbnail pages; optional)
+///   thumbnails/<id>.json  (thumbnail pages; optional)
 ///   assets/
 ///   .arclight/          activity log and notes (copied once from an old .apogee/)
 /// ```
@@ -14,11 +14,11 @@ public final class ProjectStore {
     public let url: URL
     public internal(set) var project: Project
     public private(set) var scenes: [String: Scene]
-    public internal(set) var previews: [String: Preview] = [:]
+    public internal(set) var thumbnails: [String: Thumbnail] = [:]
 
     public var assetsURL: URL { url.appendingPathComponent("assets") }
     var scenesURL: URL { url.appendingPathComponent("scenes") }
-    var previewsURL: URL { url.appendingPathComponent("previews") }
+    var thumbnailsURL: URL { url.appendingPathComponent("thumbnails") }
 
     public init(url: URL) throws {
         self.url = url
@@ -61,19 +61,24 @@ public final class ProjectStore {
         // Scene order follows project.json, with scenes found on disk appended.
         let known = Set(scenes.keys)
         project.scenes = project.scenes.filter(known.contains) + known.subtracting(project.scenes).sorted()
-        previews = [:]
-        for f in (try? fm.contentsOfDirectory(at: previewsURL, includingPropertiesForKeys: nil)) ?? []
+        thumbnails = [:]
+        // Projects made before the rename keep their pages in previews/: move them to thumbnails/.
+        let legacy = url.appendingPathComponent("previews")
+        if fm.fileExists(atPath: legacy.path), !fm.fileExists(atPath: thumbnailsURL.path) {
+            try? fm.moveItem(at: legacy, to: thumbnailsURL)
+        }
+        for f in (try? fm.contentsOfDirectory(at: thumbnailsURL, includingPropertiesForKeys: nil)) ?? []
         where f.pathExtension == "json" {
             do {
-                let p = try JSONDecoder().decode(Preview.self, from: Data(contentsOf: f))
-                previews[p.id] = p
+                let p = try JSONDecoder().decode(Thumbnail.self, from: Data(contentsOf: f))
+                thumbnails[p.id] = p
             } catch {
-                throw ModelError.invalid("previews/\(f.lastPathComponent): \(error)")
+                throw ModelError.invalid("thumbnails/\(f.lastPathComponent): \(error)")
             }
         }
-        let knownPreviews = Set(previews.keys)
-        project.previews =
-            project.previews.filter(knownPreviews.contains) + knownPreviews.subtracting(project.previews).sorted()
+        let knownThumbnails = Set(thumbnails.keys)
+        project.thumbnails =
+            project.thumbnails.filter(knownThumbnails.contains) + knownThumbnails.subtracting(project.thumbnails).sorted()
     }
 
     public static func create(at url: URL, name: String) throws -> ProjectStore {
@@ -85,7 +90,7 @@ public final class ProjectStore {
     }
 
     public var orderedScenes: [Scene] { project.scenes.compactMap { scenes[$0] } }
-    public var orderedPreviews: [Preview] { project.previews.compactMap { previews[$0] } }
+    public var orderedThumbnails: [Thumbnail] { project.thumbnails.compactMap { thumbnails[$0] } }
 
     public func scene(_ id: String?) throws -> Scene {
         if let id { guard let s = scenes[id] else { throw ModelError.notFound("scene '\(id)'") }; return s }
@@ -146,7 +151,7 @@ public final class ProjectStore {
         recordHistory(s, key: s.id, rev: s.rev, summary: summary, source: source, changed: changed)
     }
 
-    /// Writes revision `rev` of a scene or preview to `.history/<key>/` and logs it; keeps the newest `historyLimit`.
+    /// Writes revision `rev` of a scene or thumbnail to `.history/<key>/` and logs it; keeps the newest `historyLimit`.
     func recordHistory<T: Encodable>(
         _ value: T, key: String, rev: Int, summary: String, source: String?, changed: [String]?
     ) {

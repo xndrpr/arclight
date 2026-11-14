@@ -18,14 +18,14 @@ struct LeftSidebar: View {
         Tab(id: "assets", title: "Assets", icon: "photo.on.rectangle", help: "Images, audio and fonts in this project"),
     ]
 
-    /// In the Preview workspace the first tab lists preview pages and their artboards.
+    /// In the Thumbnail workspace the first tab lists thumbnail pages and their artboards.
     private var tabs: [Tab] {
-        guard doc.isPreview else { return Self.tabs }
+        guard doc.isThumbnail else { return Self.tabs }
         var t = Self.tabs
-        t[0] = Tab(id: "scenes", title: "Previews", icon: "photo.on.rectangle.angled", help: "Thumbnail pages and their artboards")
+        t[0] = Tab(id: "scenes", title: "Thumbnails", icon: "photo.on.rectangle.angled", help: "Thumbnail pages and their artboards")
         t[1] = Tab(
             id: "history", title: "History", icon: "clock.arrow.circlepath",
-            help: "Saved versions of the current preview page — yours and the AI's.")
+            help: "Saved versions of the current thumbnail page — yours and the AI's.")
         return t
     }
 
@@ -57,7 +57,7 @@ struct LeftSidebar: View {
         case "history": HistoryPanel(doc: doc)
         case "assets": AssetsPanel(doc: doc)
         default:
-            if doc.isPreview { PreviewsSidebar(doc: doc) } else { ScenesSidebar(doc: doc) }
+            if doc.isThumbnail { ThumbnailsSidebar(doc: doc) } else { ScenesSidebar(doc: doc) }
         }
     }
 

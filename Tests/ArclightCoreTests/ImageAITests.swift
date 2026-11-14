@@ -175,9 +175,9 @@ final class FalMock: URLProtocol, @unchecked Sendable {
     @Test(.requiresMetal) func mcpToolsUseTheProviderAndSaveRevertibleEdits() throws {
         let (tp, _) = try project()
         defer { tp.remove() }
-        var pv = ArclightCore.Preview(id: "t", artboards: [Artboard(id: "a")])
+        var pv = ArclightCore.Thumbnail(id: "t", artboards: [Artboard(id: "a")])
         pv.artboards[0].nodes = [Node(id: "photo", type: "image", props: ["src": .value("photo.png"), "x": .value(640), "y": .value(360)])]
-        try tp.store.save(preview: pv)
+        try tp.store.save(thumbnail: pv)
         let server = MCPServer(projectPath: tp.url.path)
         func run(_ n: String, _ a: [String: JSONValue]) throws -> String {
             try server.tools.first { $0.name == n }!.run(a).compactMap { $0.object?["text"]?.string }.joined()
@@ -187,16 +187,16 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         KeychainStore.backend = KeychainStore.MemoryBackend()
         defer { KeychainStore.backend = saved }
         if ProcessInfo.processInfo.environment["FAL_KEY"] == nil && ProcessInfo.processInfo.environment["ARCLIGHT_FAL_KEY"] == nil {
-            #expect(throws: (any Error).self) { try run("image_upscale", ["preview": "t", "layer": "photo"]) }
+            #expect(throws: (any Error).self) { try run("image_upscale", ["thumbnail": "t", "layer": "photo"]) }
             #expect(try run("image_status", [:]).contains("fal.ai: off"))
         }
         server.imageProviderOverride = FakeProvider()
-        let out = try run("image_upscale", ["preview": "t", "layer": "photo", "factor": 3])
-        #expect(out.contains("photo-x3.png") && out.contains("saved preview t rev 2"))
-        let gen = try run("image_generate", ["prompt": "sunset", "preview": "t", "width": 512, "height": 512])
+        let out = try run("image_upscale", ["thumbnail": "t", "layer": "photo", "factor": 3])
+        #expect(out.contains("photo-x3.png") && out.contains("saved thumbnail t rev 2"))
+        let gen = try run("image_generate", ["prompt": "sunset", "thumbnail": "t", "width": 512, "height": 512])
         #expect(gen.contains("gen-sunset.png"))
         let st = try ProjectStore(url: tp.url)
-        #expect(st.previews["t"]?.artboards[0].nodes.count == 2)
+        #expect(st.thumbnails["t"]?.artboards[0].nodes.count == 2)
         #expect(try run("image_status", [:]).contains("fal.ai: on"))
         // Scenes work too.
         _ = try run("image_remove_bg", ["scene": "s", "layer": "photo", "engine": "fal"])

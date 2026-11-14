@@ -16,7 +16,7 @@ extension EditorDocument {
     /// selection, solo, work area or highlights, and a stopped playhead at 0.
     func switchTo(_ s: Scene) {
         savePending?.cancel(); savePending = nil
-        // Artboards (`<preview>~<artboard>`) and the placeholder set their target before switching.
+        // Artboards (`<thumbnail>~<artboard>`) and the placeholder set their target before switching.
         if !s.id.contains("~") { target = .scene(s.id) }
         scene = s; baseRev = s.rev
         undoStack.removeAll(); redoStack.removeAll()

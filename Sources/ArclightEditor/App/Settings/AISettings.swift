@@ -60,7 +60,7 @@ struct AISettings: View {
             SettingRow(
                 label: "Image generation",
                 note:
-                    "Optional. With your own fal.ai key, previews get Generate image, Generative fill, Expand and Upscale — in the editor and for AI agents. The key stays in your Keychain. Background removal always works on this Mac, without a key."
+                    "Optional. With your own fal.ai key, thumbnails get Generate image, Generative fill, Expand and Upscale — in the editor and for AI agents. The key stays in your Keychain. Background removal always works on this Mac, without a key."
             ) { ImageGenerationSettings() }
             Hairline()
             SettingRow(

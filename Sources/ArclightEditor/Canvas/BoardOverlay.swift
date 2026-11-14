@@ -2,7 +2,7 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// Preview workspace: the page's other artboards drawn around the open one (live, editable) at their board
+/// Thumbnail workspace: the page's other artboards drawn around the open one (live, editable) at their board
 /// positions, Figma-style, with a name label above every artboard. Click an artboard to open it; drag a label to
 /// move that artboard on the board.
 struct BoardOverlay: View {
@@ -44,7 +44,7 @@ struct BoardOverlay: View {
     }
 
     private func openArtboard(_ id: String) {
-        guard let p = doc.target.previewId else { return }
+        guard let p = doc.target.thumbnailId else { return }
         // Keep the clicked artboard where it is on screen: the new open canvas centre is its centre.
         if let r = doc.boardRects().first(where: { $0.artboard.id == id })?.rect {
             let s = vp.scale, cs = doc.canvasSize
@@ -52,7 +52,7 @@ struct BoardOverlay: View {
                 width: vp.pan.width + (r.midX - cs.width / 2) * s, height: vp.pan.height + (r.midY - cs.height / 2) * s)
             DispatchQueue.main.async { vp.setPan(p2) }  // after the canvas size (and board) update
         }
-        doc.open(preview: p, artboard: id)
+        doc.open(thumbnail: p, artboard: id)
     }
 
     private func label(_ a: Artboard, open: Bool) -> some View {
@@ -101,7 +101,7 @@ struct BoardTile: View {
 
     var body: some View {
         let width = Self.bucket(pixelWidth * 2, max: artboard.width)
-        let scene = artboard.asScene(preview: doc.target.previewId ?? "", rev: doc.openPreview?.rev ?? 0)
+        let scene = artboard.asScene(thumbnail: doc.target.thumbnailId ?? "", rev: doc.openThumbnail?.rev ?? 0)
         ZStack {
             Rectangle().fill(UI.panel)
             if let image { Image(decorative: image, scale: 1).resizable().interpolation(.high) }
@@ -120,10 +120,10 @@ struct BoardTile: View {
 
 /// A floating mini view of the open artboard at YouTube feed size, with the timestamp badge, in the corner of the
 /// viewer: what most viewers see first.
-struct FeedPreview: View {
+struct FeedThumbnail: View {
     @ObservedObject var doc: EditorDocument
     @State private var image: CGImage?
-    @AppStorage(Pref.feedPreview) private var on = false
+    @AppStorage(Pref.feedThumbnail) private var on = false
 
     var body: some View {
         let scene = doc.scene
@@ -134,7 +134,7 @@ struct FeedPreview: View {
                 Button { on = false } label: {
                     Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundStyle(UI.dim)
                 }
-                .buttonStyle(.plain).help("Hide the feed preview")
+                .buttonStyle(.plain).help("Hide the feed-size preview")
             }
             HStack(alignment: .top, spacing: 8) {
                 tile(width: 246, dark: true)

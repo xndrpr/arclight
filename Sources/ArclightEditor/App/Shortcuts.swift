@@ -100,8 +100,8 @@ enum Shortcuts {
 }
 
 extension Shortcuts {
-    /// Preview workspace: Figma first, Photoshop where Figma has no key.
-    static let previewLeft: [Group] = [
+    /// Thumbnail workspace: Figma first, Photoshop where Figma has no key.
+    static let thumbnailLeft: [Group] = [
         (
             "Tools",
             [
@@ -133,7 +133,7 @@ extension Shortcuts {
         ),
     ]
 
-    static let previewRight: [Group] = [
+    static let thumbnailRight: [Group] = [
         (
             "Layers",
             [
@@ -163,9 +163,9 @@ extension Shortcuts {
         (
             "Project",
             [
-                (["⌘1", "⌘2"], "Motion / Preview workspace"),
-                (["⇧⌘N"], "New preview page"),
-                (["⇧⌘H (Motion)"], "Back to projects — in Preview it hides the layer"),
+                (["⌘1", "⌘2"], "Motion / Thumbnails workspace"),
+                (["⇧⌘N"], "New thumbnail page"),
+                (["⇧⌘H (Motion)"], "Back to projects — in Thumbnails it hides the layer"),
                 (["⌘E"], "Export thumbnails"),
                 (["⌘S"], "Save now (autosave is on)"),
                 (["⌥⌘A"], "Show / hide the AI panel"),
@@ -177,22 +177,22 @@ extension Shortcuts {
 
 struct ShortcutsSheet: View {
     @Binding var isPresented: Bool
-    var preview = false
+    var thumbnail = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Keyboard shortcuts").font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
                 Spacer()
-                Text(preview ? "Preview · based on Figma & Photoshop" : "Motion · based on DaVinci Resolve")
+                Text(thumbnail ? "Thumbnails · based on Figma & Photoshop" : "Motion · based on DaVinci Resolve")
                     .font(UI.small).foregroundStyle(UI.dim)
             }
             .padding(.horizontal, 24).padding(.vertical, 18)
             Hairline()
             ScrollView {
                 HStack(alignment: .top, spacing: 36) {
-                    column(preview ? Shortcuts.previewLeft : Shortcuts.left)
-                    column(preview ? Shortcuts.previewRight : Shortcuts.right)
+                    column(thumbnail ? Shortcuts.thumbnailLeft : Shortcuts.left)
+                    column(thumbnail ? Shortcuts.thumbnailRight : Shortcuts.right)
                 }
                 .padding(24)
             }

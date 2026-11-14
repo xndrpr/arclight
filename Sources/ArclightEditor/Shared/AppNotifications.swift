@@ -4,7 +4,7 @@ import Foundation
 extension Notification.Name {
     /// ⌘E: show the export sheet.
     static let showExport = Notification.Name("arclight.showExport")
-    /// Preview board view commands from keys (object: the document; userInfo["cmd"]: `BoardCommand` raw value).
+    /// Thumbnail board view commands from keys (object: the document; userInfo["cmd"]: `BoardCommand` raw value).
     static let boardCommand = Notification.Name("arclight.boardCommand")
     /// "?" or the keyboard button: show the shortcuts sheet.
     static let showShortcuts = Notification.Name("arclight.showShortcuts")

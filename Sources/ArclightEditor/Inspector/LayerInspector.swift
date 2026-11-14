@@ -18,7 +18,7 @@ struct LayerInspector: View {
                 LayerActions(doc: doc, node: node)
             }
             Hairline()
-            if !doc.isPreview, query.isEmpty || "timing in out".contains(query) { TimingSection(doc: doc, node: node) }
+            if !doc.isThumbnail, query.isEmpty || "timing in out".contains(query) { TimingSection(doc: doc, node: node) }
             InspectorSection(doc: doc, title: "Transform", host: .node(node.id), fields: Schema.transform)
             ForEach(InspectorLayout.sections(for: node.type), id: \.0) { title, fields in
                 section(title, fields.filter { InspectorLayout.relevant($0, node) })
@@ -87,7 +87,7 @@ private struct LayerActions: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            if !doc.isPreview { AnimateMenu(doc: doc, node: node) }
+            if !doc.isThumbnail { AnimateMenu(doc: doc, node: node) }
             if node.props.values.contains(where: { $0.keyCount > 0 }) {
                 IconButton(
                     symbol: "arrow.counterclockwise", help: "Clear all keyframes on this layer (keeps current values)"

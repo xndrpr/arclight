@@ -1,13 +1,13 @@
 import Foundation
 
-/// Built-in thumbnail layouts (`kind: preview`, 1280×720). They follow the feed rules: one focal point, 3–5 heavy
+/// Built-in thumbnail layouts (`kind: thumbnail`, 1280×720). They follow the feed rules: one focal point, 3–5 heavy
 /// words, strong contrast, nothing important in the bottom-right timestamp corner. Theme tokens keep them on
 /// brand; `image` parameters start as a placeholder silhouette until a photo is chosen.
-enum PreviewTemplates {
+enum ThumbnailTemplates {
     static let sources: [String] = [faceWords, beforeAfter, numberList, reaction, product, minimal]
 
     static let faceWords = #"""
-        {"id":"thumb-face-words","kind":"preview","name":"Face + big words","category":"Thumbnails",
+        {"id":"thumb-face-words","kind":"thumbnail","name":"Face + big words","category":"Thumbnails",
          "description":"Cut-out person on the right with a white outline, two heavy lines of text on the left, an accent glow behind.",
          "params":[{"name":"line1","label":"Line 1","kind":"text","default":"I QUIT"},
                    {"name":"line2","label":"Line 2 (accent)","kind":"text","default":"MY JOB"},
@@ -24,7 +24,7 @@ enum PreviewTemplates {
         """#
 
     static let beforeAfter = #"""
-        {"id":"thumb-before-after","kind":"preview","name":"Before / after","category":"Thumbnails",
+        {"id":"thumb-before-after","kind":"thumbnail","name":"Before / after","category":"Thumbnails",
          "description":"Two pictures split down the middle with labels and an arrow.",
          "params":[{"name":"before","label":"Before photo","kind":"image","default":""},
                    {"name":"after","label":"After photo","kind":"image","default":""},
@@ -45,7 +45,7 @@ enum PreviewTemplates {
         """#
 
     static let numberList = #"""
-        {"id":"thumb-number","kind":"preview","name":"Big number","category":"Thumbnails",
+        {"id":"thumb-number","kind":"thumbnail","name":"Big number","category":"Thumbnails",
          "description":"A huge number with a short promise — for lists and tips videos.",
          "params":[{"name":"number","label":"Number","kind":"text","default":"7"},
                    {"name":"line1","label":"Line 1","kind":"text","default":"HABITS"},
@@ -63,7 +63,7 @@ enum PreviewTemplates {
         """#
 
     static let reaction = #"""
-        {"id":"thumb-reaction","kind":"preview","name":"Reaction + object","category":"Thumbnails",
+        {"id":"thumb-reaction","kind":"thumbnail","name":"Reaction + object","category":"Thumbnails",
          "description":"Surprised face on the left, the thing on the right with a red circle, one word up top.",
          "params":[{"name":"photo","label":"Face","kind":"image","default":""},
                    {"name":"object","label":"Object photo","kind":"image","default":""},
@@ -81,7 +81,7 @@ enum PreviewTemplates {
         """#
 
     static let product = #"""
-        {"id":"thumb-product","kind":"preview","name":"Big product","category":"Thumbnails",
+        {"id":"thumb-product","kind":"thumbnail","name":"Big product","category":"Thumbnails",
          "description":"The product huge in the centre on a coloured glow, a short verdict beside it.",
          "params":[{"name":"photo","label":"Product photo","kind":"image","default":""},
                    {"name":"verdict","label":"Verdict","kind":"text","default":"WORTH IT?"}],
@@ -95,7 +95,7 @@ enum PreviewTemplates {
         """#
 
     static let minimal = #"""
-        {"id":"thumb-minimal","kind":"preview","name":"Minimal title","category":"Thumbnails",
+        {"id":"thumb-minimal","kind":"thumbnail","name":"Minimal title","category":"Thumbnails",
          "description":"Clean type on a flat colour with an accent bar — essays, podcasts, talks.",
          "params":[{"name":"title","label":"Title","kind":"text","default":"The quiet\nrevolution"},
                    {"name":"kicker","label":"Kicker","kind":"text","default":"EPISODE 12"}],

@@ -6,7 +6,7 @@ import Testing
 @testable import ArclightEditor
 
 /// Phase 2: the board (artboards around the open one), drawing tools, arrange, and board zoom / pan maths.
-@Suite(.serialized, .requiresMetal) struct PreviewBoardTests {
+@Suite(.serialized, .requiresMetal) struct ThumbnailBoardTests {
     private func doc() throws -> (EditorDocument, TempProject) {
         let tp = try TempProject("pv-board")
         var a = Artboard(id: "a", name: "A")
@@ -17,7 +17,7 @@ import Testing
         ]
         var b = Artboard(id: "b", name: "B", x: 1400, y: 0)
         b.size = [1080, 1920]
-        try tp.store.save(preview: ArclightCore.Preview(id: "p", artboards: [a, b]))
+        try tp.store.save(thumbnail: ArclightCore.Thumbnail(id: "p", artboards: [a, b]))
         return (try EditorDocument(url: tp.url), tp)
     }
 
@@ -25,11 +25,11 @@ import Testing
         let (d, tp) = try doc()
         defer { tp.remove() }
         #expect(d.boardRects().map(\.rect) == [CGRect(x: 0, y: 0, width: 1280, height: 720), CGRect(x: 1400, y: 0, width: 1080, height: 1920)])
-        d.open(preview: "p", artboard: "b")
+        d.open(thumbnail: "p", artboard: "b")
         #expect(d.boardRects().first?.rect.minX == -1400)
         d.moveArtboard("a", by: CGSize(width: -100, height: 50))
-        #expect(d.openPreview?.artboard("a")?.x == -100 && d.openPreview?.artboard("a")?.y == 50)
-        #expect(d.target == .artboard(preview: "p", artboard: "b"))  // still editing B
+        #expect(d.openThumbnail?.artboard("a")?.x == -100 && d.openThumbnail?.artboard("a")?.y == 50)
+        #expect(d.target == .artboard(thumbnail: "p", artboard: "b"))  // still editing B
     }
 
     @Test func drawingToolsCreateLayersFromDrags() throws {
@@ -87,8 +87,8 @@ import Testing
         #expect(BoardTile.bucket(100, max: 1280) == 256)
     }
 
-    @Test func previewOnlyShowsArtboardKeysInTheShortcutSheet() {
-        let all = (Shortcuts.previewLeft + Shortcuts.previewRight).flatMap { $0.items.map(\.action) }
+    @Test func thumbnailOnlyShowsArtboardKeysInTheShortcutSheet() {
+        let all = (Shortcuts.thumbnailLeft + Shortcuts.thumbnailRight).flatMap { $0.items.map(\.action) }
         #expect(all.contains { $0.contains("Zoom to fit all artboards") })
         #expect(!all.contains { $0.contains("Shuttle") })
     }

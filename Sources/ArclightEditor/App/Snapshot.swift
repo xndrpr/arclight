@@ -5,7 +5,7 @@ import SwiftUI
 /// `arclight snapshot <project> --out ui.png`: renders the editor UI (or one panel, `--panel`) to a PNG without
 /// showing anything on screen. Used to check UI changes during development and in CI (Scripts/verify.sh).
 ///
-/// Options: `--time`, `--select <layer id>`, `--tab scenes|history|assets|ai`, `--setup` (see `applySetup`; for previews
+/// Options: `--time`, `--select <layer id>`, `--tab scenes|history|assets|ai`, `--setup` (see `applySetup`; for thumbnails
 /// `board` fits all artboards and `tool:rect` picks a tool),
 /// `--theme <AppTheme raw value>`, `--size WxH`, `--panel settings|installhelp|shortcuts|inspector|themepopover|timeline|
 /// newproject|welcome|templates|inserttemplate|savetemplate` (library panels fill `--size`, e.g. 980x640).
@@ -128,9 +128,9 @@ public enum EditorSnapshot {
             } else if it.hasPrefix("zoom:"), let f = Double(it.dropFirst(5)) {
                 doc.zoomTimeline(by: f)
             } else if it == "board" {
-                // Preview: frame every artboard once the viewer has laid out.
+                // Thumbnail: frame every artboard once the viewer has laid out.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { doc.postBoard(.fitAll) }
-            } else if it.hasPrefix("tool:"), let t = PreviewTool(rawValue: String(it.dropFirst(5))) {
+            } else if it.hasPrefix("tool:"), let t = ThumbnailTool(rawValue: String(it.dropFirst(5))) {
                 doc.tool = t
             }
         }

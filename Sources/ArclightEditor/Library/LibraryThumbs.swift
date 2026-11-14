@@ -49,7 +49,7 @@ fileprivate actor ThumbWorker {
         let key = Self.sceneKey(s, projectURL, width)
         let assets = projectURL.appendingPathComponent("assets")
         return await image(key) {
-            // Artboards (`<preview>~<artboard>`) are stills shown at t = 0; scenes at their middle.
+            // Artboards (`<thumbnail>~<artboard>`) are stills shown at t = 0; scenes at their middle.
             await ThumbWorker.shared.render(
                 s, project: project, assets: assets, time: s.id.contains("~") ? 0 : s.duration / 2, width: width)
         }
@@ -101,7 +101,7 @@ fileprivate actor ThumbWorker {
         guard let store = try? ProjectStore(url: url), let s = store.orderedScenes.first else { return nil }
         let project = store.project, assets = store.assetsURL
         return await image(key, disk: true) {
-            // Artboards (`<preview>~<artboard>`) are stills shown at t = 0; scenes at their middle.
+            // Artboards (`<thumbnail>~<artboard>`) are stills shown at t = 0; scenes at their middle.
             await ThumbWorker.shared.render(
                 s, project: project, assets: assets, time: s.id.contains("~") ? 0 : s.duration / 2, width: width)
         }

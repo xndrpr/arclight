@@ -11,7 +11,7 @@ struct ViewportView: View {
     @State private var hint = true
     @State private var dropTarget = false
     @AppStorage(Pref.rulers) private var rulers = false
-    @AppStorage(Pref.feedPreview) private var feedPreview = false
+    @AppStorage(Pref.feedThumbnail) private var feedThumbnail = false
 
     var body: some View {
         GeometryReader { geo in
@@ -21,7 +21,7 @@ struct ViewportView: View {
             let s = doc.cinema ? fit : (vp.zoom ?? fit)
             let pan = doc.cinema ? .zero : vp.pan
             let size = CGSize(width: cs.width * s, height: cs.height * s)
-            let board = doc.isPreview && !doc.cinema
+            let board = doc.isThumbnail && !doc.cinema
             // The board's extent lets panning reach every artboard (plain var: no view update).
             let _ = (vp.board = board ? doc.boardRects().map(\.rect).reduce(nil) { $0?.union($1) ?? $1 } : nil)
             let origin = CGPoint(x: geo.size.width / 2 + pan.width - size.width / 2, y: geo.size.height / 2 + pan.height - size.height / 2)
@@ -38,11 +38,11 @@ struct ViewportView: View {
                 ZStack {
                     MetalCanvas(doc: doc, pixelSize: MetalCanvas.drawableSize(for: size))
                     if !doc.cinema {
-                        GuidesOverlay(canvas: cs, scale: s, preview: doc.isPreview)
+                        GuidesOverlay(canvas: cs, scale: s, thumbnail: doc.isThumbnail)
                         GizmoOverlay(doc: doc, vp: vp, scale: s)
                         FlashOverlay(doc: doc, scale: s)
-                        if doc.isPreview, let m = doc.marquee { MarqueeOverlay(rect: m, scale: s) }
-                        if doc.isPreview && doc.tool.capturesCanvas { PreviewToolOverlay(doc: doc, vp: vp, scale: s) }
+                        if doc.isThumbnail, let m = doc.marquee { MarqueeOverlay(rect: m, scale: s) }
+                        if doc.isThumbnail && doc.tool.capturesCanvas { ThumbnailToolOverlay(doc: doc, vp: vp, scale: s) }
                     }
                 }
                 .frame(width: size.width, height: size.height)
@@ -94,17 +94,17 @@ struct ViewportView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if doc.isPreview && !doc.cinema && !doc.isEmptyWorkspace { AIContextBar(doc: doc).padding(.bottom, 14) }
+            if doc.isThumbnail && !doc.cinema && !doc.isEmptyWorkspace { AIContextBar(doc: doc).padding(.bottom, 14) }
         }
         .overlay(alignment: .bottomTrailing) {
-            if doc.isPreview && feedPreview && !doc.cinema && !doc.isEmptyWorkspace {
-                FeedPreview(doc: doc).padding(.trailing, 12).padding(.bottom, 60)
+            if doc.isThumbnail && feedThumbnail && !doc.cinema && !doc.isEmptyWorkspace {
+                FeedThumbnail(doc: doc).padding(.trailing, 12).padding(.bottom, 60)
             }
         }
         .onChange(of: doc.cinema) { _, on in if on { hint = true } }
         // Another artboard of the same page keeps the zoom (BoardOverlay keeps it in place); anything else fits.
         .onChange(of: doc.scene.id) { old, new in
-            if doc.isPreview, Self.page(old) != nil, Self.page(old) == Self.page(new) { return }
+            if doc.isThumbnail, Self.page(old) != nil, Self.page(old) == Self.page(new) { return }
             vp.fit()
         }
         .onReceive(NotificationCenter.default.publisher(for: .boardCommand)) { n in
@@ -122,7 +122,7 @@ struct ViewportView: View {
         .onDisappear { vp.events.remove() }
     }
 
-    /// The preview page of an artboard scene id (`<preview>~<artboard>`).
+    /// The thumbnail page of an artboard scene id (`<thumbnail>~<artboard>`).
     static func page(_ sceneId: String) -> String? {
         sceneId.range(of: "~").map { String(sceneId[..<$0.lowerBound]) }.flatMap { $0.isEmpty ? nil : $0 }
     }

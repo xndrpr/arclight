@@ -3,20 +3,20 @@ import Foundation
 
 /// The two things a project can hold. A project may have only one of them.
 enum Workspace: String, CaseIterable, Identifiable {
-    case motion, preview
+    case motion, thumbnail
     var id: String { rawValue }
-    var title: String { self == .motion ? "Motion" : "Preview" }
+    var title: String { self == .motion ? "Motion" : "Thumbnails" }
     var symbol: String { self == .motion ? "film" : "photo.on.rectangle" }
 }
 
 /// What the document's working `scene` is a copy of.
 enum EditTarget: Equatable {
     case scene(String)
-    case artboard(preview: String, artboard: String)
+    case artboard(thumbnail: String, artboard: String)
     /// Nothing to edit yet (an empty workspace); `scene` is a placeholder that is never saved.
     case none
 
-    var previewId: String? { if case .artboard(let p, _) = self { return p }; return nil }
+    var thumbnailId: String? { if case .artboard(let p, _) = self { return p }; return nil }
     var artboardId: String? { if case .artboard(_, let a) = self { return a }; return nil }
 }
 
@@ -24,43 +24,43 @@ extension EditorDocument {
     static let placeholderSceneId = "~none"
 
     /// A new page with one YouTube-sized artboard on the theme background.
-    static func starterPreview(id: String, name: String? = nil) -> Preview {
+    static func starterThumbnail(id: String, name: String? = nil) -> Thumbnail {
         var a = Artboard(id: "a", name: "A")
         a.background = .value("$bg")
-        return Preview(id: id, name: name ?? "Thumbnail", artboards: [a])
+        return Thumbnail(id: id, name: name ?? "Thumbnail", artboards: [a])
     }
 
     static func placeholderScene() -> Scene { Scene(id: placeholderSceneId, duration: 5) }
 
-    /// The first thing to open in a workspace: its first scene, or the first artboard of its first preview.
+    /// The first thing to open in a workspace: its first scene, or the first artboard of its first thumbnail.
     static func initialTarget(_ ws: Workspace, store st: ProjectStore) -> (Scene, EditTarget, Int) {
         switch ws {
         case .motion:
             if let s = st.orderedScenes.first { return (s, .scene(s.id), s.rev) }
-        case .preview:
-            if let p = st.orderedPreviews.first, let a = p.artboards.first {
-                return (a.asScene(preview: p.id, rev: p.rev), .artboard(preview: p.id, artboard: a.id), p.rev)
+        case .thumbnail:
+            if let p = st.orderedThumbnails.first, let a = p.artboards.first {
+                return (a.asScene(thumbnail: p.id, rev: p.rev), .artboard(thumbnail: p.id, artboard: a.id), p.rev)
             }
         }
         return (placeholderScene(), .none, 0)
     }
 
-    var isPreview: Bool { workspace == .preview }
+    var isThumbnail: Bool { workspace == .thumbnail }
     var isEmptyWorkspace: Bool { target == .none }
 
-    /// The open preview page as stored (the working artboard is `scene`).
-    var openPreview: Preview? { target.previewId.flatMap { store.previews[$0] } }
+    /// The open thumbnail page as stored (the working artboard is `scene`).
+    var openThumbnail: Thumbnail? { target.thumbnailId.flatMap { store.thumbnails[$0] } }
 
-    var previews: [Preview] { store.orderedPreviews }
+    var thumbnails: [Thumbnail] { store.orderedThumbnails }
 
-    /// The stored project, with the open preview's detached theme over it.
+    /// The stored project, with the open thumbnail's detached theme over it.
     func effectiveProject() -> Project {
-        if let p = openPreview { return store.project.rendering(p) }
+        if let p = openThumbnail { return store.project.rendering(p) }
         return store.project
     }
 
-    /// Whether the open preview has its own theme (theme edits then go to it, not to the project).
-    var themeIsDetached: Bool { openPreview?.theme.isDetached ?? false }
+    /// Whether the open thumbnail has its own theme (theme edits then go to it, not to the project).
+    var themeIsDetached: Bool { openThumbnail?.theme.isDetached ?? false }
 
     // MARK: Workspace
 
@@ -86,19 +86,19 @@ extension EditorDocument {
 
     // MARK: Pages & artboards
 
-    func open(preview id: String, artboard: String? = nil) {
+    func open(thumbnail id: String, artboard: String? = nil) {
         saveNow()
-        guard let p = store.previews[id], let a = p.artboard(artboard) ?? p.artboards.first else { return }
-        open(a.asScene(preview: p.id, rev: p.rev), target: .artboard(preview: p.id, artboard: a.id), rev: p.rev)
+        guard let p = store.thumbnails[id], let a = p.artboard(artboard) ?? p.artboards.first else { return }
+        open(a.asScene(thumbnail: p.id, rev: p.rev), target: .artboard(thumbnail: p.id, artboard: a.id), rev: p.rev)
     }
 
-    /// Opens a scene id from the activity feed or history, which may name an artboard (`<preview>~<artboard>`).
+    /// Opens a scene id from the activity feed or history, which may name an artboard (`<thumbnail>~<artboard>`).
     func open(sceneOrArtboard id: String) -> Bool {
         if let r = id.range(of: "~") {
             let p = String(id[..<r.lowerBound]), a = String(id[r.upperBound...])
-            guard store.previews[p]?.artboard(a) != nil else { return false }
-            if workspace != .preview { workspace = .preview }
-            open(preview: p, artboard: a)
+            guard store.thumbnails[p]?.artboard(a) != nil else { return false }
+            if workspace != .thumbnail { workspace = .thumbnail }
+            open(thumbnail: p, artboard: a)
             return true
         }
         guard store.scenes[id] != nil else { return false }
@@ -107,35 +107,35 @@ extension EditorDocument {
         return true
     }
 
-    func newPreview() {
+    func newThumbnail() {
         saveNow()
-        var k = store.previews.count + 1
-        while store.previews["preview-\(k)"] != nil { k += 1 }
-        let p = EditorDocument.starterPreview(id: "preview-\(k)", name: "Thumbnail \(k)")
-        if let saved = try? store.save(preview: p, summary: "create", source: .editor) {
+        var k = store.thumbnails.count + 1
+        while store.thumbnails["thumbnail-\(k)"] != nil { k += 1 }
+        let p = EditorDocument.starterThumbnail(id: "thumbnail-\(k)", name: "Thumbnail \(k)")
+        if let saved = try? store.save(thumbnail: p, summary: "create", source: .editor) {
             refreshProject()
-            if workspace != .preview { workspace = .preview }
-            open(preview: saved.id)
+            if workspace != .thumbnail { workspace = .thumbnail }
+            open(thumbnail: saved.id)
         }
     }
 
-    /// Runs page ops (`PreviewOps`) on a stored preview, saving the working artboard first, then reopens
+    /// Runs page ops (`ThumbnailOps`) on a stored thumbnail, saving the working artboard first, then reopens
     /// `reopen` (default: the artboard that was open, or the page's first if it was removed).
     @discardableResult
     func applyPage(_ id: String, _ ops: [JSONValue], summary: String? = nil, reopen: String? = nil) -> Bool {
         saveNow()
-        guard let p = store.previews[id] else { return false }
+        guard let p = store.thumbnails[id] else { return false }
         do {
-            let r = try PreviewOps.apply(ops, to: p)
-            let saved = try store.save(preview: r.preview, summary: summary ?? r.summary, source: .editor)
+            let r = try ThumbnailOps.apply(ops, to: p)
+            let saved = try store.save(thumbnail: r.thumbnail, summary: summary ?? r.summary, source: .editor)
             ActivityLog.append(
                 ActivityEntry(
                     source: .editor, tool: "edit", scene: nil, summary: "\(saved.id): \(summary ?? r.summary)",
                     changed: r.changed, revBefore: p.rev, revAfter: saved.rev, write: true), project: url)
             refreshProject()
-            if target.previewId == id || reopen != nil {
+            if target.thumbnailId == id || reopen != nil {
                 let want = reopen ?? target.artboardId
-                open(preview: id, artboard: saved.artboard(want) != nil ? want : nil)
+                open(thumbnail: id, artboard: saved.artboard(want) != nil ? want : nil)
             }
             return true
         } catch {
@@ -145,7 +145,7 @@ extension EditorDocument {
     }
 
     func addArtboard(preset: ArtboardPresets.Preset, to id: String? = nil) {
-        guard let pid = id ?? target.previewId, let p = store.previews[pid] else { return }
+        guard let pid = id ?? target.thumbnailId, let p = store.thumbnails[pid] else { return }
         let aid = p.uniqueArtboardId(preset.id)
         applyPage(
             pid,
@@ -156,7 +156,7 @@ extension EditorDocument {
 
     /// A variant: same layers, placed to the right, named B, C, D…
     func duplicateArtboard(_ aid: String, in pid: String) {
-        guard let p = store.previews[pid], let a = p.artboard(aid) else { return }
+        guard let p = store.thumbnails[pid], let a = p.artboard(aid) else { return }
         let letters = (66...90).compactMap { UnicodeScalar($0).map { String(Character($0)) } }
         let used = Set(p.artboards.compactMap(\.name))
         let name = letters.first { !used.contains($0) } ?? ((a.name ?? aid) + " copy")
@@ -167,64 +167,64 @@ extension EditorDocument {
     }
 
     func deleteArtboard(_ aid: String, in pid: String) {
-        guard let p = store.previews[pid] else { return }
-        guard p.artboards.count > 1 else { flash("A preview needs at least one artboard — delete the preview instead"); return }
+        guard let p = store.thumbnails[pid] else { return }
+        guard p.artboards.count > 1 else { flash("A thumbnail needs at least one artboard — delete the thumbnail instead"); return }
         applyPage(pid, [["op": "artboard_remove", "id": .string(aid)]], summary: "remove artboard \(aid)")
     }
 
     func renameArtboard(_ aid: String, in pid: String, _ name: String) {
-        if target == .artboard(preview: pid, artboard: aid) {
+        if target == .artboard(thumbnail: pid, artboard: aid) {
             edit { $0.name = name.isEmpty ? nil : name }; saveNow(); return
         }
         applyPage(pid, [["op": "artboard_set", "id": .string(aid), "name": name.isEmpty ? .null : .string(name)]])
     }
 
-    func renamePreview(_ pid: String, _ name: String) {
-        applyPage(pid, [["op": "preview", "name": name.isEmpty ? .null : .string(name)]], summary: "rename")
+    func renameThumbnail(_ pid: String, _ name: String) {
+        applyPage(pid, [["op": "thumbnail", "name": name.isEmpty ? .null : .string(name)]], summary: "rename")
     }
 
-    func duplicatePreview(_ pid: String) {
+    func duplicateThumbnail(_ pid: String) {
         saveNow()
-        guard var p = store.previews[pid] else { return }
+        guard var p = store.thumbnails[pid] else { return }
         var k = 2
-        while store.previews["\(pid)-\(k)"] != nil { k += 1 }
+        while store.thumbnails["\(pid)-\(k)"] != nil { k += 1 }
         p.id = "\(pid)-\(k)"; p.rev = 0; p.name = (p.name ?? pid) + " copy"
-        if let saved = try? store.save(preview: p, summary: "duplicate", source: .editor) {
-            refreshProject(); open(preview: saved.id)
+        if let saved = try? store.save(thumbnail: p, summary: "duplicate", source: .editor) {
+            refreshProject(); open(thumbnail: saved.id)
         }
     }
 
-    func deletePreview(_ pid: String) {
-        try? store.deletePreview(pid)
+    func deleteThumbnail(_ pid: String) {
+        try? store.deleteThumbnail(pid)
         refreshProject()
-        if target.previewId == pid {
-            let (s, t, rev) = EditorDocument.initialTarget(.preview, store: store)
+        if target.thumbnailId == pid {
+            let (s, t, rev) = EditorDocument.initialTarget(.thumbnail, store: store)
             open(s, target: t, rev: rev)
         }
     }
 
     // MARK: Theme link
 
-    /// Gives the open preview its own copy of the theme; project theme changes no longer reach it.
+    /// Gives the open thumbnail its own copy of the theme; project theme changes no longer reach it.
     func detachTheme() {
-        guard let p = openPreview, !p.theme.isDetached else { return }
+        guard let p = openThumbnail, !p.theme.isDetached else { return }
         applyPage(
-            p.id, [["op": "preview", "theme": ["detached": true, "tokens": .object(store.project.theme)]]],
+            p.id, [["op": "thumbnail", "theme": ["detached": true, "tokens": .object(store.project.theme)]]],
             summary: "detach theme")
-        flash("This preview now has its own theme")
+        flash("This thumbnail now has its own theme")
     }
 
-    /// Links the open preview back to the project theme (its own tokens are dropped; undo via History).
+    /// Links the open thumbnail back to the project theme (its own tokens are dropped; undo via History).
     func relinkTheme() {
-        guard let p = openPreview, p.theme.isDetached else { return }
-        applyPage(p.id, [["op": "preview", "theme": "project"]], summary: "link theme to project")
+        guard let p = openThumbnail, p.theme.isDetached else { return }
+        applyPage(p.id, [["op": "thumbnail", "theme": "project"]], summary: "link theme to project")
         flash("Theme linked to the project again")
     }
 
-    /// Theme edits while a detached preview is open: saved as that preview's tokens.
+    /// Theme edits while a detached thumbnail is open: saved as that thumbnail's tokens.
     func writeDetachedTheme(_ theme: [String: JSONValue]) -> Bool {
-        guard let p = openPreview, p.theme.isDetached else { return false }
-        applyPage(p.id, [["op": "preview", "theme": ["detached": true, "tokens": .object(theme)]]], summary: "theme")
+        guard let p = openThumbnail, p.theme.isDetached else { return false }
+        applyPage(p.id, [["op": "thumbnail", "theme": ["detached": true, "tokens": .object(theme)]]], summary: "theme")
         return true
     }
 
@@ -235,36 +235,36 @@ extension EditorDocument {
         saveNow()
         do {
             addTokens(for: t)
-            var p: ArclightCore.Preview
-            if let open = openPreview {
+            var p: ArclightCore.Thumbnail
+            if let open = openThumbnail {
                 p = open
             } else {
-                var k = store.previews.count + 1
-                while store.previews["preview-\(k)"] != nil { k += 1 }
-                p = ArclightCore.Preview(id: "preview-\(k)", name: t.name)
+                var k = store.thumbnails.count + 1
+                while store.thumbnails["thumbnail-\(k)"] != nil { k += 1 }
+                p = ArclightCore.Thumbnail(id: "thumbnail-\(k)", name: t.name)
             }
             let aid = p.uniqueArtboardId(String(t.id.replacingOccurrences(of: "thumb-", with: "").prefix(24)))
             var a = try Templates.instantiateArtboard(t, params: params, artboardId: aid, store: store)
             (a.x, a.y) = p.nextArtboardOrigin()
             p.artboards.append(a)
-            let saved = try store.save(preview: p, summary: "template \(t.id)", source: .editor)
+            let saved = try store.save(thumbnail: p, summary: "template \(t.id)", source: .editor)
             refreshProject()
-            if workspace != .preview { workspace = .preview }
-            open(preview: saved.id, artboard: aid)
+            if workspace != .thumbnail { workspace = .thumbnail }
+            open(thumbnail: saved.id, artboard: aid)
             libraryVersion += 1
             flash("New artboard from \(t.name)")
         } catch { flash("\(error)") }
     }
 
     /// Automatic A/B variants of the open artboard, each changing one thing.
-    func makeVariants(_ axis: PreviewVariants.Axis, count: Int = 2) {
+    func makeVariants(_ axis: ThumbnailVariants.Axis, count: Int = 2) {
         saveNow()
-        guard let p = openPreview, let aid = target.artboardId else { return }
+        guard let p = openThumbnail, let aid = target.artboardId else { return }
         do {
-            let (np, ids) = try PreviewVariants.makeAuto(axis, count: count, of: aid, in: p)
-            _ = try store.save(preview: np, expectedRev: p.rev, summary: "variants (\(axis.rawValue)) of \(aid)", source: .editor)
+            let (np, ids) = try ThumbnailVariants.makeAuto(axis, count: count, of: aid, in: p)
+            _ = try store.save(thumbnail: np, expectedRev: p.rev, summary: "variants (\(axis.rawValue)) of \(aid)", source: .editor)
             refreshProject()
-            open(preview: p.id, artboard: aid)
+            open(thumbnail: p.id, artboard: aid)
             postBoard(.fitAll)
             flash("Added \(ids.count) \(axis.rawValue) variants — export the page to get the set")
         } catch { flash("\(error)") }
@@ -310,7 +310,7 @@ extension EditorDocument {
 
     /// Adds a reference picture (file, or a YouTube link's thumbnail) to the open page.
     func addReference(_ source: String) {
-        guard let p = openPreview else { return }
+        guard let p = openThumbnail else { return }
         let st = store
         busy = "Adding reference…"
         Task.detached {
@@ -325,16 +325,16 @@ extension EditorDocument {
                 await MainActor.run {
                     self.busy = nil
                     let refs = (p.references ?? []).filter { $0 != name } + [name]
-                    self.applyPage(p.id, [["op": "preview", "references": .array(refs.map { .string($0) })]], summary: "reference \(name)")
+                    self.applyPage(p.id, [["op": "thumbnail", "references": .array(refs.map { .string($0) })]], summary: "reference \(name)")
                 }
             } catch { await MainActor.run { self.busy = nil; self.flash("\(error)") } }
         }
     }
 
     func removeReference(_ name: String) {
-        guard let p = openPreview else { return }
+        guard let p = openThumbnail else { return }
         let refs = (p.references ?? []).filter { $0 != name }
-        applyPage(p.id, [["op": "preview", "references": .array(refs.map { .string($0) })]], summary: "remove reference")
+        applyPage(p.id, [["op": "thumbnail", "references": .array(refs.map { .string($0) })]], summary: "remove reference")
     }
 
     /// Takes a reference's palette into this page's own theme: background, text and accent.

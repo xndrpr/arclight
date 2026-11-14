@@ -65,9 +65,9 @@ enum Pref {
     static let centerLines = "canvas.centerLines"
     static let safeAreas = "canvas.safeAreas"
     static let thirds = "canvas.thirds"
-    /// Preview workspace: YouTube's timestamp badge over the bottom-right corner, and the feed-size preview.
-    static let timestampBadge = "preview.timestampBadge"
-    static let feedPreview = "preview.feedPreview"
+    /// Thumbnail workspace: YouTube's timestamp badge over the bottom-right corner, and the feed-size thumbnail.
+    static let timestampBadge = "thumbnail.timestampBadge"
+    static let feedThumbnail = "thumbnail.feedThumbnail"
     /// Old canvas-only snapping switch. The canvas follows `snapping` now; read once by `storedSnapping`, then removed.
     static let canvasSnap = "canvas.snap"
 

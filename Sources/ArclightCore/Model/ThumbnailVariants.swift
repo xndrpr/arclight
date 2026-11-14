@@ -2,7 +2,7 @@ import Foundation
 
 /// A/B variants of a thumbnail: copies of one artboard, each changing one thing, laid out in a row to the right
 /// and named B, C, D… — ready to export as a set for YouTube's Test & Compare (up to 3 thumbnails).
-public enum PreviewVariants {
+public enum ThumbnailVariants {
     /// What an automatic variant changes.
     public enum Axis: String, CaseIterable, Sendable {
         /// Accent-coloured layers get another accent.
@@ -25,19 +25,19 @@ public enum PreviewVariants {
     }
 
     /// Adds variants of `base`. Returns the page and the new artboard ids.
-    public static func make(_ specs: [Spec], of base: String, in preview: Preview) throws -> (Preview, [String]) {
-        var p = preview
+    public static func make(_ specs: [Spec], of base: String, in thumbnail: Thumbnail) throws -> (Thumbnail, [String]) {
+        var p = thumbnail
         let a = p.artboards[try p.index(of: base)]
         var ids: [String] = []
         let used = Set(p.artboards.compactMap(\.name))
         var letters = (66...90).compactMap { UnicodeScalar($0).map { String(Character($0)) } }.filter { !used.contains($0) }.makeIterator()
         for spec in specs {
             let name = spec.name ?? letters.next() ?? "Variant"
-            let id = p.uniqueArtboardId(PreviewVariants.slug(name))
-            let r = try PreviewOps.apply(
+            let id = p.uniqueArtboardId(ThumbnailVariants.slug(name))
+            let r = try ThumbnailOps.apply(
                 [["op": "artboard_duplicate", "id": .string(a.id), "as": .string(id), "name": .string(name)]], to: p)
-            p = r.preview
-            if !spec.ops.isEmpty { p = try PreviewOps.apply(spec.ops, to: p, artboard: id).preview }
+            p = r.thumbnail
+            if !spec.ops.isEmpty { p = try ThumbnailOps.apply(spec.ops, to: p, artboard: id).thumbnail }
             ids.append(id)
         }
         return (p, ids)
@@ -85,10 +85,10 @@ public enum PreviewVariants {
     }
 
     /// Resolves the `__self__` placeholder in page ops to each variant's own id (auto background variants).
-    public static func makeAuto(_ axis: Axis, count: Int, of base: String, in preview: Preview) throws -> (Preview, [String]) {
-        let a = preview.artboards[try preview.index(of: base)]
+    public static func makeAuto(_ axis: Axis, count: Int, of base: String, in thumbnail: Thumbnail) throws -> (Thumbnail, [String]) {
+        let a = thumbnail.artboards[try thumbnail.index(of: base)]
         let specs = auto(axis, count: count, of: a)
-        var p = preview
+        var p = thumbnail
         var ids: [String] = []
         for spec in specs {
             let (np, new) = try make([Spec(name: spec.name, ops: [])], of: base, in: p)
@@ -99,7 +99,7 @@ public enum PreviewVariants {
                 o["id"] = .string(id)
                 return .object(o)
             }
-            if !ops.isEmpty { p = try PreviewOps.apply(ops, to: p, artboard: id).preview }
+            if !ops.isEmpty { p = try ThumbnailOps.apply(ops, to: p, artboard: id).thumbnail }
             ids.append(id)
         }
         return (p, ids)

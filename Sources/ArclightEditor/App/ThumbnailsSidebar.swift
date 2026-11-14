@@ -2,8 +2,8 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// Preview workspace, left sidebar: preview pages, each with its artboards (thumbnail, variants, covers).
-struct PreviewsSidebar: View {
+/// Thumbnail workspace, left sidebar: thumbnail pages, each with its artboards (thumbnail, variants, covers).
+struct ThumbnailsSidebar: View {
     @ObservedObject var doc: EditorDocument
     @State private var hover: String?
     @State private var renaming: String?
@@ -11,21 +11,21 @@ struct PreviewsSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SectionHeader(title: "Previews", trailing: AnyView(NewPreviewMenu(doc: doc)))
+            SectionHeader(title: "Thumbnails", trailing: AnyView(NewThumbnailMenu(doc: doc)))
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
-                    ForEach(doc.previews, id: \.id) { p in page(p).transition(Motion.row) }
+                    ForEach(doc.thumbnails, id: \.id) { p in page(p).transition(Motion.row) }
                 }
                 .padding(.horizontal, 6).padding(.bottom, 10)
                 .animation(Motion.snappy, value: doc.target)
-                .animation(Motion.snappy, value: doc.previews.map(\.id))
-                if let p = doc.openPreview {
-                    ThemeLinkRow(doc: doc, preview: p).padding(.horizontal, 12)
-                    ReferencesSection(doc: doc, preview: p).padding(.horizontal, 12)
+                .animation(Motion.snappy, value: doc.thumbnails.map(\.id))
+                if let p = doc.openThumbnail {
+                    ThemeLinkRow(doc: doc, thumbnail: p).padding(.horizontal, 12)
+                    ReferencesSection(doc: doc, thumbnail: p).padding(.horizontal, 12)
                 }
-                if doc.previews.count == 1 && (doc.previews.first?.artboards.count ?? 0) == 1 {
+                if doc.thumbnails.count == 1 && (doc.thumbnails.first?.artboards.count ?? 0) == 1 {
                     Text(
-                        "Add variants for A/B tests or a Shorts cover with + on the page. Ask the AI to make a thumbnail: it can create and edit previews too."
+                        "Add variants for A/B tests or a Shorts cover with + on the page. Ask the AI to make a thumbnail: it can create and edit thumbnails too."
                     )
                     .font(UI.small).foregroundStyle(UI.faint).fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 14).padding(.top, 10)
@@ -35,40 +35,40 @@ struct PreviewsSidebar: View {
         .background(UI.panel)
     }
 
-    private func page(_ p: ArclightCore.Preview) -> some View {
+    private func page(_ p: ArclightCore.Thumbnail) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             HStack(spacing: 6) {
                 Image(systemName: "rectangle.stack").font(.system(size: 10.5)).foregroundStyle(UI.dim)
                 if renaming == "page:" + p.id {
-                    RenameField(initial: p.name ?? p.id, placeholder: "Preview name") { n in
+                    RenameField(initial: p.name ?? p.id, placeholder: "Thumbnail name") { n in
                         renaming = nil
-                        if let n, n != (p.name ?? p.id) { doc.renamePreview(p.id, n) }
+                        if let n, n != (p.name ?? p.id) { doc.renameThumbnail(p.id, n) }
                     }
                 } else {
                     Text(p.name ?? p.id).font(.system(size: 12, weight: .semibold)).foregroundStyle(UI.label2)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                AddArtboardMenu(doc: doc, preview: p.id)
+                AddArtboardMenu(doc: doc, thumbnail: p.id)
             }
             .padding(.horizontal, 8).padding(.top, 6).padding(.bottom, 3)
             .contentShape(Rectangle())
             .onClick { count in if count >= 2 { renaming = "page:" + p.id } }
             .contextMenu {
                 Button("Rename") { renaming = "page:" + p.id }
-                Button("Duplicate Page") { doc.duplicatePreview(p.id) }
+                Button("Duplicate Page") { doc.duplicateThumbnail(p.id) }
                 Divider()
-                Button("Delete Page") { doc.deletePreview(p.id) }
+                Button("Delete Page") { doc.deleteThumbnail(p.id) }
             }
             ForEach(p.artboards, id: \.id) { a in row(p, a) }
         }
     }
 
-    @ViewBuilder private func row(_ p: ArclightCore.Preview, _ a: Artboard) -> some View {
+    @ViewBuilder private func row(_ p: ArclightCore.Thumbnail, _ a: Artboard) -> some View {
         let key = p.id + "/" + a.id
-        let selected = doc.target == .artboard(preview: p.id, artboard: a.id)
+        let selected = doc.target == .artboard(thumbnail: p.id, artboard: a.id)
         // The open artboard's thumbnail follows the working copy as you edit.
-        let shown = selected ? doc.scene : a.asScene(preview: p.id, rev: p.rev)
+        let shown = selected ? doc.scene : a.asScene(thumbnail: p.id, rev: p.rev)
         HStack(spacing: 8) {
             SceneThumb(doc: doc, scene: shown)
                 .frame(width: 56, height: 56 * CGFloat(min(1.25, Double(a.height) / Double(max(a.width, 1)))))
@@ -99,7 +99,7 @@ struct PreviewsSidebar: View {
         .onHover { h in hover = h ? key : nil }
         .cursor(.pointingHand)
         .onClick(enabled: renaming != key) { count in
-            if count >= 2 { renaming = key } else if !selected { endEditing(); doc.open(preview: p.id, artboard: a.id) }
+            if count >= 2 { renaming = key } else if !selected { endEditing(); doc.open(thumbnail: p.id, artboard: a.id) }
         }
         .help("Click to open · double-click to rename · right-click for more")
         .contextMenu {
@@ -124,19 +124,19 @@ struct PreviewsSidebar: View {
 /// "+" on a page: a new artboard from a size preset.
 private struct AddArtboardMenu: View {
     @ObservedObject var doc: EditorDocument
-    let preview: String
+    let thumbnail: String
     var body: some View {
         Menu {
             Section("New artboard") {
                 ForEach(ArtboardPresets.all, id: \.self) { p in
-                    Button(p.title) { doc.addArtboard(preset: p, to: preview) }
+                    Button(p.title) { doc.addArtboard(preset: p, to: thumbnail) }
                 }
                 Button("From Template…") {
-                    if doc.target.previewId != preview { doc.open(preview: preview) }
+                    if doc.target.thumbnailId != thumbnail { doc.open(thumbnail: thumbnail) }
                     LibrarySheets.templates(doc, mode: .newArtboard)
                 }
             }
-            if doc.target.previewId == preview {
+            if doc.target.thumbnailId == thumbnail {
                 Section("A/B variants of the open artboard") {
                     Button("2 colour variants") { doc.makeVariants(.color) }
                     Button("2 zoom variants") { doc.makeVariants(.zoom) }
@@ -162,38 +162,38 @@ private struct AddArtboardMenu: View {
     }
 }
 
-/// "+" in the Previews header.
-private struct NewPreviewMenu: View {
+/// "+" in the Thumbnails header.
+private struct NewThumbnailMenu: View {
     @ObservedObject var doc: EditorDocument
     var body: some View {
         Menu {
-            Button("New Thumbnail Page") { doc.newPreview() }
+            Button("New Thumbnail Page") { doc.newThumbnail() }
             Button("New from Template…") { LibrarySheets.templates(doc, mode: .newArtboard) }
         } label: {
             Image(systemName: "plus").font(.system(size: 11, weight: .medium)).foregroundStyle(UI.dim)
                 .frame(width: 24, height: 22).hitArea()
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 24, height: 22)
-        .help("New preview page (⇧⌘N) or one from a thumbnail template").cursor(.pointingHand)
+        .help("New thumbnail page (⇧⌘N) or one from a thumbnail template").cursor(.pointingHand)
     }
 }
 
 /// Whether the open page follows the project theme, with the switch to detach or re-link it.
 private struct ThemeLinkRow: View {
     @ObservedObject var doc: EditorDocument
-    let preview: ArclightCore.Preview
+    let thumbnail: ArclightCore.Thumbnail
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: preview.theme.isDetached ? "link.badge.plus" : "link")
+            Image(systemName: thumbnail.theme.isDetached ? "link.badge.plus" : "link")
                 .font(.system(size: 10.5)).foregroundStyle(UI.dim)
-            Text(preview.theme.isDetached ? "Own theme" : "Project theme").font(UI.small).foregroundStyle(UI.label2)
+            Text(thumbnail.theme.isDetached ? "Own theme" : "Project theme").font(UI.small).foregroundStyle(UI.label2)
             Spacer(minLength: 0)
-            Button(preview.theme.isDetached ? "Link to project" : "Detach") {
-                if preview.theme.isDetached { doc.relinkTheme() } else { doc.detachTheme() }
+            Button(thumbnail.theme.isDetached ? "Link to project" : "Detach") {
+                if thumbnail.theme.isDetached { doc.relinkTheme() } else { doc.detachTheme() }
             }
             .buttonStyle(PillButtonStyle()).controlSize(.small)
             .help(
-                preview.theme.isDetached
+                thumbnail.theme.isDetached
                     ? "Use the project theme again (this page's own colours and fonts are replaced)"
                     : "Give this page its own colours and fonts; project theme changes stop reaching it")
         }
@@ -204,7 +204,7 @@ private struct ThemeLinkRow: View {
 /// Reference thumbnails kept with the page (never exported): add a picture or a YouTube link, analyse, remove.
 private struct ReferencesSection: View {
     @ObservedObject var doc: EditorDocument
-    let preview: ArclightCore.Preview
+    let thumbnail: ArclightCore.Thumbnail
     @State private var link = ""
     @State private var analyzing: String?
 
@@ -220,7 +220,7 @@ private struct ReferencesSection: View {
             }
             TextField("Paste a YouTube link…", text: $link).textFieldStyle(.roundedBorder).font(UI.small)
                 .onSubmit { if !link.isEmpty { doc.addReference(link); link = "" } }
-            let refs = preview.references ?? []
+            let refs = thumbnail.references ?? []
             if refs.isEmpty {
                 Text("Thumbnails you like, to study their layout and colours (the AI can too). Never exported.")
                     .font(UI.small).foregroundStyle(UI.faint).fixedSize(horizontal: false, vertical: true)

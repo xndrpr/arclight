@@ -31,10 +31,10 @@ public struct Template: Codable, Equatable, Sendable {
     public var scene: JSONValue
     /// Theme tokens the template expects; added to the project when missing (never overwritten).
     public var theme: [String: JSONValue]?
-    /// "scene" (default: a motion scene) or "preview" (a thumbnail artboard; `scene.size` is its size).
+    /// "scene" (default: a motion scene) or "thumbnail" (a thumbnail artboard; `scene.size` is its size).
     public var kind: String?
 
-    public var isPreview: Bool { kind == "preview" }
+    public var isThumbnail: Bool { kind == "thumbnail" || kind == "preview" }  // "preview": saved before the rename
 
     public init(
         id: String, name: String, description: String? = nil, category: String? = nil, params: [Param],
@@ -68,7 +68,7 @@ public enum Templates {
 
     public static func get(_ id: String, project: URL?) -> Template? { all(project: project).last { $0.id == id } }
 
-    /// Builds an artboard from a template (preview templates bring their own size; scene templates fit `size`).
+    /// Builds an artboard from a template (thumbnail templates bring their own size; scene templates fit `size`).
     /// Image parameters left empty point at a placeholder silhouette written into the project's assets.
     public static func instantiateArtboard(
         _ t: Template, params: [String: JSONValue], artboardId: String, size: [Int]? = nil, store: ProjectStore?

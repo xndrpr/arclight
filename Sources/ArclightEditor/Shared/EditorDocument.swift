@@ -13,18 +13,18 @@ final class EditorDocument: ObservableObject {
     let renderer: Renderer
 
     // Set only by the Document+*.swift extensions (they live in other files, so the setters can't be private).
-    /// The project as the open document renders it: the stored project, with a detached preview's own theme laid
-    /// over it while that preview is open (`effectiveProject`).
+    /// The project as the open document renders it: the stored project, with a detached thumbnail's own theme laid
+    /// over it while that thumbnail is open (`effectiveProject`).
     @Published var project: Project
-    /// The working copy being edited: a motion scene, or an artboard of a preview page (`Artboard.asScene`).
+    /// The working copy being edited: a motion scene, or an artboard of a thumbnail page (`Artboard.asScene`).
     @Published var scene: Scene
-    /// Motion (scenes, timeline) or Preview (thumbnail pages, artboards). Remembered in project.json.
+    /// Motion (scenes, timeline) or Thumbnail (thumbnail pages, artboards). Remembered in project.json.
     @Published var workspace: Workspace = .motion
-    /// What `scene` is a working copy of; `.none` when the workspace is empty ("Create first scene / preview").
+    /// What `scene` is a working copy of; `.none` when the workspace is empty ("Create first scene / thumbnail").
     @Published var target: EditTarget = .none
-    /// Preview workspace tool (Figma / Photoshop style): move, text, shapes, hand, zoom.
-    @Published var tool: PreviewTool = .move
-    /// Preview: the marquee selection (canvas px) that generative fill works on.
+    /// Thumbnail workspace tool (Figma / Photoshop style): move, text, shapes, hand, zoom.
+    @Published var tool: ThumbnailTool = .move
+    /// Thumbnail: the marquee selection (canvas px) that generative fill works on.
     @Published var marquee: CGRect?
     /// Which AI prompt field the contextual bar shows (generate / fill / expand), when open.
     @Published var aiPrompt: AIPromptKind?
@@ -103,17 +103,17 @@ final class EditorDocument: ObservableObject {
 
     init(url: URL) throws {
         let st = try ProjectStore(url: url)
-        // Open where the user (or agent) left off; a project with only previews opens on them.
+        // Open where the user (or agent) left off; a project with only thumbnails opens on them.
         let ws: Workspace =
             Workspace(rawValue: st.project.workspace ?? "")
-            ?? (st.orderedScenes.isEmpty && !st.orderedPreviews.isEmpty ? .preview : .motion)
+            ?? (st.orderedScenes.isEmpty && !st.orderedThumbnails.isEmpty ? .thumbnail : .motion)
         if ws == .motion && st.orderedScenes.isEmpty {
             var s = Scene(id: "scene-1", duration: 5)
             s.name = "Scene 1"
             try st.save(scene: s, summary: "create")
         }
-        if ws == .preview && st.orderedPreviews.isEmpty {
-            try st.save(preview: EditorDocument.starterPreview(id: "preview-1"), summary: "create")
+        if ws == .thumbnail && st.orderedThumbnails.isEmpty {
+            try st.save(thumbnail: EditorDocument.starterThumbnail(id: "thumbnail-1"), summary: "create")
         }
         store = st
         renderer = try Renderer()
