@@ -13,7 +13,7 @@ let usage = """
           Render frames to PNG. Several --time values write FILE_0.png, FILE_1.png, ...
       arclight export <project.arclight> [--scene ID]... [--format mp4|hevc|prores|png] [--scale F] [--fps N] [--out DIR]
           Export scenes to video or a PNG sequence (default: all scenes, mp4, into <project>/exports).
-      arclight mcp [--project <project.arclight>]
+      arclight mcp [--project <project.arclight>] [--chat]
           Run the MCP server on stdio (for Claude Code: claude mcp add arclight -- /path/to/arclight mcp).
       arclight docs [--out FILE.md]
           Print the scene format reference (generated from the schema).
@@ -39,7 +39,7 @@ struct Args {
     var positional: [String] = []
     var options: [String: [String]] = [:]
     var flags: Set<String> = []
-    static let flagNames: Set<String> = ["transparent"]
+    static let flagNames: Set<String> = ["transparent", "chat"]
 
     init(_ argv: [String]) {
         var i = 0
@@ -160,7 +160,7 @@ case "export":
     } catch { fail("\(error)") }
 
 case "mcp":
-    MCPServer(projectPath: args.one("project")).run()
+    MCPServer(projectPath: args.one("project"), chat: args.flags.contains("chat")).run()
 
 case "validate":
     let store = openStore(args.positional.first)

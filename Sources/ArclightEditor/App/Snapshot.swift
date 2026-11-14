@@ -8,7 +8,7 @@ import SwiftUI
 /// Options: `--time`, `--select <layer id>`, `--tab scenes|history|assets|ai`, `--setup` (see `applySetup`; for thumbnails
 /// `board` fits all artboards and `tool:rect` picks a tool),
 /// `--theme <AppTheme raw value>`, `--size WxH`, `--panel settings|installhelp|shortcuts|inspector|themepopover|timeline|
-/// newproject|welcome|templates|inserttemplate|savetemplate|chat` (library panels fill `--size`, e.g. 980x640).
+/// newproject|welcome|templates|inserttemplate|savetemplate|chat|choiceviewer` (library panels fill `--size`, e.g. 980x640).
 public enum EditorSnapshot {
     public struct Options {
         public var project: String
@@ -65,6 +65,17 @@ public enum EditorSnapshot {
         case "settings": return AnyView(SettingsView(doc: doc, initialTab: o.tab))
         case "chat":
             return AnyView(ChatView(doc: doc, chat: doc.chat).frame(width: CGFloat(o.width)).background(UI.panel))
+        case "choiceviewer":
+            // The last choice in the project's saved chat, open large (`--select` picks the option shown).
+            guard let c = doc.chat.transcript.items.last(where: { $0.kind == .choice })?.choice else {
+                return AnyView(Text("No choice in this project's chat"))
+            }
+            let i = c.options.firstIndex { $0.id == o.select } ?? 0
+            return AnyView(
+                ChoiceViewer(
+                    doc: doc, chat: doc.chat, frames: ChoiceFrames(), choice: c,
+                    picked: .constant(o.select.map { [$0] } ?? []),
+                    comment: .constant(""), waiting: true, index: i, toggle: { _ in }, confirm: {}))
         case "installhelp": return AnyView(InstallHelpView(close: {}))
         case "shortcuts": return AnyView(ShortcutsSheet(isPresented: .constant(true)))
         case "inspector": return AnyView(InspectorView(doc: doc).frame(width: CGFloat(o.width)))

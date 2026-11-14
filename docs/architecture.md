@@ -69,7 +69,7 @@ The SwiftUI and AppKit editor, one folder per area of the window.
 | `Inspector/` | The schema-driven inspector (`Inspector`, `LayerInspector`, `SceneInspector`, `FieldRow`, `Controls`), paint, font, easing and expression fields, the theme editor and popover |
 | `Library/` | Templates, symbols and assets (`TemplateGallery`, `AssetsPanel`, `SymbolMenu`, `NewProjectView`, `SaveTemplateSheet`) |
 | `Activity/` | The activity feed, notes, revision history (`HistoryPanel`) and the change flash overlay |
-| `AI/` | The floating AI panel, agent status and rows, `AgentMonitor` (reads presence files), `ConnectGuide` (how to connect an agent) |
+| `AI/` | The floating AI panel (Chat and Activity tabs; the chat in `AI/Chat/`), agent status and rows, `AgentMonitor` (reads presence files), `ConnectGuide` (how to connect an agent) |
 | `Shared/` | `EditorDocument` (the open project: working copy, undo, autosave, reloading from disk) and its `Document+Persistence` / `Document+Selection` extensions; `Theme` (the `UI` tokens), `AppTheme`, `Preferences` (`Pref`), `AppNotifications`; shared components and interaction fixes (`BaseComponents`, `BaseControls`, `HitArea`, `Interaction`, `LocalEventMonitor`, `WindowChrome`, `ClickTrace`) |
 
 ### arclight (`Sources/Arclight/main.swift`)

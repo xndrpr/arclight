@@ -10,6 +10,8 @@ struct ChoiceCard: View {
     @StateObject private var frames = ChoiceFrames()
     @State private var picked: [String] = []
     @State private var comment = ""
+    /// The option open in the large viewer.
+    @State private var viewing: Int?
 
     private var answered: ChatChoice.Answer? { choice.answer }
     private var waiting: Bool { answered == nil && chat.transcript.pendingChoice?.id == choice.id }
@@ -25,6 +27,16 @@ struct ChoiceCard: View {
                 SmallCapsLabel(choice.stage.label, color: UI.ai)
                 Spacer(minLength: 0)
                 if let answered, answered.typed { Text("answered below").font(UI.small).foregroundStyle(UI.faint) }
+                if hasVisuals {
+                    Button {
+                        viewing = max(0, choice.options.firstIndex { picked.contains($0.id) } ?? 0)
+                    } label: {
+                        Label("View large", systemImage: "arrow.up.left.and.arrow.down.right")
+                            .font(UI.small.weight(.medium))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(UI.ai).cursor(.pointingHand)
+                    .help("Open the options large and compare them (← → to flip)")
+                }
             }
             .foregroundStyle(UI.ai)
             Text(choice.question).font(UI.font.weight(.medium)).foregroundStyle(UI.text)
@@ -47,6 +59,28 @@ struct ChoiceCard: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(UI.raised))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(waiting ? UI.ai.opacity(0.45) : UI.border))
         .onAppear { picked = answered?.picked ?? [] }
+        .sheet(
+            isPresented: Binding(get: { viewing != nil }, set: { if !$0 { viewing = nil } })
+        ) {
+            ChoiceViewer(
+                doc: doc, chat: chat, frames: frames, choice: choice, picked: $picked, comment: $comment,
+                waiting: waiting, index: viewing ?? 0, toggle: toggle, confirm: confirm)
+        }
+    }
+
+    private var hasVisuals: Bool { choice.options.contains { $0.visual != nil } }
+
+    private func toggle(_ id: String) {
+        guard waiting else { return }
+        withMotion(Motion.snappy) {
+            if picked.contains(id) {
+                picked.removeAll { $0 == id }
+            } else if choice.multiple {
+                picked.append(id)
+            } else {
+                picked = [id]
+            }
+        }
     }
 
     // MARK: Tiles
@@ -55,19 +89,23 @@ struct ChoiceCard: View {
         let on = picked.contains(o.id)
         let dimmed = answered != nil && !on
         return Button {
-            guard waiting else { return }
-            withMotion(Motion.snappy) {
-                if on {
-                    picked.removeAll { $0 == o.id }
-                } else if choice.multiple {
-                    picked.append(o.id)
-                } else {
-                    picked = [o.id]
-                }
-            }
+            toggle(o.id)
         } label: {
             VStack(alignment: .leading, spacing: 5) {
-                if let v = o.visual { ChoiceVisual(doc: doc, frames: frames, visual: v, playing: answered == nil) }
+                if let v = o.visual {
+                    ChoiceVisual(doc: doc, frames: frames, visual: v, playing: answered == nil)
+                        .overlay(alignment: .topTrailing) {
+                            Button {
+                                viewing = choice.options.firstIndex(of: o)
+                            } label: {
+                                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                                    .font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                                    .frame(width: 20, height: 20)
+                                    .background(Circle().fill(.black.opacity(0.55)))
+                            }
+                            .buttonStyle(.plain).padding(5).cursor(.pointingHand).help("View large")
+                        }
+                }
                 HStack(spacing: 5) {
                     Text(o.id).font(UI.monoSmall).foregroundStyle(on ? UI.ai : UI.faint)
                     Text(o.title).font(UI.small.weight(.semibold)).foregroundStyle(UI.text).lineLimit(1)
@@ -123,6 +161,7 @@ struct ChoiceCard: View {
 
     private func confirm() {
         guard canConfirm, waiting else { return }
+        viewing = nil
         chat.answer(choice, picked: picked, comment: trimmed)
     }
 
@@ -156,13 +195,15 @@ struct ChoiceCard: View {
 }
 
 /// A tile's picture: one still, a strip of stills, or the scene playing on a loop.
-private struct ChoiceVisual: View {
+struct ChoiceVisual: View {
     @ObservedObject var doc: EditorDocument
     @ObservedObject var frames: ChoiceFrames
     let visual: ChatChoice.Visual
     let playing: Bool
-    /// Pixel width each frame is rendered at (tiles are about 150 pt wide; strips split the row).
-    private let width: Double = 320
+    /// Pixel width each frame is rendered at (tiles are about 150 pt wide; strips split the row; the viewer is large).
+    var width: Double = 320
+    /// Show only these times instead of the visual's own (the viewer's current storyboard beat).
+    var times: [Double]?
 
     var body: some View {
         let aspect = Self.aspect(doc)
@@ -172,7 +213,7 @@ private struct ChoiceVisual: View {
                     loop(scene, aspect)
                 } else {
                     HStack(spacing: 3) {
-                        ForEach(Array(visual.times.enumerated()), id: \.offset) { _, t in
+                        ForEach(Array((times ?? visual.times).enumerated()), id: \.offset) { _, t in
                             frame(frames.image(doc, scene, t, width), aspect)
                         }
                     }
@@ -218,60 +259,5 @@ private struct ChoiceVisual: View {
     static func aspect(_ doc: EditorDocument) -> Double {
         let s = doc.project.size
         return s.count == 2 && s[1] > 0 ? Double(s[0]) / Double(s[1]) : 16 / 9
-    }
-}
-
-/// Renders the frames choice tiles show, one at a time on the main thread (the editor's renderer), cached by
-/// scene revision. Draft scenes are read straight from disk so a tile never waits for the editor's next poll.
-final class ChoiceFrames: ObservableObject {
-    @Published private(set) var images: [String: CGImage] = [:]
-    private var scenes: [String: (scene: Scene?, read: Date)] = [:]
-    private var queue: [(key: String, job: () -> CGImage?)] = []
-    private var running = false
-
-    static let loopFPS: Double = 12
-
-    /// Times of a looping tile's frames: the whole scene at `loopFPS`, at most 36 frames.
-    static func loopTimes(_ s: Scene) -> [Double] {
-        let d = max(0.1, s.duration)
-        let n = max(2, min(36, Int((d * loopFPS).rounded())))
-        return (0..<n).map { Double($0) * d / Double(n) }
-    }
-
-    func scene(_ doc: EditorDocument, _ id: String) -> Scene? {
-        // Re-read at most once a second (an agent may change a draft before the user answers).
-        if let c = scenes[id], Date().timeIntervalSince(c.read) < 1 { return c.scene }
-        let url = doc.url.appendingPathComponent("scenes").appendingPathComponent("\(id).json")
-        let s = JSONFile.read(Scene.self, from: url) ?? doc.store.scenes[id]
-        // Keep the last copy after the drafts are deleted, so answered cards keep their pictures this session.
-        let kept = s ?? scenes[id]?.scene
-        DispatchQueue.main.async { self.scenes[id] = (kept, Date()) }
-        return kept
-    }
-
-    func image(_ doc: EditorDocument, _ s: Scene, _ t: Double, _ width: Double) -> CGImage? {
-        let k = "\(s.id):\(s.rev):\(Int((t * 1000).rounded())):\(Int(width))"
-        if let img = images[k] { return img }
-        if !queue.contains(where: { $0.key == k }) {
-            queue.append((k, { [weak doc] in doc?.preview(s, time: t, width: width) }))
-            DispatchQueue.main.async { self.pump() }
-        }
-        return nil
-    }
-
-    private func pump() {
-        guard !running, !queue.isEmpty else { return }
-        running = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) { [weak self] in
-            guard let self else { return }
-            self.running = false
-            guard !self.queue.isEmpty else { return }
-            let next = self.queue.removeFirst()
-            if let img = next.job() {
-                if self.images.count > 600 { self.images.removeAll() }
-                self.images[next.key] = img
-            }
-            self.pump()
-        }
     }
 }

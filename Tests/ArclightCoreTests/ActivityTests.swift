@@ -58,4 +58,15 @@ import Testing
         #expect(d.added == ["c"] && d.removed == ["b"] && d.modified == ["a"] && d.sceneChanged)
         #expect(d.summary == "added c; removed b; changed a; scene settings")
     }
+
+    @Test func askChoiceIsListedOnlyForTheEditorsChat() throws {
+        let plain = MCPServer(projectPath: nil)
+        #expect(!plain.tools.contains { $0.name == ChatChoice.toolName })
+        let chat = MCPServer(projectPath: nil, chat: true)
+        let tool = try #require(chat.tools.first { $0.name == ChatChoice.toolName })
+        #expect(tool.readOnly)
+        let ok = try tool.run(["stage": "brief", "question": "Right?"])
+        #expect(ok.first?["text"]?.string?.contains("Stop now") == true)
+        #expect(throws: (any Error).self) { try tool.run(["stage": "colour", "question": "?"]) }
+    }
 }

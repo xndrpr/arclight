@@ -157,7 +157,9 @@ enum Guide {
         (the chat says which, in <direction>), skip everything when they say "just build it" or ask for a small change, \
         and never repeat a stage they already settled.
         Each stage ends with ONE question. In the in-app chat, ask it with ask_choice and stop: the user answers by clicking. \
-        Elsewhere, show the renders and ask in a short message, then wait for the answer.
+        Elsewhere, show the renders and ask in a short message, then wait for the answer. \
+        Drafts are hidden from the editor's scene list on purpose: in the chat the user sees them only on the ask_choice card \
+        (they can open each option large there), so never export files or make normal scenes just to show options.
 
         1. Brief (stage "brief"): 3 short lines on how you read the idea: mood and references, structure (beats), length and format. \
            ask_choice with no options: the user confirms it or writes what to change.

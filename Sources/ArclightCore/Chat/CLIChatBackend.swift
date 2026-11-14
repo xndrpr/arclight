@@ -35,7 +35,7 @@ public final class CLIChatBackend: ChatBackend, @unchecked Sendable {
         let mcp: JSONValue = [
             "mcpServers": [
                 "arclight": [
-                    "command": .string(serverCommand), "args": ["mcp", "--project", .string(projectPath)],
+                    "command": .string(serverCommand), "args": ["mcp", "--project", .string(projectPath), "--chat"],
                 ]
             ]
         ]
@@ -111,6 +111,8 @@ struct CLIStreamParser {
     private(set) var sessionId: String?
     private(set) var error: String?
     private var toolNames: [String: String] = [:]
+    /// ask_choice calls waiting for the server's check.
+    private var choices: [String: [String: JSONValue]] = [:]
     static let prefix = "mcp__arclight__"
 
     mutating func feed(_ line: Data) -> [ChatEvent] {
@@ -134,11 +136,25 @@ struct CLIStreamParser {
                 var name = b["name"]?.string ?? ""
                 if name.hasPrefix(Self.prefix) { name = String(name.dropFirst(Self.prefix.count)) }
                 toolNames[id] = name
+                if name == ChatChoice.toolName {
+                    // Shown as a card once the server accepts it (its result); a rejected one shows as a failed call.
+                    choices[id] = b["input"]?.object ?? [:]
+                    return nil
+                }
                 return .toolStart(id: id, name: name, input: ChatPrompt.compact(b["input"] ?? [:]))
             }
         case "user":
-            return (v["message"]?["content"]?.array ?? []).compactMap { b in
-                guard b["type"]?.string == "tool_result", let id = b["tool_use_id"]?.string else { return nil }
+            return (v["message"]?["content"]?.array ?? []).flatMap { b -> [ChatEvent] in
+                guard b["type"]?.string == "tool_result", let id = b["tool_use_id"]?.string else { return [] }
+                if let input = choices.removeValue(forKey: id) {
+                    let ok = !(b["is_error"]?.bool ?? false)
+                    if ok, let c = try? ChatChoice.parse(id: id, input: input) { return [.choice(c)] }
+                    let why = b["content"]?.string ?? ChatPrompt.summary(b["content"]?.array ?? [])
+                    return [
+                        .toolStart(id: id, name: ChatChoice.toolName, input: ChatPrompt.compact(.object(input))),
+                        .toolEnd(id: id, ok: false, summary: why, image: nil),
+                    ]
+                }
                 let content: [JSONValue]
                 if let s = b["content"]?.string {
                     content = [["type": "text", "text": .string(s)]]
@@ -150,8 +166,10 @@ struct CLIStreamParser {
                     }
                 }
                 let ok = !(b["is_error"]?.bool ?? false)
-                return .toolEnd(
-                    id: id, ok: ok, summary: ChatPrompt.summary(content), image: ChatPrompt.firstImage(content))
+                return [
+                    .toolEnd(
+                        id: id, ok: ok, summary: ChatPrompt.summary(content), image: ChatPrompt.firstImage(content))
+                ]
             }
         case "result":
             if v["is_error"]?.bool == true {

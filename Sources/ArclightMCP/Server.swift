@@ -24,9 +24,11 @@ public final class MCPServer {
     var signalSources: [DispatchSourceSignal] = []
     var lastCallFailed = false
 
-    public init(projectPath: String?) {
+    /// `chat`: the editor's own chat started this server (through the user's command-line agent), so the chat-only
+    /// `ask_choice` tool is listed too.
+    public init(projectPath: String?, chat: Bool = false) {
         if let p = projectPath { store = try? ProjectStore(url: URL(expandingPath: p)) }
-        tools = makeTools() + libraryTools() + themeTools()
+        tools = makeTools() + libraryTools() + themeTools() + (chat ? [chatChoiceTool()] : [])
     }
 
     /// Created on first use: loading the GPU renderer is slow and most tools never need it.
