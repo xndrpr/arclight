@@ -21,6 +21,10 @@ struct ChatView: View {
             ChatInput(chat: chat)
         }
         .frame(maxHeight: .infinity, alignment: .top)
+        // A key saved or the backend switched in Settings: redraw (status line, empty state, field).
+        .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in
+            chat.objectWillChange.send()
+        }
     }
 
     private var header: some View {
