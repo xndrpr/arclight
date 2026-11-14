@@ -35,6 +35,7 @@ The engine. No UI code; everything the editor, the MCP server and the CLI share.
 | `Export/` | `Exporter`: H.264, HEVC, ProRes 4444 and PNG sequences through AVFoundation |
 | `Audio/` | Waveforms and muxing the scene's audio into exports |
 | `Library/` | Symbol packs (`Symbols`, `ChessPack`), templates (`Templates`, `BuiltInTemplates`), `ThemePresets`, `AssetWriter` (`symbol_save` / `asset_write`), `SymbolPreview` |
+| `Chat/` | The AI panel's chat: `MCPStdioClient` (an MCP client for a child `arclight mcp`), `MessagesAPIClient` + `MessageAssembler` (streaming Messages API), `APIChatBackend` (the tool loop), `CLIChatBackend` (experimental: the user's own command-line agent), `ChatPrompt`, `ChatTypes` (`ChatTranscript`, `ChatSettings`) |
 | `Support/` | Small shared pieces: `AppPaths`, `JSONFormat` (`JSONFile`, `JSONL`), `Timestamp`, `Format`, `ChangeSource`, `Version`, `LegacyMigration` (the one-time carry-over from Apogee), `AssetPath`, `URL+ExpandingPath` |
 
 ### ArclightMCP (`Sources/ArclightMCP`)
@@ -118,6 +119,11 @@ Argument parsing and the commands: `open`, `render`, `export`, `mcp`, `validate`
 - **Presence.** Each `arclight mcp` process keeps a small file in `agents/` (client name, current tool, project); the
   editor's `AgentMonitor` reads them to show who is connected and what they are doing. The editor writes `editors/`
   files and `<project>/.state.json` (current scene, selection, playhead), which `editor_state` reports to the agent.
+- **In-app chat.** The AI panel's Chat tab (`ArclightEditor/AI/Chat`) is one more agent: `ChatController` starts a
+  child `arclight mcp --project <path>` and talks to it with `MCPStdioClient`, so its calls are logged, revertible and
+  shown in presence like any outside agent's ("Arclight Chat"), and the editor still never links `ArclightMCP`. Turns
+  go to the Messages API with the user's key (Keychain), or, behind the `experimental.cliChat` flag, through the
+  user's own installed command-line agent with the same server attached. The transcript is `.arclight/chat.json`.
 - **Notes.** Notes the user leaves for the agent are stored in `.arclight/notes.json`, pinned to a layer and a time;
   the agent reads them with `editor_state` / `note_list` and answers with `note_resolve`.
 

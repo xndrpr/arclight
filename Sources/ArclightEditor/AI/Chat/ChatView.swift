@@ -194,8 +194,10 @@ private struct ChatEmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if chat.hasCredentials {
-                Text("Ask the AI to build or change anything in this project. You'll see each change live, and can revert it in Activity.")
-                    .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
+                Text(
+                    "Ask the AI to build or change anything in this project. You'll see each change live, and can revert it in Activity."
+                )
+                .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
                 ForEach(Self.examples, id: \.self) { s in
                     Button {
                         chat.draft = s

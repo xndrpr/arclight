@@ -120,6 +120,18 @@ Scripts/install.sh                # builds Arclight.app and installs it to /Appl
 More detail, including what to do if the app disappears after an update: [docs/install.md](docs/install.md). The same
 steps are in the app under **Help ▸ Install & Security Guide…**.
 
+## Chat in the editor
+
+The AI panel (**⌥⌘A**) has a **Chat** tab: ask for a scene or a change and watch it happen, without setting up
+another app. Add your Anthropic API key in **Settings ▸ AI ▸ Chat** (it stays in your Keychain; usage is billed to
+your API account), and pick the model and effort there. The chat uses the same tools as an outside agent, so every
+change is listed under **Activity** with one-click revert.
+
+Experimental, off by default: the chat can run through your own installed Claude Code instead of an API key. Turn
+the option on with `defaults write com.xndrpr.arclight experimental.cliChat -bool true` (or
+`ARCLIGHT_EXPERIMENTAL_CLI_CHAT=1`), then choose it in **Settings ▸ AI ▸ Experimental**. It uses that install's
+login, is unsupported, and is meant for your own use only.
+
 ## Connect an AI agent
 
 The app bundle contains the `arclight` command line, which also runs the MCP server:
@@ -175,8 +187,8 @@ it being built. To start the server on a particular project, pass `--project <pa
   J/K/L shuttle, I/O set the in and out points.
 - **Inspector**: every property of the selected layer, generated from the schema, with keyframe and expression
   buttons on each row. With nothing selected it shows the scene: camera, look (post effects) and theme tokens.
-- **AI panel** (**⌥⌘A**): a floating panel with connected agents, notes for the agent, and the activity feed with
-  revert.
+- **AI panel** (**⌥⌘A**): a floating panel with a chat, connected agents, notes for the agent, and the activity
+  feed with revert.
 - **Export** (**⌘E**): H.264 or HEVC MP4, ProRes 4444 with alpha, or a PNG sequence, with the scene's audio mixed in.
 
 **Help ▸ Keyboard Shortcuts** (**?**) lists the rest. The editor comes in nine app themes (Dark, Light, Gruvbox,
