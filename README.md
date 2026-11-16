@@ -12,7 +12,7 @@ edits scenes through Arclight's MCP server while you watch the changes appear in
 hand with a timeline, keyframes and an inspector. Rendering is Metal; export is H.264, HEVC, ProRes 4444 with alpha or
 a PNG sequence.
 
-> **Alpha.** This is Arclight 0.1.1. Expect rough edges. The project format may still
+> **Alpha.** This is Arclight 0.1.2. Expect rough edges. The project format may still
 > change before 1.0; older projects keep loading. See the [changelog](CHANGELOG.md).
 
 <p align="center"><img src="docs/assets/demo.gif" alt="The kinetic-type example, rendered by Arclight"><br>

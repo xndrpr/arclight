@@ -8,6 +8,8 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-16
+
 3D spaces: the AI can build a whole place and move the camera through it.
 
 ### Added
@@ -171,6 +173,7 @@ Found while preparing the release and fixed before it:
 - Requires macOS 14 or later on a Mac with Metal.
 - The project format may still change before 1.0. Old projects will keep loading.
 
-[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/xndrpr/arclight/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/xndrpr/arclight/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/xndrpr/arclight/releases/tag/v0.1.0
