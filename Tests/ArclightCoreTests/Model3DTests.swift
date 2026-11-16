@@ -142,6 +142,9 @@ enum TestGLB {
         #expect(
             FileManager.default.fileExists(atPath: st.assetsURL.appendingPathComponent("mannequin-hand-ref.png").path))
         #expect(throws: (any Error).self) { try run(["scene": "s"]) }
+        let before = fake.calls.count
+        #expect(throws: (any Error).self) { try run(["prompt": "chair", "scene": "missing"]) }
+        #expect(fake.calls.count == before)  // nothing generated for a scene that doesn't exist
     }
 
     @Test func guideTeachesSpaces() throws {

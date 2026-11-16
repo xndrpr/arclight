@@ -32,6 +32,8 @@ extension MCPServer {
                 guard prompt?.isEmpty == false || source?.isEmpty == false else {
                     throw ToolError("give a prompt or a source picture")
                 }
+                // Check the target scene before paying for a model that couldn't be placed.
+                if let sid = a["scene"]?.string { _ = try s.scene(sid) }
                 let r = try blocking {
                     try await ModelAI.generate(
                         prompt: prompt, source: source, name: name, store: s, provider: provider)
