@@ -8,6 +8,46 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-16
+
+Thumbnails, AI pixel tools and a chat with the AI inside the editor.
+
+### Added
+
+- **Thumbnails workspace** (**⌘1** Motion, **⌘2** Thumbnails): YouTube thumbnails live in the same project as your
+  scenes, as pages of artboards that share the project's theme (or detach from it). A board canvas shows all
+  artboards, with a tool bar (move, text, rectangle, ellipse, line, place image, hand, zoom) and Figma/Photoshop-style
+  keys. A feed preview shows the thumbnail at YouTube's sizes with the timestamp badge. Export is PNG or JPG, with a
+  YouTube preset that stays under 2 MB.
+- **Layer effects** for text, shape, symbol and image layers, in thumbnails and motion scenes: blend modes, clip to
+  the layer below, masks (alpha or luma), outline, drop shadow, glow, blur and colour adjustments. Images take `fit`
+  (cover or contain) and `crop`.
+- **Thumbnail helpers**: six built-in thumbnail templates, A/B variants that change one thing at a time, the best
+  frames from your video (by face and sharpness), and references (a YouTube thumbnail by URL, analysed on-device for
+  palette, text, faces and layout).
+- **AI pixel tools**: remove a background and select the subject on-device with Apple Vision, no key needed. With
+  your own fal.ai key (**Settings ▸ AI ▸ Image generation**, stored in the Keychain): generate, generative fill,
+  expand and upscale. Each result is a new asset and one undoable edit. Agents can choose the generation model per
+  call.
+- **Chat in the editor**: a Chat tab in the AI panel (**⌥⌘A**) with your Anthropic API key (**Settings ▸ AI ▸ Chat**).
+  It streams replies and thinking, shows each tool call with its pictures, and takes pasted or dropped images and
+  files. Before building a new scene it settles the direction with you on cards: a brief, a few looks, a storyboard
+  and the motion feel, each a cheap draft scene you pick with a click (**View large** to compare full size).
+- **MCP**: `thumbnail_*` tools, `image_*` tools, `frame_extract`, `reference_add`, `reference_analyze` and
+  `thumbnail_variants`; `guide("thumbnails")` and `guide("direction")`; draft scenes (`draft: true`, hidden from the
+  scene list and exports, cleared with `scene_delete {drafts: true}`) with their own theme tokens.
+
+### Changed
+
+- The AI panel's notes, agents and activity feed moved to an **Activity** tab next to Chat.
+- Switching between Motion and Thumbnails, and between scenes, is much faster on large scenes.
+
+### Fixed
+
+- A text layer's font `size` was refused in thumbnail edits, and variant names with non-Latin letters made invalid
+  artboard ids.
+- Importing a symlinked file copied a dangling link into `assets/`.
+
 ## [0.1.0] - 2026-11-11
 
 The first public release, **Arclight 0.1.0 (alpha)**: a native macOS editor and renderer for motion graphics,
@@ -112,5 +152,6 @@ Found while preparing the release and fixed before it:
 - Requires macOS 14 or later on a Mac with Metal.
 - The project format may still change before 1.0. Old projects will keep loading.
 
-[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/xndrpr/arclight/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/xndrpr/arclight/releases/tag/v0.1.0
