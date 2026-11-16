@@ -8,6 +8,11 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-16
+
+Sound and moving models: the AI scores a scene with effects, music and voiceover, and 3D models play their own
+animation.
+
 ### Added
 
 - 3D models play their own animation: a .glb/.gltf with bones, shape keys or moving parts plays its first clip on loop
@@ -218,7 +223,8 @@ Found while preparing the release and fixed before it:
 - Requires macOS 14 or later on a Mac with Metal.
 - The project format may still change before 1.0. Old projects will keep loading.
 
-[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/xndrpr/arclight/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/xndrpr/arclight/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/xndrpr/arclight/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/xndrpr/arclight/releases/tag/v0.1.0
