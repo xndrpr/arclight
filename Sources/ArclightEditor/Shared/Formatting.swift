@@ -61,6 +61,7 @@ func symbol(for type: String) -> String {
     case "group": return "folder"
     case "repeater": return "circle.grid.3x3"
     case "light": return "lightbulb"
+    case "box": return "cube"
     default: return "circle"
     }
 }

@@ -30,6 +30,10 @@ enum InspectorLayout {
             Group(title: "Floor & light", names: ["ground", "ambient", "pool", "contact", "cone", "shadow", "beam"]),
         ],
         "light": [Group(title: "Light", names: ["pool", "beam"])],
+        "box": [
+            Group(title: "Box", names: ["size", "color", "inside", "shade", "light"]),
+            Group(title: "Faces", names: ["front", "back", "left", "right", "top", "bottom"]),
+        ],
     ]
 
     /// Sections for a layer type: (title, fields) in schema order within each group.

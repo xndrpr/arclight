@@ -26,6 +26,16 @@ extension ShaderSource {
             return pushedDepth(in.vz, f);
         }
 
+        // A box face: an image (or 1x1 white for a colour) repeated mode.yz times across the face and tinted by
+        // u.color (premultiplied, shading included). Gradients are taken before fract so tiles have no seams.
+        fragment FOut box_tex_fs(VOut in [[stage_in]], constant TexU& u [[buffer(0)]], constant FrameU& f [[buffer(1)]],
+                                 texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]]) {
+            float2 t = in.uv * max(u.mode.yz, float2(1e-3));
+            float4 c = tex.sample(s, fract(t), gradient2d(dfdx(t), dfdy(t)));
+            c = float4(c.rgb * c.a, c.a) * u.color;
+            return finish(c, in.vz, f);
+        }
+
         fragment DOut shape_depth_fs(VOut in [[stage_in]], constant ShapeU& u [[buffer(0)]], constant FrameU& f [[buffer(1)]]) {
             float2 h = max(u.geom.xy * 0.5, float2(1e-3));
             float2 p = in.local;

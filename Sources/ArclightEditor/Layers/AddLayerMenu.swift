@@ -74,6 +74,19 @@ struct AddLayerMenu: View {
                         "pool": ["radius": 600, "intensity": 0.2, "softness": 1, "falloff": 2],
                     ])
             }
+            Button("Box (3D)") {
+                doc.addNode(
+                    "box",
+                    props: ["x": 960, "y": 740, "z": 600, "size": [400, 400, 400], "color": "$fg", "shade": 0.35])
+            }
+            Button("Room (3D)") {
+                doc.addNode(
+                    "box",
+                    props: [
+                        "x": 960, "y": 540, "z": 1000, "size": [2400, 1200, 2400], "inside": true, "color": "$fg",
+                        "shade": 0.45,
+                    ], idBase: "room")
+            }
             Divider()
             Button(doc.scene.audio == nil ? "Audio…" : "Replace Audio…") { doc.importAudio() }
             Button("From Template…") { LibrarySheets.templates(doc, mode: .insert) }

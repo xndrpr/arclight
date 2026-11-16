@@ -119,7 +119,46 @@ extension Schema {
                 Field("pool", .object(pool), "The light pool."),
                 Field("beam", .object(beam), "Optional beam.", canDisable: true),
             ], is3D: true),
+        NodeSchema(
+            type: "box", label: "Box", icon: "cube",
+            doc:
+                "A box in 3D centred on x,y,z: furniture, blocks, or a whole room with \"inside\": true (you see its inner walls, floor and ceiling; from outside, the near walls drop away like a dollhouse). Each face takes a colour or an image. y points down: top is the ceiling, bottom the floor.",
+            fields: [
+                Field(
+                    "size", .vector(labels: ["w", "h", "d"], unit: "px"), "Width, height and depth.",
+                    default: [400, 400, 400]),
+                Field("color", .color, "Colour of every face without its own.", default: "$fg"),
+                Field(
+                    "inside", .bool, "Show the inner faces (a room) instead of the outer ones.", default: false,
+                    animatable: false),
+                Field(
+                    "shade", zeroToOne, "How much faces darken away from the light (0 = flat colour).", default: 0.3),
+                Field(
+                    "light", .vector(labels: ["x", "y", "z"]),
+                    "Direction towards the light, in the scene (y up is negative).", default: [-0.4, -1, -0.6],
+                    advanced: true),
+                Field("front", .object(boxFace), "Face towards the default camera (z − d/2).", canDisable: true),
+                Field("back", .object(boxFace), "Far face (z + d/2): a room's back wall.", canDisable: true),
+                Field("left", .object(boxFace), "Left face (x − w/2).", canDisable: true),
+                Field("right", .object(boxFace), "Right face (x + w/2).", canDisable: true),
+                Field("top", .object(boxFace), "Top face (y − h/2): a room's ceiling.", canDisable: true),
+                Field("bottom", .object(boxFace), "Bottom face (y + h/2): a room's floor.", canDisable: true),
+            ], is3D: true),
     ]
+
+    /// Types that are always drawn through the scene camera, with or without `"3d"`.
+    public static let always3D: Set<String> = ["repeater", "light", "box"]
+
+    /// One face of a box: `false` hides it.
+    static let boxFace = ObjectSchema(
+        "face", "One face of a box.",
+        [
+            Field("color", .color, "Colour (tints the image when there is one)."),
+            Field("src", .asset("image"), "Image stretched over the face (or tiled with tile).", animatable: false),
+            Field(
+                "tile", .vector(labels: ["u", "v"]), "How many times the image repeats across the face.",
+                default: [1, 1]),
+        ])
 
     /// Symbol a new symbol layer shows when none is given.
     public static let defaultSymbol = "basic/star"

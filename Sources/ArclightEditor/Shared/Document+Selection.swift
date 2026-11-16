@@ -37,7 +37,7 @@ extension EditorDocument {
         let id = SceneOps.uniqueId(base, in: scene)
         var node: [String: JSONValue] = ["id": .string(id), "type": .string(type)]
         for (k, v) in props { node[k] = v }
-        if scene.nodes.isEmpty == false, type != "repeater", type != "light", props["in"] == nil, time > 0.001 {
+        if scene.nodes.isEmpty == false, !Schema.always3D.contains(type), props["in"] == nil, time > 0.001 {
             node["in"] = .number((time * fps).rounded() / fps)
         }
         apply([["op": "add", "node": .object(node)]])

@@ -60,10 +60,10 @@ extension EditorDocument {
         }
     }
 
-    /// The selected 3D layer that can be dragged on its floor (a single repeater or light).
+    /// The selected 3D layer that can be dragged on its floor (a single repeater, light, box or model).
     var selected3D: String? {
         guard selectedIds.count == 1, let id = selection, let n = scene.node(id),
-            n.type == "repeater" || n.type == "light", !isLocked(id)
+            Schema.always3D.contains(n.type), !isLocked(id)
         else { return nil }
         return id
     }
@@ -73,7 +73,7 @@ extension EditorDocument {
         guard let id = selection else { return true }
         if id == "@camera" { return true }
         guard let n = scene.node(id) else { return true }
-        return n.type == "repeater" || n.type == "light" || n.props["3d"] == .value(true)
+        return Schema.always3D.contains(n.type) || n.props["3d"] == .value(true)
     }
 
     private var canvasFocused: Bool { CanvasFocus.doc == ObjectIdentifier(self) }
