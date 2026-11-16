@@ -169,7 +169,8 @@ struct ChatProgress: View {
                     .strikethrough(step.status == .skipped)
                     .fontWeight(step.status == .active ? .semibold : .regular)
                 if let n = step.note, !n.isEmpty {
-                    Text(n).font(.system(size: 10.5)).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
+                    Text(n).font(.system(size: 10.5)).foregroundStyle(UI.dim).fixedSize(
+                        horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)

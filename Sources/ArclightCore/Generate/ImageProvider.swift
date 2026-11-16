@@ -9,7 +9,9 @@ public protocol ImageProvider: Sendable {
     var name: String { get }
     func generate(prompt: String, width: Int, height: Int, seed: Int?) async throws -> CGImage
     /// With options (transparency, quality, model parameters); reports the model that made it.
-    func generate(prompt: String, width: Int, height: Int, seed: Int?, options: GenerateOptions) async throws
+    func generate(
+        prompt: String, width: Int, height: Int, seed: Int?, options: GenerateOptions
+    ) async throws
         -> GeneratedImage
     /// Inpaint: replaces the white area of `mask` (same size as `image`) following `prompt`.
     func fill(image: CGImage, mask: CGImage, prompt: String, seed: Int?) async throws -> CGImage

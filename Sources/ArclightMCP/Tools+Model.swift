@@ -39,7 +39,9 @@ extension MCPServer {
                     guard FalProvider.isModelID(m) else { throw ToolError("model '\(m)' isn't a fal model id") }
                     chosen3D = m
                 }
-                if chosen3D == ModelCatalog.auto { chosen3D = ModelCatalog.pick3D(draft: a["quality"]?.string == "draft") }
+                if chosen3D == ModelCatalog.auto {
+                    chosen3D = ModelCatalog.pick3D(draft: a["quality"]?.string == "draft")
+                }
                 if let fal = provider as? FalProvider { provider = fal.modelling(with: chosen3D) }
                 let model3DProvider = provider
                 let made3D = ModelCatalog.entry(chosen3D).map { "\($0.label), \($0.priceNote)" } ?? chosen3D

@@ -126,7 +126,8 @@ public enum ModelCatalog {
         switch purpose {
         case .draft?: return transparent ? defaultImage : "fal-ai/z-image/turbo"
         case .graphic?: return "openai/gpt-image-2.6/flare/text-to-image"
-        case .illustration?: return transparent ? "openai/gpt-image-2.6/flare/text-to-image" : "fal-ai/recraft/v4.1/text-to-image"
+        case .illustration?:
+            return transparent ? "openai/gpt-image-2.6/flare/text-to-image" : "fal-ai/recraft/v4.1/text-to-image"
         case .background?: return transparent ? defaultImage : "fal-ai/flux-2-pro"
         case .photo?, nil: return defaultImage
         }
@@ -164,7 +165,9 @@ public enum ModelCatalog {
             let k = (Double(area.upperBound) / a).squareRoot(); w *= k; h *= k
         }
         // Round up when that keeps it under the cap (so the floor is never missed), else down.
-        func snap(_ v: Double, up: Bool) -> Int { max(m, Int((up ? (v / Double(m)).rounded(.up) : (v / Double(m)).rounded(.down))) * m) }
+        func snap(_ v: Double, up: Bool) -> Int {
+            max(m, Int((up ? (v / Double(m)).rounded(.up) : (v / Double(m)).rounded(.down))) * m)
+        }
         var (sw, sh) = (snap(w, up: true), snap(h, up: true))
         if sw * sh > area.upperBound { (sw, sh) = (snap(w, up: false), snap(h, up: false)) }
         return (sw, sh)

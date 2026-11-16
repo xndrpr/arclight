@@ -153,7 +153,8 @@ extension MCPServer {
                         "seed": prop("integer", "Repeatable result (models that support it)"),
                         "model": prop("string", "fal model id for this call, or auto (default: the user's setting)"),
                         "purpose": prop(
-                            "string", "photo (default), draft, graphic, illustration or background — picks the model when it is auto",
+                            "string",
+                            "photo (default), draft, graphic, illustration or background — picks the model when it is auto",
                             extra: ["enum": .array(ModelCatalog.Purpose.allCases.map { .string($0.rawValue) })]),
                         "transparent": prop("boolean", "Transparent background (cut-out asset)"),
                         "quality": prop("string", "low, medium or high on models with a quality setting (GPT Image)"),

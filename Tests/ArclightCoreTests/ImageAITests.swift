@@ -65,7 +65,9 @@ final class FalMock: URLProtocol, @unchecked Sendable {
             client?.urlProtocolDidFinishLoading(self)
         }
         if request.httpMethod == "POST", FalMock.reject.contains(where: { u.hasSuffix("/" + $0) }) {
-            reply(422, Data(#"{"detail":[{"loc":["body","image_size"],"msg":"Input should be a valid dictionary"}]}"#.utf8))
+            reply(
+                422,
+                Data(#"{"detail":[{"loc":["body","image_size"],"msg":"Input should be a valid dictionary"}]}"#.utf8))
         } else if request.httpMethod == "POST" {
             reply(
                 FalMock.submitCode,
@@ -150,7 +152,8 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         #expect(ModelCatalog.pick(.draft, transparent: false) == "fal-ai/z-image/turbo")
         #expect(ModelCatalog.pick(nil, transparent: true) == ModelCatalog.defaultImage)
         #expect(FalProvider.model3DInput(model: "fal-ai/hyper3d/rodin/v2", image: "d")["input_image_urls"] == ["d"])
-        #expect(FalProvider.model3DInput(model: "fal-ai/hunyuan3d-v3/image-to-3d", image: "d")["input_image_url"] == "d")
+        #expect(
+            FalProvider.model3DInput(model: "fal-ai/hunyuan3d-v3/image-to-3d", image: "d")["input_image_url"] == "d")
 
         #expect(FalProvider.isModelID("fal-ai/flux-pro/v1.1-ultra"))
         #expect(
@@ -178,7 +181,8 @@ final class FalMock: URLProtocol, @unchecked Sendable {
 
     @Test func savedOldDefaultsFollowAuto() throws {
         let m = try JSONDecoder().decode(
-            FalProvider.Models.self, from: Data(#"{"generate":"fal-ai/flux/dev","model3D":"fal-ai/hyper3d/rodin/v2"}"#.utf8))
+            FalProvider.Models.self,
+            from: Data(#"{"generate":"fal-ai/flux/dev","model3D":"fal-ai/hyper3d/rodin/v2"}"#.utf8))
         #expect(m.generate == ModelCatalog.auto && m.model3D == "fal-ai/hyper3d/rodin/v2")
         #expect(ModelCatalog.fit(1280, 720, multiple: 16, area: 655_360...8_294_400) == (1280, 720))
         #expect(ModelCatalog.nearestRatio(1080, 1920, in: ["16:9", "1:1", "9:16"]) == "9:16")

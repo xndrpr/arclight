@@ -118,7 +118,9 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
                     // The progress bar: shown at once, never a tool row.
                     do {
                         onEvent(.plan(try ChatPlan.parse(input)))
-                        results.append(["type": "tool_result", "tool_use_id": .string(id), "content": .string(ChatPlan.ack)])
+                        results.append([
+                            "type": "tool_result", "tool_use_id": .string(id), "content": .string(ChatPlan.ack),
+                        ])
                     } catch {
                         results.append(Self.errorResult(id, "\(error)"))
                     }

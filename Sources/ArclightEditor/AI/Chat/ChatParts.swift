@@ -81,7 +81,9 @@ struct ChatToolGroup: View {
             let d = ChatToolNames.done(t.tool ?? "")
             if !seen.contains(d) { seen.append(d) }
         }
-        var s = "\(tools.count) steps: " + seen.prefix(3).map { $0.prefix(1).lowercased() + $0.dropFirst() }.joined(separator: ", ")
+        var s =
+            "\(tools.count) steps: "
+            + seen.prefix(3).map { $0.prefix(1).lowercased() + $0.dropFirst() }.joined(separator: ", ")
         if seen.count > 3 { s += "…" }
         if failed > 0 { s += " · \(failed) failed" }
         return s
@@ -144,7 +146,10 @@ struct ChatMarkdown: View {
             if line.isEmpty { flush(); continue }
             if let h = line.firstIndex(where: { $0 != "#" }), line.hasPrefix("#"), line[h] == " " {
                 flush()
-                out.append(.heading(String(line[h...]).trimmingCharacters(in: .whitespaces), line.distance(from: line.startIndex, to: h)))
+                out.append(
+                    .heading(
+                        String(line[h...]).trimmingCharacters(in: .whitespaces),
+                        line.distance(from: line.startIndex, to: h)))
                 continue
             }
             let indent = raw.prefix { $0 == " " }.count / 2
