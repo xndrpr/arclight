@@ -29,7 +29,7 @@ struct TexU {
     var mvp: simd_float4x4; var unit: simd_float4x4; var rect: SIMD4<Float>; var color: SIMD4<Float>;
     var clip: SIMD4<Float>; var mode: SIMD4<Float>
 }
-/// Per-pass world state. `misc` is unused but part of the shared layout.
+/// Per-pass world state. `misc` maps view depth to window depth for the 3D card depth step (Shaders+Space.swift).
 struct FrameU {
     var dof: SIMD4<Float> = .zero; var fogColor: SIMD4<Float> = .zero; var fog: SIMD4<Float> = .zero;
     var misc: SIMD4<Float> = .zero
@@ -49,4 +49,6 @@ public struct RenderTargets {
     let accum: MTLTexture
     /// Summed glyph coverage of one text layer whose glyphs touch (`coverFormat`).
     let cover: MTLTexture
+    /// World pass depth (`Renderer.depthFormat`), cleared every world pass.
+    let depth: MTLTexture
 }

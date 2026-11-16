@@ -13,6 +13,7 @@ public struct CameraState {
     /// Pixels on the canvas per world unit at distance 1 (multiply by 1/depth).
     public var focalPx: Float
     public var near: Float
+    public var far: Float = 100_000
     public var aspect: Float = 16 / 9
     // Depth of field
     var focus: Float
@@ -74,7 +75,7 @@ public struct CameraState {
         let focus = Float(dof["focus"]?.double ?? Double(simd_length(target - eye)))
         return CameraState(
             viewProj: proj * view, position: eye, right: r, up: u, forward: f,
-            focalPx: (h / 2) / t, near: near, aspect: aspect,
+            focalPx: (h / 2) / t, near: near, far: far, aspect: aspect,
             focus: focus, blur: Float(dof["blur"]?.double ?? 0), range: Float(dof["range"]?.double ?? 0.5))
     }
 
