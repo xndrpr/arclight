@@ -14,7 +14,7 @@ public struct Node: Codable, Equatable, Sendable {
     public var props: [String: Prop]
 
     public static let metaKeys: Set<String> = ["id", "type", "parent", "name", "in", "out"]
-    public static let types: Set<String> = ["group", "text", "shape", "symbol", "image", "repeater", "light"]
+    public static let types: Set<String> = ["group", "text", "shape", "symbol", "image", "repeater", "light", "box"]
     /// Old names still accepted when loading (rewritten on save).
     public static let typeAliases: [String: String] = ["instancer": "repeater"]
 

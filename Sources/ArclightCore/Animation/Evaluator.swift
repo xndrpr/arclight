@@ -156,7 +156,7 @@ public final class Evaluator {
             var e = EvalNode(
                 node: n, world: parentWorld * Evaluator.localMatrix(props),
                 opacity: parentOpacity * (props["opacity"]?.double ?? 1), t: t, props: props)
-            e.is3D = props["3d"]?.bool ?? (parent3D || n.type == "repeater" || n.type == "light")
+            e.is3D = props["3d"]?.bool ?? (parent3D || Schema.always3D.contains(n.type))
             memo[n.id] = e
             return e
         }

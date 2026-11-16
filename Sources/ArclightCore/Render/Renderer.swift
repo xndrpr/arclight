@@ -28,6 +28,10 @@ public final class Renderer {
     /// 3D cards in the world pass: drawn with a depth test (`shapeWorldPSO`, `texWorldPSO`), then into depth only
     /// (`shapeDepthPSO`, `texDepthPSO`). See `WorldStage`.
     let shapeWorldPSO, texWorldPSO, shapeDepthPSO, texDepthPSO: MTLRenderPipelineState
+    /// Box faces (`box_tex_fs`: tiled, tinted); their depth step is `texDepthPSO`.
+    let boxPSO: MTLRenderPipelineState
+    /// 1×1 white, the picture of a box face that only has a colour.
+    let whiteTexture: MTLTexture
     /// World pass depth: `depthTest` tests without writing (colour), `depthWrite` tests and writes (depth step).
     let depthTest, depthWrite: MTLDepthStencilState
     /// Which pipelines the draw functions use: the plain 2D ones (overlay, effects), or the world ones.
@@ -40,6 +44,7 @@ public final class Renderer {
         case .depth: return shapeDepthPSO
         }
     }
+    var boxPipeline: MTLRenderPipelineState { worldStage == .depth ? texDepthPSO : boxPSO }
     var texPipeline: MTLRenderPipelineState {
         switch worldStage {
         case .off: return texPSO
@@ -150,6 +155,13 @@ public final class Renderer {
         texWorldPSO = try pipeline("tex_vs", "tex_fs", two, .premul, depth: true)
         shapeDepthPSO = try pipeline("shape_vs", "shape_depth_fs", two, .depthOnly, depth: true)
         texDepthPSO = try pipeline("tex_vs", "tex_depth_fs", two, .depthOnly, depth: true)
+        boxPSO = try pipeline("tex_vs", "box_tex_fs", two, .premul, depth: true)
+        let wd = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
+        guard let white = d.makeTexture(descriptor: wd) else { throw RenderError.setup("white texture") }
+        var px: [UInt8] = [255, 255, 255, 255]
+        white.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0, withBytes: &px, bytesPerRow: 4)
+        whiteTexture = white
         func depthState(write: Bool) throws -> MTLDepthStencilState {
             let ds = MTLDepthStencilDescriptor()
             ds.depthCompareFunction = .lessEqual

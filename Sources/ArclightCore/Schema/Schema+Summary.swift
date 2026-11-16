@@ -50,6 +50,11 @@ extension Schema {
                 + (names.isEmpty
                     ? " · dots" : " · " + names.prefix(3).joined(separator: ", ") + (names.count > 3 ? "…" : ""))
             if n.props["pool"] != nil || n.props["cone"] != nil { s += " · lit" }
+        case "box":
+            let size = (c("size")?.array ?? []).compactMap { $0.numberValue.map(Format.number) }
+            s =
+                (c("inside")?.bool == true ? "room " : "box ")
+                + (size.count == 3 ? size.joined(separator: "×") : "400×400×400")
         case "light":
             s = "pool r=\(c("pool")?["radius"]?.numberValue.map(Format.number) ?? "150")"
         default:

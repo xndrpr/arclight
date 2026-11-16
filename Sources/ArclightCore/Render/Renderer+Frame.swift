@@ -214,6 +214,7 @@ extension Renderer {
             case "text": drawText(n, mvp: mvp, pxScale: px, enc: enc)
             case "image": drawImage(n, mvp: mvp, assets: assets, enc: enc)
             case "symbol": drawSymbol(n, mvp: mvp, pxScale: px, assets: assets, enc: enc)
+            case "box": drawBox(n, cam: cam, assets: assets, enc: enc)
             default: break
             }
         }

@@ -53,4 +53,41 @@ import Testing
         let c = pixel(img, 100, 100)
         #expect(c.r > 150 && c.b < 30)
     }
+
+    func box(_ props: [String: JSONValue]) -> Node {
+        var p: [String: JSONValue] = [
+            "x": 100, "y": 100, "back": ["color": "#FF0000"], "top": ["color": "#0000FF"],
+            "front": ["color": "#00FF00"], "shade": 0,
+        ]
+        for (k, v) in props { p[k] = v }
+        return Node(id: "b", type: "box", props: p.mapValues { .value($0) })
+    }
+
+    @Test func boxFacesSitOnTheBoxAndFlipInside() {
+        let out = Renderer.boxFaces(SIMD3(200, 100, 400), inside: false)
+        #expect(out.map(\.name) == ["front", "back", "left", "right", "top", "bottom"])
+        let back = out[1]
+        #expect(back.center == SIMD3(0, 0, 200) && back.size == SIMD2(200, 100))
+        #expect(out[2].size == SIMD2(400, 100) && out[4].center == SIMD3(0, -50, 0))
+        let inside = Renderer.boxFaces(SIMD3(200, 100, 400), inside: true)
+        #expect(inside[1].right == -back.right && inside[1].down == back.down)
+    }
+
+    @Test(.requiresMetal) func roomShowsItsBackWallAndCeilingFromInside() throws {
+        // The default camera (z ≈ −275) is inside a 400×400×2000 room centred on z 500.
+        let img = try render([box(["z": 500, "size": [400, 400, 2000], "inside": true])])
+        let c = pixel(img, 100, 100)
+        #expect(c.r > 200 && c.g < 30 && c.b < 30)  // back wall
+        let up = pixel(img, 100, 2)
+        #expect(up.b > 200 && up.r < 30)  // ceiling
+    }
+
+    @Test(.requiresMetal) func roomSeenFromOutsideDropsItsNearWalls() throws {
+        let inside = try render([box(["z": 1000, "size": [300, 300, 300], "inside": true])])
+        let c = pixel(inside, 100, 100)
+        #expect(c.r > 200 && c.g < 30)  // the back wall, through the missing front
+        let solid = try render([box(["z": 1000, "size": [300, 300, 300]])])
+        let s = pixel(solid, 100, 100)
+        #expect(s.g > 200 && s.r < 30)  // a closed box shows its front
+    }
 }

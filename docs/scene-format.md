@@ -124,6 +124,24 @@ A single pool of light (and optional beam) on the floor at x,y,z. Number setting
 | `pool` | {pool} |  | The light pool. |
 | `beam` | {beam} |  | Optional beam. `false` turns it off. |
 
+## `box` — Box
+
+A box in 3D centred on x,y,z: furniture, blocks, or a whole room with "inside": true (you see its inner walls, floor and ceiling; from outside, the near walls drop away like a dollhouse). Each face takes a colour or an image. y points down: top is the ceiling, bottom the floor.
+
+| Property | Kind | Default | Description |
+|---|---|---|---|
+| `size` | [w, h, d] | `[400,400,400]` | Width, height and depth. |
+| `color` | color | `"$fg"` | Colour of every face without its own. |
+| `inside` | bool | `false` | Show the inner faces (a room) instead of the outer ones. Not animatable. |
+| `shade` | number | `0.3` | How much faces darken away from the light (0 = flat colour). |
+| `light` | [x, y, z] | `[-0.4,-1,-0.6]` | Direction towards the light, in the scene (y up is negative). |
+| `front` | {face} |  | Face towards the default camera (z − d/2). `false` turns it off. |
+| `back` | {face} |  | Far face (z + d/2): a room's back wall. `false` turns it off. |
+| `left` | {face} |  | Left face (x − w/2). `false` turns it off. |
+| `right` | {face} |  | Right face (x + w/2). `false` turns it off. |
+| `top` | {face} |  | Top face (y − h/2): a room's ceiling. `false` turns it off. |
+| `bottom` | {face} |  | Bottom face (y + h/2): a room's floor. `false` turns it off. |
+
 ## Scene settings
 
 | Property | Kind | Default | Description |
@@ -428,4 +446,14 @@ Soft billboard light beam above each lit copy (lighter than cone).
 | `width` | number (px) | `160` | Beam width. |
 | `intensity` | number | `0.12` | Brightness. |
 | `color` | color | `"#FFFFFF"` | Light colour. |
+
+### `face` object
+
+One face of a box.
+
+| Property | Kind | Default | Description |
+|---|---|---|---|
+| `color` | color |  | Colour (tints the image when there is one). |
+| `src` | image file |  | Image stretched over the face (or tiled with tile). Not animatable. |
+| `tile` | [u, v] | `[1,1]` | How many times the image repeats across the face. |
 
