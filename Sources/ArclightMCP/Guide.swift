@@ -223,7 +223,8 @@ enum Guide {
         turn it with rotationY. Flat props (posters, photos, cut-outs from image_remove_bg) are images or shapes with "3d": true, 2 px in front of their wall.
         3. Light and air. Give every box and model the same light direction (default [−0.4, −1, −0.6], from the top left front), shade 0.3–0.5 \
         for walls, 0.6–0.8 for models; clay material and a little rim for a sculpted, faceless look. fog {color: the background, near, far} adds \
-        depth (near a little past the subject, far around the back wall); light layers add pools on the floor; post bloom, grain and vignette finish it.
+        depth (near a little past the subject, far around the back wall); light layers add pools on the floor; post bloom, grain and vignette finish it. \
+        fog and post are keyframed as whole objects (like the camera), not field by field.
         4. Camera. Keyframe the whole camera object {"position","target","fov"} with eased keys (inOutSine, inOutCubic); one connected path, \
         no cuts. Push-in: position moves towards the target over 3–6 s. Pull-back reveal: the reverse, ending outside the room. Drift: move \
         position sideways with the target fixed, so near things slide past far ones. Orbit: position around the target. \
@@ -245,7 +246,7 @@ enum Guide {
         Monologue in a room that turns strange (one shot, see guide("space")): an ordinary warm box room, a faceless clay figure across a table \
           and a clay hand in the near foreground (model_generate). Beat 1: a slow push-in over the hand while the figure "talks" (small \
           rotationY / y sways). Beat 2, as the feeling detaches: a dolly zoom over 3–4 s, the room stretching behind the figure, fog near/far \
-          keyed closer, post saturation down, the light direction turning colder. Beat 3: everything still looks normal but the camera drifts \
+          keyed closer, saturation down (key the whole post object, like the camera: {"k":[[4,{…}],[8,{"saturation":0.3,…}]]}), the light direction turning colder. Beat 3: everything still looks normal but the camera drifts \
           off-axis with a slight roll and dof isolates the figure. Beat 4: pull back through the near wall: the room becomes a lit box in an \
           empty dark void. Narration lines as 2D text, timed to the beats.
         """
