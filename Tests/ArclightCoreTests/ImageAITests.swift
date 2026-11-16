@@ -34,6 +34,9 @@ final class FakeProvider: ImageProvider, @unchecked Sendable {
     func depth(image: CGImage) async throws -> CGImage {
         calls.append("depth"); return solid(image.width, image.height, 0.5, 0.5, 0.5)
     }
+    func model3D(image: CGImage) async throws -> Data {
+        calls.append("model3D"); return TestGLB.cube()
+    }
 }
 
 /// Serves canned fal queue responses: submit → status (IN_PROGRESS, then COMPLETED) → result → image bytes.

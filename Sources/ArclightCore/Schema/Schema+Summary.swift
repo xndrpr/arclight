@@ -55,6 +55,10 @@ extension Schema {
             s =
                 (c("inside")?.bool == true ? "room " : "box ")
                 + (size.count == 3 ? size.joined(separator: "×") : "400×400×400")
+        case "model":
+            s =
+                ((c("src")?.string).map { URL(fileURLWithPath: $0).lastPathComponent } ?? "no file") + " · "
+                + (num("size") ?? "400") + " px"
         case "light":
             s = "pool r=\(c("pool")?["radius"]?.numberValue.map(Format.number) ?? "150")"
         default:

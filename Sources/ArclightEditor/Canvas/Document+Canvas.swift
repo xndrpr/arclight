@@ -209,6 +209,16 @@ extension EditorDocument {
                     addNode("image", props: props)
                     k += 1
                     notes.append(name)
+                case .model:
+                    let name = try importIfNeeded(u)
+                    addNode(
+                        "model",
+                        props: [
+                            "src": .string(name), "x": .number((c.x + CGFloat(k * 24)).rounded()),
+                            "y": .number((c.y + CGFloat(k * 24)).rounded()), "z": 0, "size": 500, "material": "clay",
+                        ], idBase: "model")
+                    k += 1
+                    notes.append(name)
                 case .audio:
                     let name = try importIfNeeded(u)
                     edit { $0.audio = AudioRef(src: name) }

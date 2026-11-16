@@ -32,6 +32,10 @@ public final class Renderer {
     let boxPSO: MTLRenderPipelineState
     /// Relief images (an image with a depth map, in 3D): `relief_vs` grid, image colour, then depth.
     let reliefPSO, reliefDepthPSO: MTLRenderPipelineState
+    /// Model layers: lit, opaque triangle meshes.
+    let meshPSO: MTLRenderPipelineState
+    /// Loaded models by path#mtime (nil: the file couldn't be read, don't retry every frame).
+    var meshes: [String: GPUMesh?] = [:]
     /// 1×1 white, the picture of a box face that only has a colour.
     let whiteTexture: MTLTexture
     /// World pass depth: `depthTest` tests without writing (colour), `depthWrite` tests and writes (depth step).
@@ -160,6 +164,7 @@ public final class Renderer {
         boxPSO = try pipeline("tex_vs", "box_tex_fs", two, .premul, depth: true)
         reliefPSO = try pipeline("relief_vs", "tex_fs", two, .premul, depth: true)
         reliefDepthPSO = try pipeline("relief_vs", "tex_depth_fs", two, .depthOnly, depth: true)
+        meshPSO = try pipeline("mesh_vs", "mesh_fs", two, .premul, depth: true)
         let wd = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
         guard let white = d.makeTexture(descriptor: wd) else { throw RenderError.setup("white texture") }
