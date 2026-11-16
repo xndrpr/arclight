@@ -37,6 +37,14 @@ final class FakeAudio: AudioProvider, @unchecked Sendable {
     }
 }
 
+/// Runs blocking work (MCP tools and the exporter wait on async work with semaphores) on its own thread, so it
+/// never holds one of Swift Testing's cooperative threads while the work it waits for needs one.
+func offPool<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
+    try await withCheckedThrowingContinuation { c in
+        Thread { c.resume(with: Result { try work() }) }.start()
+    }
+}
+
 @Suite(.serialized) struct AudioAITests {
     static func wavData(seconds: Double = 0.5) throws -> Data {
         let u = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-wav-\(UUID().uuidString).wav")
@@ -45,7 +53,7 @@ final class FakeAudio: AudioProvider, @unchecked Sendable {
         return try Data(contentsOf: u)
     }
 
-    func run(_ server: MCPServer, _ name: String, _ a: [String: JSONValue]) throws -> String {
+    static func run(_ server: MCPServer, _ name: String, _ a: [String: JSONValue]) throws -> String {
         guard let tool = server.tools.first(where: { $0.name == name }) else { throw ToolError("no tool \(name)") }
         return try tool.run(a).compactMap { $0.object?["text"]?.string }.joined(separator: "\n")
     }
@@ -191,7 +199,11 @@ final class FakeAudio: AudioProvider, @unchecked Sendable {
 
     // MARK: MCP tools
 
-    @Test func toolsSearchImportSynthGenerateAndAnalyze() throws {
+    @Test func toolsSearchImportSynthGenerateAndAnalyze() async throws {
+        try await offPool { try Self.toolsScenario() }
+    }
+
+    static func toolsScenario() throws {
         let tp = try TempProject("audio-mcp", scenes: [Scene(id: "s", duration: 6)])
         defer { tp.remove() }
         let wav = try Self.wavData()
@@ -246,7 +258,11 @@ final class FakeAudio: AudioProvider, @unchecked Sendable {
         #expect(throws: (any Error).self) { try run(server, "sound_import", ["sound": "../etc"]) }
     }
 
-    @Test(.requiresMetal) func exportMixesSoundsWithTheAudio() throws {
+    @Test(.requiresMetal) func exportMixesSoundsWithTheAudio() async throws {
+        try await offPool { try Self.exportScenario() }
+    }
+
+    static func exportScenario() throws {
         let tp = try TempProject("mix")
         defer { tp.remove() }
         let dir = tp.store.assetsURL
