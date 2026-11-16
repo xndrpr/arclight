@@ -1,4 +1,5 @@
 import Foundation
+import ImageIO
 import Testing
 
 @testable import ArclightCore
@@ -118,6 +119,91 @@ import Testing
             first[first.firstIndex(of: "--mcp-config")! + 1].contains(
                 #""args":["mcp","--project","/p.arclight","--chat"]"#))
         #expect(b.arguments(resume: "u-1", newSession: "x").suffix(2) == ["--resume", "u-1"])
+        // Thinking summaries on, the chosen effort, and the message as stream-json (so it can carry images).
+        #expect(first[first.firstIndex(of: "--thinking-display")! + 1] == "summarized")
+        #expect(first[first.firstIndex(of: "--effort")! + 1] == "medium")
+        #expect(first[first.firstIndex(of: "--input-format")! + 1] == "stream-json")
+        #expect(!b.arguments(resume: nil, newSession: "u", thinkingDisplay: false).contains("--thinking-display"))
+    }
+
+    @Test func cliShowsThinkingEvenWithoutItsText() {
+        var p = CLIStreamParser()
+        let start =
+            #"{"type":"stream_event","event":{"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}}"#
+        let empty =
+            #"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}}}"#
+        let tokens = #"{"type":"system","subtype":"thinking_tokens","estimated_tokens":50}"#
+        let words =
+            #"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Hm"}}}"#
+        #expect(p.feed(Data(start.utf8)) == [.thinking("")])
+        #expect(p.feed(Data(empty.utf8)).isEmpty)
+        #expect(p.feed(Data(tokens.utf8)) == [.thinking("")])
+        #expect(p.feed(Data(words.utf8)) == [.thinking("Hm")])
+    }
+
+    @Test func cliInputLineCarriesContextAttachmentsAndText() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".arclight")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let a = try ChatAttachment.store(data: Data("hello".utf8), name: "notes.txt", project: dir)
+        let line = CLIChatBackend.inputLine("go", attachments: [a], context: "<editor>x</editor>")
+        let v = try JSONDecoder().decode(JSONValue.self, from: line)
+        #expect(v["type"]?.string == "user")
+        let content = v["message"]?["content"]?.array ?? []
+        #expect(content.first?["text"]?.string == "<editor>x</editor>")
+        #expect(content[1]["text"]?.string?.contains("hello") == true)
+        #expect(content.last?["text"]?.string == "go")
+        #expect(String(decoding: line, as: UTF8.self).hasSuffix("\n"))
+    }
+
+    @Test func attachmentsBecomeContentBlocks() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".arclight")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // A 4000×10 PNG: sent shrunk to the model's size.
+        let w = 4000, h = 10
+        let ctx = CGContext(
+            data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+        ctx.setFillColor(red: 1, green: 0, blue: 0, alpha: 1)
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        let out = NSMutableData()
+        let dest = CGImageDestinationCreateWithData(out, "public.png" as CFString, 1, nil)!
+        CGImageDestinationAddImage(dest, ctx.makeImage()!, nil)
+        CGImageDestinationFinalize(dest)
+        let img = try ChatAttachment.store(data: out as Data, name: "wide.png", project: dir)
+        let pdf = try ChatAttachment.store(data: Data("%PDF-1.4".utf8), name: "brief.pdf", project: dir)
+        let txt = try ChatAttachment.store(data: Data("a,b\n1,2".utf8), name: "data.csv", project: dir)
+        let bin = try ChatAttachment.store(data: Data([0, 1, 2, 0, 255]), name: "clip.mov", project: dir)
+        #expect([img.kind, pdf.kind, txt.kind, bin.kind] == [.image, .pdf, .text, .file])
+        #expect(FileManager.default.fileExists(atPath: img.path))
+
+        let blocks = ChatAttachment.contentBlocks([img, pdf, txt, bin])
+        #expect(blocks.map { $0["type"]?.string } == ["image", "document", "text", "text"])
+        #expect(blocks[0]["source"]?["media_type"]?.string == "image/jpeg")
+        let sent = Data(base64Encoded: blocks[0]["source"]?["data"]?.string ?? "")!
+        let src = CGImageSourceCreateWithData(sent as CFData, nil)!
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as! [CFString: Any]
+        #expect(props[kCGImagePropertyPixelWidth] as? Int == ChatAttachment.maxImageEdge)
+        #expect(blocks[2]["text"]?.string?.contains("<file name=\"data.csv\">") == true)
+        let note = blocks[3]["text"]?.string ?? ""
+        #expect(note.contains(bin.path) && note.contains("asset_import"))
+
+        ChatAttachment.prune(project: dir, keep: [txt])
+        #expect(!FileManager.default.fileExists(atPath: img.path))
+        #expect(FileManager.default.fileExists(atPath: txt.path))
+    }
+
+    @Test func thinkingRowsGetTheirDuration() {
+        var t = ChatTranscript()
+        let t0 = Date(timeIntervalSince1970: 100)
+        t.apply(.thinking(""), now: t0)
+        t.apply(.thinking("plan"), now: t0.addingTimeInterval(1))
+        #expect(t.items[0].duration == nil)
+        t.apply(.text("Done"), now: t0.addingTimeInterval(4))
+        #expect(t.items[0].duration == 4)
+        #expect(t.items[0].text == "plan")
+        t.apply(.thinking("more"), now: t0.addingTimeInterval(5))
+        t.endThinking(now: t0.addingTimeInterval(7))
+        #expect(t.items[2].duration == 2)
     }
 
     @Test func transcriptFoldsEventsIntoRows() {

@@ -1,12 +1,18 @@
 import AppKit
 import ArclightCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The AI panel's Chat tab: talk to the AI in the editor, no outside agent needed. Its changes land in the
 /// Activity tab like any agent's, with revert.
 struct ChatView: View {
     @ObservedObject var doc: EditorDocument
     @ObservedObject var chat: ChatController
+    /// The list is scrolled to (near) the bottom: new rows keep it there. Scrolling up stops following.
+    @State private var pinned = true
+    @State private var viewport: CGFloat = 0
+    @State private var contentHeight: CGFloat = 0
+    @State private var dropping = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -21,6 +27,24 @@ struct ChatView: View {
             ChatInput(chat: chat)
         }
         .frame(maxHeight: .infinity, alignment: .top)
+        .onDrop(of: [.fileURL, .image], isTargeted: $dropping) { providers in
+            guard chat.hasCredentials else { return false }
+            Self.load(providers) { urls, images in
+                chat.attach(files: urls)
+                for d in images { chat.attach(image: d) }
+            }
+            return true
+        }
+        .overlay {
+            if dropping {
+                RoundedRectangle(cornerRadius: 8).stroke(UI.accent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(UI.accent.opacity(0.06)))
+                    .overlay(
+                        Label("Drop to attach", systemImage: "paperclip").font(UI.small).foregroundStyle(UI.accent)
+                    )
+                    .padding(4).allowsHitTesting(false)
+            }
+        }
         // A key saved or the backend switched in Settings: redraw (status line, empty state, field).
         .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in
             chat.objectWillChange.send()
@@ -46,57 +70,157 @@ struct ChatView: View {
     }
 
     private var messages: some View {
-        ScrollViewReader { proxy in
+        let items = chat.transcript.items
+        let lastId = items.last?.id
+        return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 8) {
-                    ForEach(chat.transcript.items) { item in
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(items) { item in
                         Group {
                             if item.kind == .choice, let c = item.choice {
                                 ChoiceCard(doc: doc, chat: chat, choice: c)
                             } else {
-                                ChatRow(item: item)
+                                ChatRow(item: item, live: chat.running && item.id == lastId).equatable()
                             }
                         }
                         .id(item.id)
                     }
-                    if chat.running { ChatWorking().id("working") }
+                    if chat.running, items.last?.kind != .thinking { ChatWorking() }
+                    Color.clear.frame(height: 1).id(Self.bottom)
                 }
                 .padding(12)
+                .background(
+                    GeometryReader { g in
+                        Color.clear.preference(
+                            key: ChatScrollKey.self,
+                            value: ChatScrollKey.Value(
+                                bottom: g.frame(in: .named(Self.space)).maxY, height: g.size.height))
+                    })
             }
-            .onChange(of: chat.transcript.items.last?.text) { _, _ in scrollDown(proxy) }
-            .onChange(of: chat.transcript.items.count) { _, _ in scrollDown(proxy) }
-            .onAppear { scrollDown(proxy, animated: false) }
+            .coordinateSpace(name: Self.space)
+            .background(
+                GeometryReader { g in
+                    Color.clear.onAppear { viewport = g.size.height }.onChange(of: g.size.height) { _, h in viewport = h
+                    }
+                }
+            )
+            .onPreferenceChange(ChatScrollKey.self) { v in
+                // Content that grew (a streamed word, a new row) doesn't unpin; only the user scrolling does.
+                if abs(v.height - contentHeight) > 0.5 {
+                    contentHeight = v.height
+                } else {
+                    pinned = v.bottom - viewport < 40
+                }
+            }
+            .onChange(of: chat.revision) { _, _ in
+                if pinned { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+            }
+            .onChange(of: chat.transcript.items.count) { old, new in
+                // The user's own message always brings the list back down.
+                if new > old, chat.transcript.items.last?.kind == .user {
+                    pinned = true
+                    proxy.scrollTo(Self.bottom, anchor: .bottom)
+                }
+            }
+            .onAppear { DispatchQueue.main.async { proxy.scrollTo(Self.bottom, anchor: .bottom) } }
+            .overlay(alignment: .bottom) {
+                if !pinned {
+                    Button {
+                        pinned = true
+                        withMotion(UI.fade) { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+                    } label: {
+                        Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold)).foregroundStyle(UI.text)
+                            .frame(width: 26, height: 26)
+                            .background(Circle().fill(UI.raised))
+                            .overlay(Circle().stroke(UI.border))
+                            .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+                    }
+                    .buttonStyle(.plain).cursor(.pointingHand).help("Scroll to the latest").padding(.bottom, 8)
+                    .transition(.opacity)
+                }
+            }
         }
     }
 
-    private func scrollDown(_ proxy: ScrollViewProxy, animated: Bool = true) {
-        let id: String? = chat.running ? "working" : chat.transcript.items.last?.id
-        guard let id else { return }
-        if animated { withAnimation(UI.fade) { proxy.scrollTo(id, anchor: .bottom) } } else { proxy.scrollTo(id) }
+    private static let bottom = "chat-bottom"
+    private static let space = "chat-scroll"
+
+    /// Files and images dropped on the chat: file URLs, else image data as PNG.
+    static func load(_ providers: [NSItemProvider], done: @escaping ([URL], [Data]) -> Void) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var urls: [URL] = []
+        var images: [Data] = []
+        for p in providers {
+            group.enter()
+            if p.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
+                _ = p.loadObject(ofClass: URL.self) { u, _ in
+                    if let u { lock.withLock { urls.append(u) } }
+                    group.leave()
+                }
+            } else {
+                p.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { d, _ in
+                    if let d, let rep = NSBitmapImageRep(data: d),
+                        let png = rep.representation(using: .png, properties: [:])
+                    {
+                        lock.withLock { images.append(png) }
+                    }
+                    group.leave()
+                }
+            }
+        }
+        group.notify(queue: .main) { done(urls, images) }
     }
 }
 
+/// Where the message list's content ends (in the scroll view's own space) and how tall it is.
+private struct ChatScrollKey: PreferenceKey {
+    struct Value: Equatable { var bottom: CGFloat = 0; var height: CGFloat = 0 }
+    static let defaultValue = Value()
+    static func reduce(value: inout Value, nextValue: () -> Value) { value = nextValue() }
+}
+
 /// One chat row: the user's message, the AI's reply (Markdown), its thinking (folded), a tool call, a notice.
-struct ChatRow: View {
+struct ChatRow: View, Equatable {
     let item: ChatItem
+    /// The row the running turn is writing to now.
+    var live = false
     @State private var open = false
+
+    static func == (a: ChatRow, b: ChatRow) -> Bool { a.item == b.item && a.live == b.live }
 
     var body: some View {
         switch item.kind {
         case .user:
-            HStack {
-                Spacer(minLength: 30)
-                Text(item.text).font(UI.font).foregroundStyle(UI.text).textSelection(.enabled)
-                    .padding(.horizontal, 10).padding(.vertical, 7)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(UI.selected))
+            VStack(alignment: .trailing, spacing: 6) {
+                if let files = item.attachments, !files.isEmpty {
+                    FlowRow(spacing: 6) {
+                        ForEach(files) { a in
+                            if a.kind == .image {
+                                AttachmentThumb(attachment: a, side: 72)
+                                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(UI.border))
+                                    .help(a.name)
+                                    .onTapGesture(count: 2) { NSWorkspace.shared.open(URL(fileURLWithPath: a.path)) }
+                            } else {
+                                AttachmentChip(attachment: a)
+                            }
+                        }
+                    }
+                }
+                if !item.text.isEmpty {
+                    Text(item.text).font(UI.font).foregroundStyle(UI.text).textSelection(.enabled)
+                        .padding(.horizontal, 10).padding(.vertical, 7)
+                        .background(RoundedRectangle(cornerRadius: 10).fill(UI.selected))
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.leading, 30)
         case .assistant:
             Text(Self.markdown(item.text)).font(UI.font).foregroundStyle(UI.text).textSelection(.enabled)
+                .lineSpacing(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .thinking:
-            fold(label: "Thinking", symbol: "brain") {
-                Text(item.text).font(UI.small).foregroundStyle(UI.dim).textSelection(.enabled)
-            }
+            ChatThinkingRow(item: item, live: live && item.duration == nil)
         case .tool:
             ChatToolRow(item: item)
         case .notice:
@@ -232,4 +356,102 @@ private struct ChatEmptyState: View {
 
 enum ChatSettingsLink {
     static func open() { (NSApp.delegate as? AppDelegate)?.showSettings(tab: "AI") }
+}
+
+/// The model's thinking. While it runs: "Thinking…" and the newest lines as they come. Then folded to
+/// "Thought for 6s", click to read it all.
+private struct ChatThinkingRow: View {
+    let item: ChatItem
+    let live: Bool
+    @State private var open = false
+    @State private var pulse = false
+
+    var body: some View {
+        let text = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                withMotion(Motion.snappy) { open.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    if !text.isEmpty && !live {
+                        Image(systemName: "chevron.right").font(.system(size: 7, weight: .bold))
+                            .rotationEffect(.degrees(open ? 90 : 0))
+                    }
+                    Image(systemName: "brain").font(.system(size: 9))
+                    Text(label).font(UI.small)
+                }
+                .foregroundStyle(UI.dim).opacity(live && pulse ? 0.45 : 1)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain).cursor(text.isEmpty || live ? .arrow : .pointingHand)
+            .disabled(text.isEmpty || live)
+            if live, !text.isEmpty {
+                // The tail of the thinking, newest at the bottom, fading out at the top.
+                Text(String(text.suffix(700))).font(UI.small).foregroundStyle(UI.faint)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, maxHeight: 64, alignment: .bottomLeading).clipped()
+                    .mask(LinearGradient(colors: [.clear, .black, .black], startPoint: .top, endPoint: .bottom))
+                    .padding(.leading, 13)
+            } else if open {
+                Text(text).font(UI.small).foregroundStyle(UI.dim).textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 13).transition(.opacity)
+            }
+        }
+        .onAppear {
+            guard live, !Motion.reduce else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
+        }
+        .onChange(of: live) { _, now in if !now { withAnimation(nil) { pulse = false } } }
+    }
+
+    private var label: String {
+        if live { return "Thinking…" }
+        guard let d = item.duration else { return "Thought" }
+        return d < 1 ? "Thought briefly" : "Thought for \(Int(d.rounded()))s"
+    }
+}
+
+/// Lays children left to right, wrapping to new lines, aligned to the trailing edge.
+private struct FlowRow: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = arrange(proposal.width ?? .infinity, subviews)
+        let w = rows.map(\.width).max() ?? 0
+        let h = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(0, rows.count - 1))
+        return CGSize(width: w, height: h)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for r in arrange(bounds.width, subviews) {
+            var x = bounds.maxX - r.width
+            for i in r.items {
+                let s = subviews[i].sizeThatFits(.unspecified)
+                subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+                x += s.width + spacing
+            }
+            y += r.height + spacing
+        }
+    }
+
+    private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
+
+    private func arrange(_ maxWidth: CGFloat, _ subviews: Subviews) -> [Row] {
+        var rows: [Row] = [Row()]
+        for i in subviews.indices {
+            let s = subviews[i].sizeThatFits(.unspecified)
+            var r = rows[rows.count - 1]
+            if !r.items.isEmpty, r.width + spacing + s.width > maxWidth {
+                rows.append(Row())
+                r = Row()
+            }
+            r.width += (r.items.isEmpty ? 0 : spacing) + s.width
+            r.height = max(r.height, s.height)
+            r.items.append(i)
+            rows[rows.count - 1] = r
+        }
+        return rows
+    }
 }

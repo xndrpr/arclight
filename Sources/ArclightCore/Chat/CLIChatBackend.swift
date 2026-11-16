@@ -9,15 +9,23 @@ public final class CLIChatBackend: ChatBackend, @unchecked Sendable {
 
     let executable: URL
     let model: ChatModel
+    let effort: ChatEffort
     let projectPath: String
     /// How the agent starts Arclight's MCP server: this binary, `mcp --project <path>`.
     let serverCommand: String
     private var process: Process?
     private let lock = NSLock()
 
-    public init(executable: URL, model: ChatModel, projectPath: String, serverCommand: String, session: String?) {
+    /// Older agents don't know `--thinking-display`; after one says so, turns run without it.
+    nonisolated(unsafe) static var noThinkingDisplay = false
+
+    public init(
+        executable: URL, model: ChatModel, effort: ChatEffort = .medium, projectPath: String, serverCommand: String,
+        session: String?
+    ) {
         self.executable = executable
         self.model = model
+        self.effort = effort
         self.projectPath = projectPath
         self.serverCommand = serverCommand
         self.cliSession = session
@@ -30,8 +38,8 @@ public final class CLIChatBackend: ChatBackend, @unchecked Sendable {
         if let p, p.isRunning { p.terminate() }
     }
 
-    /// The command-line arguments for one turn (the prompt goes in on stdin).
-    func arguments(resume: String?, newSession: String) -> [String] {
+    /// The command-line arguments for one turn (the message goes in on stdin, as one stream-json line).
+    func arguments(resume: String?, newSession: String, thinkingDisplay: Bool = true) -> [String] {
         let mcp: JSONValue = [
             "mcpServers": [
                 "arclight": [
@@ -40,22 +48,53 @@ public final class CLIChatBackend: ChatBackend, @unchecked Sendable {
             ]
         ]
         var a = [
-            "-p", "--input-format", "text", "--output-format", "stream-json", "--verbose",
-            "--include-partial-messages", "--model", model.rawValue,
+            "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+            "--include-partial-messages", "--model", model.rawValue, "--effort", effort.rawValue,
             "--strict-mcp-config", "--mcp-config", ChatPrompt.compact(mcp),
             "--tools", "",
             "--allowedTools", "mcp__arclight__*",
             "--append-system-prompt", ChatPrompt.system(instructions: "", projectPath: projectPath),
         ]
+        // Without it the agent's thinking arrives empty (only its signature).
+        if thinkingDisplay { a += ["--thinking-display", "summarized"] }
         if let resume { a += ["--resume", resume] } else { a += ["--session-id", newSession] }
         return a
     }
 
-    public func send(_ text: String, context: String?, onEvent: @escaping @Sendable (ChatEvent) -> Void) async throws {
+    /// The user's message as the agent's stream-json input: the editor note, attachments and text as content blocks.
+    static func inputLine(_ text: String, attachments: [ChatAttachment], context: String?) -> Data {
+        var blocks: [JSONValue] = []
+        if let context, !context.isEmpty { blocks.append(["type": "text", "text": .string(context)]) }
+        blocks += ChatAttachment.contentBlocks(attachments)
+        if !text.isEmpty || blocks.isEmpty { blocks.append(["type": "text", "text": .string(text)]) }
+        let line: JSONValue = ["type": "user", "message": ["role": "user", "content": .array(blocks)]]
+        return Data((ChatPrompt.compact(line) + "\n").utf8)
+    }
+
+    public func send(
+        _ text: String, attachments: [ChatAttachment], context: String?,
+        onEvent: @escaping @Sendable (ChatEvent) -> Void
+    ) async throws {
+        let input = Self.inputLine(text, attachments: attachments, context: context)
+        do {
+            try await turn(input, thinkingDisplay: !Self.noThinkingDisplay, onEvent: onEvent)
+        } catch is Unsupported {
+            // An older agent: say nothing to the user, just run the turn again without the flag.
+            Self.noThinkingDisplay = true
+            try await turn(input, thinkingDisplay: false, onEvent: onEvent)
+        }
+    }
+
+    /// The agent rejected a flag before doing anything.
+    private struct Unsupported: Error {}
+
+    private func turn(
+        _ message: Data, thinkingDisplay: Bool, onEvent: @escaping @Sendable (ChatEvent) -> Void
+    ) async throws {
         let session = cliSession ?? UUID().uuidString.lowercased()
         let p = Process()
         p.executableURL = executable
-        p.arguments = arguments(resume: cliSession, newSession: session)
+        p.arguments = arguments(resume: cliSession, newSession: session, thinkingDisplay: thinkingDisplay)
         p.currentDirectoryURL = URL(fileURLWithPath: projectPath)
         var env = ProcessInfo.processInfo.environment
         env["PATH"] = CLILocator.searchPath(env["PATH"])
@@ -67,8 +106,7 @@ public final class CLIChatBackend: ChatBackend, @unchecked Sendable {
         lock.withLock { process = p }
         signal(SIGPIPE, SIG_IGN)
         try p.run()
-        let prompt = [context, text].compactMap { $0 }.joined(separator: "\n\n")
-        try? input.fileHandleForWriting.write(contentsOf: Data(prompt.utf8))
+        try? input.fileHandleForWriting.write(contentsOf: message)
         try? input.fileHandleForWriting.close()
 
         let stderr = LockedText()
@@ -90,6 +128,7 @@ public final class CLIChatBackend: ChatBackend, @unchecked Sendable {
         if let e = parser.error { throw ChatAPIError.stream(e) }
         if p.terminationStatus != 0 {
             let err = stderr.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if thinkingDisplay, !parser.started, err.contains("thinking-display") { throw Unsupported() }
             throw ChatAPIError.stream(
                 err.isEmpty
                     ? "the command-line agent exited with status \(p.terminationStatus)" : String(err.suffix(500)))
@@ -110,6 +149,8 @@ final class LockedText: @unchecked Sendable {
 struct CLIStreamParser {
     private(set) var sessionId: String?
     private(set) var error: String?
+    /// Anything came back from the model (so a failure isn't a rejected flag).
+    private(set) var started = false
     private var toolNames: [String: String] = [:]
     /// ask_choice calls waiting for the server's check.
     private var choices: [String: [String: JSONValue]] = [:]
@@ -120,14 +161,23 @@ struct CLIStreamParser {
             return []
         }
         if let s = v["session_id"]?.string { sessionId = s }
+        if type != "system" { started = true }
         switch type {
+        case "system":
+            // Thinking without its text (an agent that doesn't send summaries): still show that it's thinking.
+            return v["subtype"]?.string == "thinking_tokens" ? [.thinking("")] : []
         case "stream_event":
-            guard let ev = v["event"], ev["type"]?.string == "content_block_delta", let d = ev["delta"] else {
+            guard let ev = v["event"] else { return [] }
+            if ev["type"]?.string == "content_block_start", ev["content_block"]?["type"]?.string == "thinking" {
+                return [.thinking("")]
+            }
+            guard ev["type"]?.string == "content_block_delta", let d = ev["delta"] else {
                 return []
             }
             switch d["type"]?.string {
             case "text_delta": return (d["text"]?.string).map { [.text($0)] } ?? []
-            case "thinking_delta": return (d["thinking"]?.string).map { [.thinking($0)] } ?? []
+            case "thinking_delta":
+                return (d["thinking"]?.string).flatMap { $0.isEmpty ? nil : [.thinking($0)] } ?? []
             default: return []
             }
         case "assistant":

@@ -123,7 +123,9 @@ Argument parsing and the commands: `open`, `render`, `export`, `mcp`, `validate`
   child `arclight mcp --project <path>` and talks to it with `MCPStdioClient`, so its calls are logged, revertible and
   shown in presence like any outside agent's ("Arclight Chat"), and the editor still never links `ArclightMCP`. Turns
   go to the Messages API with the user's key (Keychain), or, behind the `experimental.cliChat` flag, through the
-  user's own installed command-line agent with the same server attached. The transcript is `.arclight/chat.json`.
+  user's own installed command-line agent with the same server attached. The transcript is `.arclight/chat.json`;
+  files the user attaches are copied to `.arclight/chat-files/` (`ChatAttachment`) and sent as image, document or
+  text blocks, with their paths so the AI can `asset_import` them.
 - **Notes.** Notes the user leaves for the agent are stored in `.arclight/notes.json`, pinned to a layer and a time;
   the agent reads them with `editor_state` / `note_list` and answers with `note_resolve`.
 
