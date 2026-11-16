@@ -143,4 +143,15 @@ enum TestGLB {
             FileManager.default.fileExists(atPath: st.assetsURL.appendingPathComponent("mannequin-hand-ref.png").path))
         #expect(throws: (any Error).self) { try run(["scene": "s"]) }
     }
+
+    @Test func guideTeachesSpaces() throws {
+        let space = try #require(Guide.topic("space"))
+        #expect(space.contains("\"inside\": true") && space.contains("model_generate") && space.contains("Dolly zoom"))
+        #expect(Guide.topicNames.contains("space") && Guide.topic("room")?.contains("# box") == true)
+        let threeD = try #require(Guide.topic("3d"))
+        #expect(threeD.contains("# model") && threeD.contains("# box") && threeD.contains("# Spaces"))
+        #expect(Guide.instructions.contains("guide(\"space\")"))
+        #expect(Guide.recipes.contains("Monologue in a room"))
+        #expect(ChatPrompt.system(instructions: "", projectPath: "/tmp/p.arclight").contains("guide(\"space\")"))
+    }
 }

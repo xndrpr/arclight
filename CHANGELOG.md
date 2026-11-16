@@ -8,6 +8,25 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+3D spaces: the AI can build a whole place and move the camera through it.
+
+### Added
+
+- **Depth-correct 3D**: a solid 3D layer now hides what is behind it whatever the list order, so walls, floors,
+  furniture and figures stay right as the camera moves. Layers on one plane (a label on a panel) still draw in list
+  order.
+- **Box layer** (`box`): blocks and furniture, or a whole room with `"inside": true`. Each face takes a colour or a
+  tiled image and is shaded from one light direction; seen from outside, a room's near walls drop away like a
+  dollhouse.
+- **Model layer** (`model`): 3D models from `.glb`/`.gltf` (built-in reader), `.obj`, `.usdz`, `.ply` and `.stl`,
+  lit (matte, glossy or clay), solid, with fog and depth of field. Add one with **Model (3D)…** or drop the file on
+  the canvas.
+- **Relief images**: an image with a depth map (`depth`, `depthAmount`) becomes a 3D surface with real parallax.
+- **AI**: `model_generate` makes a 3D model of one object from a prompt or a picture (fal.ai image-to-3D) and can
+  place it in a scene; `image_depth` makes the depth map for a relief. Both need your fal.ai key. The guide has a
+  `space` topic (rooms, things in them, light, camera moves including the dolly zoom) and the chat builds a place
+  as one space when the story happens in one.
+
 ## [0.1.1] - 2026-11-16
 
 Thumbnails, AI pixel tools and a chat with the AI inside the editor.
