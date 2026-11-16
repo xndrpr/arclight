@@ -14,9 +14,15 @@ public protocol ImageProvider: Sendable {
     func upscale(image: CGImage, factor: Int) async throws -> CGImage
     /// Depth map, same size or aspect as `image`: white is near, black far.
     func depth(image: CGImage) async throws -> CGImage
+    /// A 3D model of the object in `image` (best on a plain or transparent background), as .glb bytes.
+    func model3D(image: CGImage) async throws -> Data
 }
 
 extension ImageProvider {
+    public func model3D(image: CGImage) async throws -> Data {
+        throw ImageAIError.unsupported("\(name) can't make 3D models")
+    }
+
     public func depth(image: CGImage) async throws -> CGImage {
         throw ImageAIError.unsupported("\(name) can't make depth maps")
     }

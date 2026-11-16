@@ -209,7 +209,7 @@ struct AssetField: View {
     private func choose() {
         guard
             let url = FilePicker.files(
-                kind == "image" ? [.image] : [],
+                kind == "image" ? [.image] : kind == "model" ? UTType.models3D : [],
                 message: "Choose a file — it will be copied into the project's assets folder"
             ).first
         else { return }
@@ -217,5 +217,12 @@ struct AssetField: View {
             let name = try doc.store.importAsset(from: url)
             doc.write(slot, .string(name))
         } catch { doc.flash("Couldn't import \(url.lastPathComponent): \(error.localizedDescription)") }
+    }
+}
+
+extension UTType {
+    /// 3D model files a model layer can show (see `Mesh.extensions`).
+    static var models3D: [UTType] {
+        Mesh.extensions.sorted().compactMap { UTType(filenameExtension: $0) }
     }
 }

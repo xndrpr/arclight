@@ -154,10 +154,32 @@ extension Schema {
                 Field("top", .object(boxFace), "Top face (y − h/2): a room's ceiling.", canDisable: true),
                 Field("bottom", .object(boxFace), "Bottom face (y + h/2): a room's floor.", canDisable: true),
             ], is3D: true),
+        NodeSchema(
+            type: "model", label: "Model", icon: "cube.transparent",
+            doc:
+                "A 3D model (.glb, .gltf, .obj, .usdz, …) from assets/, centred on x,y,z and scaled so its largest side is size px. Lit and solid: it hides what's behind it. Make one with model_generate. Move, turn (rotationX, rotationY, rotation) and keyframe it like any layer; its own animation isn't played.",
+            fields: [
+                Field("src", .asset("model"), "Model file in assets/ (or an absolute path).", animatable: false),
+                Field("size", .number(min: 0, unit: "px"), "Largest side of the model.", default: 400),
+                Field(
+                    "pivot", .choice(["center", "bottom"]),
+                    "Where x,y,z is: the model's centre, or the middle of its base (to stand it on a floor).",
+                    default: "center", animatable: false),
+                Field("color", .color, "Tint: replaces plain colours, multiplies textures."),
+                Field(
+                    "material", .choice(["matte", "glossy", "clay"]),
+                    "Surface: matte, glossy (highlight), clay (soft rim, mannequin look).", default: "matte",
+                    animatable: false),
+                Field("shade", zeroToOne, "How much the side away from the light darkens.", default: 0.7),
+                Field("rim", .number(min: 0, step: 0.05), "Extra edge light, for a silhouette glow.", default: 0),
+                Field(
+                    "light", .vector(labels: ["x", "y", "z"]),
+                    "Direction towards the light, in the scene (y up is negative).", default: [-0.4, -1, -0.6]),
+            ], is3D: true),
     ]
 
     /// Types that are always drawn through the scene camera, with or without `"3d"`.
-    public static let always3D: Set<String> = ["repeater", "light", "box"]
+    public static let always3D: Set<String> = ["repeater", "light", "box", "model"]
 
     /// One face of a box: `false` hides it.
     static let boxFace = ObjectSchema(

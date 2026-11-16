@@ -176,7 +176,7 @@ enum CanvasSelection {
 // MARK: Dropped files
 
 enum DropKind: Equatable {
-    case image, audio, font, svg, unsupported
+    case image, audio, font, svg, model, unsupported
 
     static func of(_ url: URL) -> DropKind {
         switch url.pathExtension.lowercased() {
@@ -184,6 +184,7 @@ enum DropKind: Equatable {
         case "wav", "aif", "aiff", "mp3", "m4a": return .audio
         case "ttf", "otf", "ttc": return .font
         case "svg": return .svg
+        case "glb", "gltf", "obj", "usdz", "usd", "usda", "usdc", "ply", "stl", "abc": return .model
         default: return .unsupported
         }
     }

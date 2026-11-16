@@ -145,6 +145,21 @@ A box in 3D centred on x,y,z: furniture, blocks, or a whole room with "inside": 
 | `top` | {face} |  | Top face (y − h/2): a room's ceiling. `false` turns it off. |
 | `bottom` | {face} |  | Bottom face (y + h/2): a room's floor. `false` turns it off. |
 
+## `model` — Model
+
+A 3D model (.glb, .gltf, .obj, .usdz, …) from assets/, centred on x,y,z and scaled so its largest side is size px. Lit and solid: it hides what's behind it. Make one with model_generate. Move, turn (rotationX, rotationY, rotation) and keyframe it like any layer; its own animation isn't played.
+
+| Property | Kind | Default | Description |
+|---|---|---|---|
+| `src` | model file |  | Model file in assets/ (or an absolute path). Not animatable. |
+| `size` | number (px) | `400` | Largest side of the model. |
+| `pivot` | "center"\|"bottom" | `"center"` | Where x,y,z is: the model's centre, or the middle of its base (to stand it on a floor). Not animatable. |
+| `color` | color |  | Tint: replaces plain colours, multiplies textures. |
+| `material` | "matte"\|"glossy"\|"clay" | `"matte"` | Surface: matte, glossy (highlight), clay (soft rim, mannequin look). Not animatable. |
+| `shade` | number | `0.7` | How much the side away from the light darkens. |
+| `rim` | number | `0` | Extra edge light, for a silhouette glow. |
+| `light` | [x, y, z] | `[-0.4,-1,-0.6]` | Direction towards the light, in the scene (y up is negative). |
+
 ## Scene settings
 
 | Property | Kind | Default | Description |

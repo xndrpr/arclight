@@ -1,6 +1,7 @@
 import AppKit
 import ArclightCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// "+ Layer": every kind of layer, placed for the current canvas (centred, sized relative to it).
 /// New layers start at the playhead.
@@ -79,6 +80,7 @@ struct AddLayerMenu: View {
                     "box",
                     props: ["x": 960, "y": 740, "z": 600, "size": [400, 400, 400], "color": "$fg", "shade": 0.35])
             }
+            Button("Model (3D)…") { addModel() }
             Button("Room (3D)") {
                 doc.addNode(
                     "box",
@@ -95,6 +97,15 @@ struct AddLayerMenu: View {
         }
         .menuStyle(.borderlessButton).fixedSize().foregroundStyle(UI.text).cursor(.pointingHand)
         .help("Add a layer at the playhead: text, shapes, a symbol, an image, a 3D crowd, audio or a template")
+    }
+
+    private func addModel() {
+        guard let u = FilePicker.files(UTType.models3D).first, let name = try? doc.store.importAsset(from: u) else {
+            return
+        }
+        doc.addNode(
+            "model", props: ["src": .string(name), "x": 960, "y": 540, "z": 0, "size": 500, "material": "clay"],
+            idBase: "model")
     }
 
     private func addImage() {

@@ -110,6 +110,25 @@ public struct FalProvider: ImageProvider {
         try await run(models.depth, ["image_url": .string(try ImageData.dataURI(image))])
     }
 
+    /// Image to 3D (Trellis by default): the model file the result links to (`model_mesh.url`, or a `glb` /
+    /// `model_glb` field for other image-to-3D models). These take a minute or two, so the limit is longer.
+    public func model3D(image: CGImage) async throws -> Data {
+        var p = self
+        p.timeout = max(timeout, 600)
+        let result = try await p.result(models.model3D, ["image_url": .string(try ImageData.dataURI(image))])
+        guard let url = FalProvider.modelURL(in: result) else {
+            throw ImageAIError.failed("fal.ai: no model in the result")
+        }
+        return try await download(url)
+    }
+
+    static func modelURL(in v: JSONValue) -> String? {
+        for k in ["model_mesh", "model_glb", "glb", "model", "mesh"] {
+            if let u = v[k]?["url"]?.string ?? v[k]?.string { return u }
+        }
+        return nil
+    }
+
     // MARK: Queue
 
     func request(_ url: URL, method: String = "GET", body: Data? = nil) -> URLRequest {
@@ -136,6 +155,15 @@ public struct FalProvider: ImageProvider {
     }
 
     func run(_ model: String, _ input: [String: JSONValue]) async throws -> CGImage {
+        let result = try await self.result(model, input)
+        guard let urlString = FalProvider.imageURL(in: result) else {
+            throw ImageAIError.failed("fal.ai: no image in the result")
+        }
+        return try ImageData.decode(try await download(urlString))
+    }
+
+    /// Submits `input` to `model` on the queue, waits for it, and returns the result JSON.
+    func result(_ model: String, _ input: [String: JSONValue]) async throws -> JSONValue {
         let submitURL = base.appendingPathComponent(model)
         let submitted = try await json(
             request(submitURL, method: "POST", body: try JSONEncoder().encode(JSONValue.object(input))))
@@ -156,20 +184,24 @@ public struct FalProvider: ImageProvider {
             if Date().timeIntervalSince(start) > timeout { throw ImageAIError.failed("fal.ai: timed out") }
             try await Task.sleep(nanoseconds: UInt64(poll * 1_000_000_000))
         }
-        let result = try await json(request(responseURL))
-        guard let urlString = FalProvider.imageURL(in: result), let url = URL(string: urlString) else {
-            throw ImageAIError.failed("fal.ai: no image in the result")
-        }
+        return try await json(request(responseURL))
+    }
+
+    /// The bytes behind a result URL (or an inline `data:` URI).
+    func download(_ urlString: String) async throws -> Data {
         if urlString.hasPrefix("data:"), let comma = urlString.firstIndex(of: ","),
             let d = Data(base64Encoded: String(urlString[urlString.index(after: comma)...]))
         {
-            return try ImageData.decode(d)
+            return d
+        }
+        guard let url = URL(string: urlString), url.scheme == "https" || url.scheme == "http" else {
+            throw ImageAIError.failed("fal.ai: bad result URL")
         }
         let (data, resp) = try await session.data(from: url)
         guard ((resp as? HTTPURLResponse)?.statusCode ?? 200) < 300 else {
             throw ImageAIError.failed("fal.ai: couldn't download the result")
         }
-        return try ImageData.decode(data)
+        return data
     }
 
     /// `images[0].url` (generators, fill) or `image.url` (background removal, upscalers).

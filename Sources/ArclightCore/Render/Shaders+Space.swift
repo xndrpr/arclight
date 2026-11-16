@@ -56,6 +56,54 @@ extension ShaderSource {
             return o;
         }
 
+        // ---- Models -------------------------------------------------------------
+        struct MeshV { float4 pos; float4 normal; float4 uv; };
+        struct MeshU {
+            float4x4 mvp;
+            float4x4 world;
+            float4 color;   // premultiplied tint
+            float4 light;   // direction towards the light (world), w: textured
+            float4 eye;     // camera position (world), w: material (0 matte, 1 glossy, 2 clay)
+            float4 params;  // shade, rim
+        };
+        struct MOut { float4 pos [[position]]; float3 n; float3 wpos; float2 uv; float vz; };
+
+        vertex MOut mesh_vs(uint vid [[vertex_id]], constant MeshU& u [[buffer(0)]],
+                            const device MeshV* v [[buffer(1)]]) {
+            MeshV x = v[vid];
+            MOut o;
+            o.pos = u.mvp * float4(x.pos.xyz, 1);
+            o.wpos = (u.world * float4(x.pos.xyz, 1)).xyz;
+            o.n = (u.world * float4(x.normal.xyz, 0)).xyz;
+            o.uv = x.uv.xy;
+            o.vz = o.pos.w;
+            return o;
+        }
+
+        fragment FOut mesh_fs(MOut in [[stage_in]], constant MeshU& u [[buffer(0)]], constant FrameU& f [[buffer(1)]],
+                              texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]]) {
+            float4 base = u.color;
+            if (u.light.w > 0.5) {
+                float4 t = tex.sample(s, in.uv);
+                base = float4(t.rgb * t.a, t.a) * u.color;
+            }
+            float3 V = normalize(u.eye.xyz - in.wpos);
+            float3 N = length(in.n) > 1e-6 ? normalize(in.n) : V;
+            if (dot(N, V) < 0) N = -N;  // two-sided
+            float3 L = normalize(u.light.xyz);
+            float diff = saturate((dot(N, L) + 0.35) / 1.35);  // wrapped, soft terminator
+            float shade = u.params.x;
+            float3 c = base.rgb * ((1.0 - shade) + shade * diff);
+            float m = u.eye.w;
+            if (m > 0.5 && m < 1.5) {
+                float spec = pow(saturate(dot(N, normalize(L + V))), 40.0);
+                c += spec * 0.45 * base.a;
+            }
+            float rim = u.params.y + (m > 1.5 ? 0.35 : 0.0);
+            if (rim > 0) c += pow(1.0 - saturate(dot(N, V)), 3.0) * rim * base.a * 0.6;
+            return finish(float4(c, base.a), in.vz, f);
+        }
+
         fragment DOut shape_depth_fs(VOut in [[stage_in]], constant ShapeU& u [[buffer(0)]], constant FrameU& f [[buffer(1)]]) {
             float2 h = max(u.geom.xy * 0.5, float2(1e-3));
             float2 p = in.local;
