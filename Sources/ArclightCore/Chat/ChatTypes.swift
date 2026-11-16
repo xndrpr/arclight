@@ -42,6 +42,8 @@ public enum ChatEvent: Sendable, Equatable {
     case notice(String)
     /// The model asked the user to decide a direction stage; the turn ends and waits for the answer.
     case choice(ChatChoice)
+    /// The model's plan for the request changed (`update_plan`).
+    case plan(ChatPlan)
 }
 
 /// One row of the chat as the user sees it. The model's own history lives in `ChatTranscript.history`.
@@ -85,8 +87,74 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
     public var history: [JSONValue] = []
     /// CLI backend: the agent's session id, resumed on the next turn.
     public var cliSession: String?
+    /// The AI's latest plan for the current request (the progress bar).
+    public var plan: ChatPlan?
+    /// Stable id of this conversation (its file name once archived) and when it started.
+    public var id: String = UUID().uuidString
+    public var created: Date = Date()
 
     public init() {}
+
+    enum CodingKeys: String, CodingKey { case items, history, cliSession, plan, id, created }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        items = try c.decodeIfPresent([ChatItem].self, forKey: .items) ?? []
+        history = try c.decodeIfPresent([JSONValue].self, forKey: .history) ?? []
+        cliSession = try c.decodeIfPresent(String.self, forKey: .cliSession)
+        plan = try? c.decodeIfPresent(ChatPlan.self, forKey: .plan)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
+    }
+
+    /// The first thing the user said, as the chat's name in the history list.
+    public var title: String {
+        let t = items.first { $0.kind == .user && !$0.text.isEmpty }?.text ?? "Chat"
+        let line = t.split(separator: "\n").first.map(String.init) ?? t
+        return line.count > 60 ? String(line.prefix(60)) + "…" : line
+    }
+
+    /// Past chats of a project, kept when a new chat starts: `<project>/.arclight/chats/<id>.json`.
+    public static func archiveFolder(_ project: URL) -> URL {
+        project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chats")
+    }
+
+    /// Moves this chat into the archive (nothing to keep when it is empty).
+    public func archive(project: URL) {
+        guard !items.isEmpty else { return }
+        try? JSONFile.write(self, to: Self.archiveFolder(project).appendingPathComponent("\(id).json"), encoder: JSONEncoder())
+    }
+
+    /// One archived chat, for the history menu.
+    public struct Summary: Identifiable, Equatable, Sendable {
+        public var id: String
+        public var title: String
+        public var date: Date
+        public var messages: Int
+    }
+
+    /// Archived chats, newest first.
+    public static func archived(project: URL) -> [Summary] {
+        let dir = archiveFolder(project)
+        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+        return files.filter { $0.pathExtension == "json" }.compactMap { u in
+            guard let t = JSONFile.read(ChatTranscript.self, from: u) else { return nil }
+            let date = t.items.isEmpty ? t.created : t.created
+            return Summary(id: t.id, title: t.title, date: date, messages: t.items.filter { $0.kind == .user }.count)
+        }.sorted { $0.date > $1.date }
+    }
+
+    /// Takes an archived chat out of the archive (it becomes the current one).
+    public static func restore(_ id: String, project: URL) -> ChatTranscript? {
+        let u = archiveFolder(project).appendingPathComponent("\(id).json")
+        guard let t = JSONFile.read(ChatTranscript.self, from: u) else { return nil }
+        try? FileManager.default.removeItem(at: u)
+        return t
+    }
+
+    public static func deleteArchived(_ id: String, project: URL) {
+        try? FileManager.default.removeItem(at: archiveFolder(project).appendingPathComponent("\(id).json"))
+    }
 
     public static func url(_ project: URL) -> URL {
         project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chat.json")
@@ -115,7 +183,10 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
                 items[i].ok = ok; items[i].text = summary; items[i].image = image
             }
         case .notice(let s): items.append(ChatItem(kind: .notice, text: s))
-        case .choice(let c): items.append(ChatItem(id: c.id, kind: .choice, text: c.question, choice: c))
+        case .choice(let c):
+            items.append(ChatItem(id: c.id, kind: .choice, text: c.question, choice: c))
+            plan?.waiting = true
+        case .plan(let p): plan = p
         }
     }
 

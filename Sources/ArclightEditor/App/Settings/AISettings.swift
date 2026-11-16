@@ -131,14 +131,20 @@ struct ImageGenerationSettings: View {
                 }
             }
             if let message { Text(message).font(UI.small).foregroundStyle(UI.dim) }
-            DisclosureGroup("Models") {
+            picker("Images", \.generate, ModelCatalog.images)
+            picker("3D models", \.model3D, ModelCatalog.models3D)
+            Text(
+                "Prices are fal.ai's per result (Nov 2026). Auto picks per request: Seedream 5.5 for photos and cut-outs, GPT Image 2.6 for graphics and lettering, Z-Image Turbo for drafts; Trellis 2 for 3D, Trellis for drafts. If a model rejects a request, another good one is used and the chat says which."
+            )
+            .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 420, alignment: .leading)
+            DisclosureGroup("Model ids") {
                 VStack(alignment: .leading, spacing: 5) {
                     model("Generate", \.generate)
+                    model("Image → 3D", \.model3D)
                     model("Fill / expand", \.fill)
                     model("Background", \.removeBackground)
                     model("Upscale", \.upscale)
                     model("Depth", \.depth)
-                    model("Image → 3D", \.model3D)
                     Button("Reset to defaults") {
                         models = FalProvider.Models(); ImageSettings.models = models
                     }
@@ -147,6 +153,33 @@ struct ImageGenerationSettings: View {
                 .padding(.top, 4)
             }
             .font(UI.small)
+        }
+    }
+
+    /// Auto, a catalog model (with price), or the custom id typed below.
+    private func picker(
+        _ label: String, _ kp: WritableKeyPath<FalProvider.Models, String>, _ entries: [ModelCatalog.Entry]
+    ) -> some View {
+        HStack(spacing: 6) {
+            Text(label).font(UI.small).foregroundStyle(UI.label2).frame(width: 90, alignment: .leading)
+            Picker(
+                "",
+                selection: Binding(
+                    get: { models[keyPath: kp] },
+                    set: { models[keyPath: kp] = $0; ImageSettings.models = models })
+            ) {
+                Text("Auto (recommended)").tag(ModelCatalog.auto)
+                Divider()
+                ForEach(entries) { e in
+                    Text("\(e.label) — \(e.priceNote) — \(e.bestFor)\(e.expensive ? " (expensive)" : "")").tag(e.id)
+                }
+                let current = models[keyPath: kp]
+                if current != ModelCatalog.auto, !entries.contains(where: { $0.id == current }) {
+                    Divider()
+                    Text("Custom: \(current)").tag(current)
+                }
+            }
+            .labelsHidden().controlSize(.small).frame(maxWidth: 330)
         }
     }
 

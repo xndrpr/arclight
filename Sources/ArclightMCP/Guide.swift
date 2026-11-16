@@ -202,6 +202,8 @@ enum Guide {
         copy_from "board" (drafts and their tokens are dropped from the copy) and animate the beats in the chosen motion style; \
         render_frames to check; finally scene_delete {drafts:true}.
         Keep the stages fast: drafts are small and still, one render call per draft, no export.
+        In the in-app chat, show the whole job with update_plan before stage 1 (the stages you will ask, then the build steps: \
+        assets, models, animation, check) and update it as each stage is answered, so the user always sees where they are and what is left.
         """
 
     static let space = """
@@ -217,8 +219,9 @@ enum Guide {
         view there), then image_depth for parallax; keep moves small (push-ins, drifts) because a relief's edges stretch. A plate also works seen \
         through a window cut in a box room (set that wall to false and build the window frame from boxes).
         2. Things in it. box for simple solids (tables, shelves, blocks: x,y,z is the centre, so a table top's y = floor − leg height). \
-        model for objects and figures: model_generate {prompt, scene, x, y, z, size, material} makes one object per call (1–2 min, paid: reuse a \
-        model across scenes, and ask before making more than three). Describe only the object and its material; for people use faceless figures, e.g. \
+        model for objects and figures: model_generate {prompt, scene, x, y, z, size, material, quality} makes one object per call (1–2 min, paid: reuse a \
+        model across scenes and instance it for crowds, and ask before making more than three). quality "draft" (Trellis, $0.02) for things seen small or \
+        far; "standard" (Trellis 2, $0.30, clean shape and textures) for anything the camera gets close to — draft models look rough in close-ups. Describe only the object and its material; for people use faceless figures, e.g. \
         "faceless matte white mannequin sitting, hands on knees" or "faceless clay hand, palm open". pivot "bottom" with y = floor y stands it on the floor; \
         turn it with rotationY. Flat props (posters, photos, cut-outs from image_remove_bg) are images or shapes with "3d": true, 2 px in front of their wall.
         3. Light and air. Give every box and model the same light direction (default [−0.4, −1, −0.6], from the top left front), shade 0.3–0.5 \
@@ -280,7 +283,11 @@ enum Guide {
         # AI pixels (image_status says what's available)
         - image_remove_bg {layer} — on-device and free: cut a person/object out of a photo, then add effects.outline for the sticker look.
         - image_select_subject {layer} — the subject's box in canvas px (place text beside it, or use it as an image_fill rect).
-        - With the user's fal.ai key: image_generate {prompt, model?} (a new picture; no words in it — use text layers; model = a fal text-to-image id for this call, default from Settings), image_fill {rect|area_layer, prompt}
+        - With the user's fal.ai key: image_generate {prompt, purpose?, transparent?, quality?, options?} (a new picture; no words in it — use text layers). \
+          The model is the user's choice; on auto, purpose picks it: photo (Seedream 5.5, $0.03), draft (Z-Image Turbo, $0.005), graphic \
+          (GPT Image 2.6, ~$0.05), illustration (Recraft), background (FLUX.2 pro). transparent:true makes a real cut-out (no image_remove_bg, no halo). \
+          Sizes are fitted to each model automatically and a rejected request falls back to another model; the result names the model and price. \
+          Pass model only when the user asks for one by name (image_status lists ids and prices). image_fill {rect|area_layer, prompt}
           (repaint an area: remove or add things; result is a new layer), image_expand {layer, left/top/right/bottom} (outpaint a tight photo to 16:9),
           image_upscale {layer, factor}. If they return "image generation is off", tell the user they can add a key in Settings ▸ AI.
         - All take scene, or thumbnail + artboard. Results are new assets plus normal layer edits (revertible via history).

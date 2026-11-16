@@ -162,7 +162,7 @@ private final class Events: @unchecked Sendable {
         #expect(body["fallbacks"]?.string == "default")
         #expect(s.betas.first == ["server-side-fallback-2026-07-01"])
         let tools = try #require(body["tools"]?.array)
-        #expect(tools.map { $0["name"]?.string ?? "" } == ["render_frames", "scene_get", "ask_choice"])
+        #expect(tools.map { $0["name"]?.string ?? "" } == ["render_frames", "scene_get", "ask_choice", "update_plan"])
         #expect(tools.allSatisfy { $0["eager_input_streaming"]?.bool == true })
         #expect(tools.allSatisfy { $0["input_schema"]?["type"]?.string == "object" })
         #expect(body["system"]?.array?.first?["text"]?.string?.contains("SERVER NOTES") == true)
@@ -245,6 +245,48 @@ private final class Events: @unchecked Sendable {
             ["id": "look-b", "title": "Paper", "visual": ["scene": "look-b"]],
         ],
     ]
+
+    @Test func updatePlanShowsProgressAndTheTurnGoesOn() async throws {
+        let plan: JSONValue = [
+            "goal": "Intro scene",
+            "steps": [
+                ["title": "Brief", "status": "done"], ["title": "Build", "status": "active"],
+                ["title": "Check", "status": "pending"],
+            ],
+        ]
+        let s = FakeStream([
+            .success(message([toolUse("p1", "update_plan", plan), toolUse("t1", "scene_get")], stop: "tool_use")),
+            .success(message([["type": "text", "text": "Done."]], stop: "end_turn")),
+        ])
+        let tools = FakeTools()
+        let b = backend(s, tools)
+        let events = Events()
+        try await b.send("make an intro", context: nil) { events.add($0) }
+        // The plan never reaches the tool server, the turn continued, and it was acknowledged to the model.
+        #expect(tools.calls.map(\.0) == ["scene_get"])
+        #expect(s.bodies.count == 2)
+        let shown = events.all.compactMap { e -> ChatPlan? in if case .plan(let p) = e { return p } else { return nil } }
+        #expect(shown.first?.steps.map(\.status) == [.done, .active, .pending])
+        #expect(shown.first?.current?.title == "Build" && shown.first?.fraction == 0.5)
+        var t = ChatTranscript()
+        for e in events.all { t.apply(e) }
+        #expect(t.plan?.goal == "Intro scene" && !t.items.contains { $0.tool == "update_plan" })
+        let results = s.bodies[1]["messages"]?.array?.last?["content"]?.array ?? []
+        #expect(results.first?["content"]?.string == ChatPlan.ack)
+        #expect(throws: ChatPlanError.self) { _ = try ChatPlan.parse(["goal": "x", "steps": []]) }
+    }
+
+    @Test func newChatKeepsTheOldOneInTheHistory() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-hist-\(UUID().uuidString).arclight")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var t = ChatTranscript()
+        t.items = [ChatItem(kind: .user, text: "Make a caterpillar scene\nwith 16 copies")]
+        t.archive(project: dir)
+        let list = ChatTranscript.archived(project: dir)
+        #expect(list.map(\.title) == ["Make a caterpillar scene"] && list.first?.messages == 1)
+        let back = ChatTranscript.restore(t.id, project: dir)
+        #expect(back?.items.first?.text.hasPrefix("Make") == true && ChatTranscript.archived(project: dir).isEmpty)
+    }
 
     @Test func askChoiceStopsTheTurnAndTheAnswerBecomesItsResult() async throws {
         let s = FakeStream([

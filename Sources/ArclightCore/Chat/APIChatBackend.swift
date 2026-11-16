@@ -114,6 +114,16 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
                     }
                     continue
                 }
+                if name == ChatPlan.toolName, runTools, !msg.invalidToolInputs.contains(id), !cancelled {
+                    // The progress bar: shown at once, never a tool row.
+                    do {
+                        onEvent(.plan(try ChatPlan.parse(input)))
+                        results.append(["type": "tool_result", "tool_use_id": .string(id), "content": .string(ChatPlan.ack)])
+                    } catch {
+                        results.append(Self.errorResult(id, "\(error)"))
+                    }
+                    continue
+                }
                 onEvent(.toolStart(id: id, name: name, input: ChatPrompt.compact(.object(input))))
                 if cancelled || Task.isCancelled {
                     cancelled = true
