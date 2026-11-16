@@ -44,6 +44,8 @@ bigger" is one small edit), and your look lives in reusable theme tokens, templa
 - **YouTube thumbnails**: a second workspace (**⌘2**) with artboards, layer effects (blend modes, clipping, masks,
   outline, shadow, glow, blur, colour adjustments), templates, A/B variants, frames pulled from your video and
   reference analysis, exported as PNG or JPG under YouTube's 2 MB limit.
+- **3D spaces**: rooms and furniture from boxes, lit 3D models (`.glb`, `.obj`, `.usdz`, made by the AI from a
+  prompt with your fal.ai key), relief images with real parallax, and a camera that moves through it all in one shot.
 - **AI pixel tools**: remove a background or select the subject on-device, plus optional generate, fill, expand and
   upscale with your own fal.ai key.
 - **Layers**: text (per-character, word or line reveals, count-ups), shapes (gradients, lines that draw on),

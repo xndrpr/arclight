@@ -15,19 +15,24 @@ enum Guide {
         thumbnail_render (feed:true) to check → thumbnail_apply for fixes → export {thumbnail, format:"youtube"}. See guide("thumbnails").
         For a new scene from a description, settle the direction with the user before the full build: brief → look → storyboard → motion feel, \
         each a cheap draft they choose from. See guide("direction").
+        When the story happens in a place (a room, a street, a void), build it as one 3D space and move the camera through it: \
+        a box room, generated models and relief plates, lit and fogged. See guide("space").
         """
 
     /// Topics in reading order. Layer-type topics and "scene"/"common"/"symbols" are generated.
     static var topicNames: [String] {
         ["overview", "animation", "common"] + Schema.nodes.map(\.type) + [
-            "scene", "symbols", "ops", "export", "direction", "thumbnails", "recipes",
+            "scene", "symbols", "ops", "export", "direction", "space", "thumbnails", "recipes",
         ]
     }
 
     /// Old topic names still answered.
     static let aliases: [String: [String]] = [
         "nodes": ["common", "text", "shape", "symbol", "image", "group"],
-        "3d": ["repeater", "light", "scene"],
+        "3d": ["space", "box", "model", "repeater", "light", "scene"],
+        "spaces": ["space"],
+        "room": ["space", "box"],
+        "models": ["space", "model"],
         "post": ["scene"],
         "instancer": ["repeater"],
         "assets": ["symbols", "image"],
@@ -52,6 +57,7 @@ enum Guide {
         case "export": return export
         case "recipes": return recipes
         case "direction": return direction
+        case "space": return space
         case "thumbnails": return thumbnails
         case "common": return Schema.transformReference
         case "scene": return Schema.sceneReference
@@ -72,7 +78,8 @@ enum Guide {
         Every other key is a property — see guide(<type>) for each type's properties. Types: \(Schema.nodes.map(\.type).joined(separator: ", ")).
         Unknown or misspelled properties are rejected with a suggestion; put custom data in keys starting with "_".
         Colours: "#RRGGBB", "#RRGGBBAA", [r,g,b,a] (0-1), names, or a theme token like "$fg"; "$fg@25" is that token's colour at 25% alpha (0-100). Tokens can hold any value (fonts, numbers).
-        3D layers (repeater, light, or "3d": true) render through the scene camera into a graded 3D layer; 2D layers overlay it, crisp.
+        3D layers (repeater, light, box, model, or "3d": true) render through the scene camera into a graded 3D layer; 2D layers overlay it, crisp. \
+        In 3D a solid layer hides what is behind it whatever the list order; layers on one plane (a label on a panel) draw in list order.
         """
 
     static let animation = """
@@ -197,6 +204,37 @@ enum Guide {
         Keep the stages fast: drafts are small and still, one render call per draft, no export.
         """
 
+    static let space = """
+        # Spaces: a whole scene in 3D
+        For a story that happens in a place, build the place once and let the camera move through it as one continuous shot, \
+        instead of separate flat frames. World units are canvas px; y points down (the floor is the largest y), z goes into the screen. \
+        With no camera prop the camera looks along +z and sees the z = 0 plane 1:1 with the canvas (at 1920×1080 and fov 40 it stands at z ≈ −1484).
+        1. Shell. A room is a box with "inside": true, e.g. {"type":"box","id":"room","x":960,"y":540,"z":1200,"size":[2600,1300,3000],\
+        "inside":true,"color":"#cfc8bc","shade":0.45,"bottom":{"color":"#5e5040"},"top":{"color":"#e9e5dd"}}: floor y 1190, ceiling y −110, \
+        back wall z 2700, near wall z −300. Keep the camera inside it (z −250…2650, y −60…1150); from outside, its near walls drop away like a dollhouse \
+        (a pull-out reveal of the whole room). Faces take colours or images: image_generate a "seamless … texture, flat, even light" and set \
+        {"src", "tile":[u,v]}. Or a plate: image_generate the whole place, place it as an image with "3d": true far back (big enough to fill the \
+        view there), then image_depth for parallax; keep moves small (push-ins, drifts) because a relief's edges stretch. A plate also works seen \
+        through a window cut in a box room (set that wall to false and build the window frame from boxes).
+        2. Things in it. box for simple solids (tables, shelves, blocks: x,y,z is the centre, so a table top's y = floor − leg height). \
+        model for objects and figures: model_generate {prompt, scene, x, y, z, size, material} makes one object per call (1–2 min, paid: reuse a \
+        model across scenes, and ask before making more than three). Describe only the object and its material; for people use faceless figures, e.g. \
+        "faceless matte white mannequin sitting, hands on knees" or "faceless clay hand, palm open". pivot "bottom" with y = floor y stands it on the floor; \
+        turn it with rotationY. Flat props (posters, photos, cut-outs from image_remove_bg) are images or shapes with "3d": true, 2 px in front of their wall.
+        3. Light and air. Give every box and model the same light direction (default [−0.4, −1, −0.6], from the top left front), shade 0.3–0.5 \
+        for walls, 0.6–0.8 for models; clay material and a little rim for a sculpted, faceless look. fog {color: the background, near, far} adds \
+        depth (near a little past the subject, far around the back wall); light layers add pools on the floor; post bloom, grain and vignette finish it.
+        4. Camera. Keyframe the whole camera object {"position","target","fov"} with eased keys (inOutSine, inOutCubic); one connected path, \
+        no cuts. Push-in: position moves towards the target over 3–6 s. Pull-back reveal: the reverse, ending outside the room. Drift: move \
+        position sideways with the target fixed, so near things slide past far ones. Orbit: position around the target. \
+        Dolly zoom (vertigo, the world stretching while the subject stays the same size, for unease, dissociation, realisation): move the camera \
+        away while narrowing fov so distance × tan(fov/2) stays constant, e.g. 700 px at fov 50 → 1650 px at fov 22. dof {focus: distance to the \
+        subject, blur 6–14} isolates the subject; shake for an impact.
+        5. Words. Narration and titles are 2D text layers over the 3D (crisp, no "3d"); text on a wall or object is a 3D text layer on its plane.
+        Check with render_frames along the camera path: the camera never leaves the room unless that's the shot, nothing floats above the floor \
+        or sinks into it, models face the camera, the subject stays framed, and text over the image stays legible.
+        """
+
     static let recipes = """
         # Recipes
         Stat with a crowd: repeater (symbol basic/person, 45% lit via pick) + text "{v}%" whose value is
@@ -204,6 +242,12 @@ enum Guide {
         Title card: text centred (align "center", x = width/2) with a crisp line wipe (see guide("text")) led by a line shape whose trim animates [0,0]→[0,1].
         Vertical short: project_update {"size":[1080,1920]} (or a scene override {"op":"scene","size":[1080,1920]}); keep text within x 80…1000.
         Dark backdrop behind type: rect 1920x1080 at 960,540 with a linear gradient fill from opaque top-left to transparent.
+        Monologue in a room that turns strange (one shot, see guide("space")): an ordinary warm box room, a faceless clay figure across a table \
+          and a clay hand in the near foreground (model_generate). Beat 1: a slow push-in over the hand while the figure "talks" (small \
+          rotationY / y sways). Beat 2, as the feeling detaches: a dolly zoom over 3–4 s, the room stretching behind the figure, fog near/far \
+          keyed closer, post saturation down, the light direction turning colder. Beat 3: everything still looks normal but the camera drifts \
+          off-axis with a slight roll and dof isolates the figure. Beat 4: pull back through the near wall: the room becomes a lit box in an \
+          empty dark void. Narration lines as 2D text, timed to the beats.
         """
 
     static let thumbnails = """

@@ -41,6 +41,11 @@ public enum ChatPrompt {
         and keep a single idea running through the scene. Don't reuse the same transition trick by habit.
         - In 3D, use post.motionBlur ({samples, shutter}) for fast relative motion and camera.dof ({blur, focus, \
         range}) for close or spatial shots. Both blur only 3D layers. Keep text legible.
+        - When the story happens in a place, build it as one 3D space (guide("space")): the shell first (a box room \
+        or a relief plate), then the camera path, then the things in it (boxes, models from model_generate, 3D cut-outs), \
+        then light and fog. The camera moves through it in one continuous shot. In the look stage a rough box room with \
+        placeholder boxes is enough; generate models only after the user picked the direction, and ask before making \
+        more than three (each takes a minute or two and costs money).
 
         Treat your first build as a draft, not the result. Render a contact sheet across the whole scene at low \
         scale, including each beat boundary and the last frame. Check meaning, pacing (dead holds, rushed reads), \
