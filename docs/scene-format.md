@@ -173,6 +173,7 @@ A 3D model (.glb, .gltf, .obj, .usdz, …) from assets/, centred on x,y,z and sc
 | `post` | {post} |  | Final grade, bloom, grain, motion blur, fades. |
 | `markers` | [{marker}] |  | Named times (scene_apply {"op":"marker","name":"lock","t":3.4}). Not animatable. |
 | `audio` | {audio} |  | Reference audio track. Not animatable. |
+| `sounds` | [{sound}] |  | Sound clips over the audio (scene_apply {"op":"sound","id":"pop-1","src":"pop.wav","offset":1.2}). Not animatable. |
 
 ### `camera` object
 
@@ -298,7 +299,24 @@ Reference audio (voiceover, music): plays with the scene and is mixed into expor
 | `trim` | number (s) | `0` | Seconds skipped at the start of the file. |
 | `gain` | number | `1` | Volume multiplier. |
 | `fadeIn` | number (s) | `0` | Fade-in length. |
-| `fadeOut` | number (s) | `0` | Fade-out at the scene end. |
+| `fadeOut` | number (s) | `0` | Fade-out where the audio stops (its end or the scene end). |
+| `length` | number (s) |  | Seconds played from trim (default: the rest of the file). |
+| `mute` | bool | `false` | Leave out of exports. |
+
+### `sound` object
+
+A sound clip (whoosh, pop, stinger, extra voice line) mixed over the reference audio at its own time.
+
+| Property | Kind | Default | Description |
+|---|---|---|---|
+| `id` | string |  | Unique name, e.g. "whoosh-1". |
+| `src` | audio file |  | File in assets/ (wav, aiff, mp3, m4a). |
+| `offset` | number (s) | `0` | Scene time where the audio starts. |
+| `trim` | number (s) | `0` | Seconds skipped at the start of the file. |
+| `gain` | number | `1` | Volume multiplier. |
+| `fadeIn` | number (s) | `0` | Fade-in length. |
+| `fadeOut` | number (s) | `0` | Fade-out where the audio stops (its end or the scene end). |
+| `length` | number (s) |  | Seconds played from trim (default: the rest of the file). |
 | `mute` | bool | `false` | Leave out of exports. |
 
 ### `reveal` object

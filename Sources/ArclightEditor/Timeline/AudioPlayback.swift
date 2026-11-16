@@ -3,12 +3,13 @@ import ArclightCore
 import Combine
 import QuartzCore
 
-/// Plays the scene's reference audio in sync with the playhead (one player per document, created lazily).
+/// Plays the scene's reference audio and sound clips in sync with the playhead (one player per document, created
+/// lazily; one player node per clip, mixed by the engine).
 ///
 /// - Starts when `doc.playing` turns on at rate 1 (J/L shuttle speeds and reverse are silent), stops with it.
-/// - Schedules the file segment for the current playhead (offset / trim / scene end / work-area end) on an
-///   AVAudioPlayerNode, starting at a host time so a clip that begins later waits the right amount.
-/// - Gain and fades follow `AudioClip.envelope` via the node's volume (updated ~60×/s).
+/// - Schedules each clip's file segment for the current playhead (offset / trim / length / scene end / work-area
+///   end) on its AVAudioPlayerNode, starting at a host time so a clip that begins later waits the right amount.
+/// - Gain and fades follow `AudioClip.envelope` via each node's volume (updated ~60×/s).
 /// - Watches for seeks and loop wraps: when the playhead drifts > 60 ms from where the audio is, it reschedules.
 final class AudioPlayback {
     private static let players = NSMapTable<EditorDocument, AudioPlayback>.weakToStrongObjects()
@@ -19,12 +20,18 @@ final class AudioPlayback {
         players.setObject(AudioPlayback(doc: doc), forKey: doc)
     }
 
+    /// One clip's player node and the file it reads.
+    private final class Voice {
+        let player = AVAudioPlayerNode()
+        var file: AVAudioFile?
+        var fileKey: String?
+        var ref: AudioRef?
+        var connected = false
+    }
+
     private weak var doc: EditorDocument?
     private let engine = AVAudioEngine()
-    private let player = AVAudioPlayerNode()
-    private var file: AVAudioFile?
-    private var fileKey: String?
-    private var connected = false
+    private var voices: [Voice] = []
     private var subs: Set<AnyCancellable> = []
     private var timer: Timer?
     /// Scene time and host time playback started from (to detect seeks).
@@ -33,22 +40,25 @@ final class AudioPlayback {
 
     private init(doc: EditorDocument) {
         self.doc = doc
-        engine.attach(player)
         // Publishers fire in willSet: re-evaluate on the next runloop turn, when the new values are in place.
         doc.$playing.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: false) }
         }.store(in: &subs)
         doc.$rate.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: true) } }
             .store(in: &subs)
-        doc.$scene.map { [$0.audio.map { "\($0)" } ?? "", "\($0.duration)"] }.removeDuplicates()
+        doc.$scene.map { ["\($0.audibleClips)", "\($0.duration)"] }.removeDuplicates()
             .sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: true) } }.store(in: &subs)
         doc.$workArea.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: true) }
         }.store(in: &subs)
     }
 
-    deinit { timer?.invalidate(); player.stop(); engine.stop() }
+    deinit {
+        timer?.invalidate()
+        for v in voices { v.player.stop() }
+        engine.stop()
+    }
 
     private var shouldPlay: Bool {
-        guard let doc, doc.playing, doc.rate == 1, let a = doc.scene.audio, a.mute != true else { return false }
+        guard let doc, doc.playing, doc.rate == 1, !doc.scene.audibleClips.isEmpty else { return false }
         return true
     }
 
@@ -60,50 +70,73 @@ final class AudioPlayback {
         }
     }
 
-    private func loadFile() -> AVAudioFile? {
-        guard let doc, let a = doc.scene.audio else { return nil }
-        let url = SceneAudio.url(a, assets: doc.assets)
+    /// Opens `ref`'s file on `v` (reusing it when unchanged) and connects the node with the file's format.
+    private func load(_ v: Voice, _ ref: AudioRef) -> AVAudioFile? {
+        guard let doc else { return nil }
+        let url = SceneAudio.url(ref, assets: doc.assets)
         let stamp =
             ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
             .timeIntervalSince1970 ?? 0
         let key = "\(url.path)|\(stamp)"
-        if key == fileKey, let file { return file }
-        player.stop()
-        file = try? AVAudioFile(forReading: url)
-        fileKey = key
-        if let f = file {
-            if connected { engine.disconnectNodeOutput(player) }
-            engine.connect(player, to: engine.mainMixerNode, format: f.processingFormat)
-            connected = true
+        v.ref = ref
+        if key == v.fileKey, let f = v.file { return f }
+        v.player.stop()
+        v.file = try? AVAudioFile(forReading: url)
+        v.fileKey = key
+        if let f = v.file {
+            if v.connected { engine.disconnectNodeOutput(v.player) }
+            engine.connect(v.player, to: engine.mainMixerNode, format: f.processingFormat)
+            v.connected = true
         }
-        return file
+        return v.file
+    }
+
+    private func clip(_ v: Voice) -> AudioClip? {
+        guard let doc, let f = v.file, let ref = v.ref else { return nil }
+        return AudioClip(
+            ref, fileDuration: Double(f.length) / f.processingFormat.sampleRate, sceneDuration: doc.scene.duration)
     }
 
     private func start() {
-        guard let doc, let f = loadFile(), let a = doc.scene.audio else { stop(); return }
-        player.stop()
+        guard let doc else { stop(); return }
+        let clips = doc.scene.audibleClips
+        guard !clips.isEmpty else { stop(); return }
+        for v in voices { v.player.stop() }
+        while voices.count < clips.count {
+            let v = Voice()
+            engine.attach(v.player)
+            voices.append(v)
+        }
+        while voices.count > clips.count {
+            let v = voices.removeLast()
+            v.player.stop()
+            engine.detach(v.player)
+        }
+        for (v, ref) in zip(voices, clips) { _ = load(v, ref) }
+        guard voices.contains(where: { $0.file != nil }) else { stop(); return }
         if !engine.isRunning {
             engine.prepare()
             do { try engine.start() } catch { running = false; return }
         }
         let t = doc.playTime
-        let clip = AudioClip(
-            a, fileDuration: Double(f.length) / f.processingFormat.sampleRate, sceneDuration: doc.scene.duration)
         let until = doc.workArea.map { min($0.upperBound, doc.scene.duration) } ?? doc.scene.duration
         anchorT = t; anchorHost = CACurrentMediaTime()
         running = true
         startTimer()
-        guard let seg = clip.segment(from: t, until: until),
-            let fr = AudioClip.frames(seg, sampleRate: f.processingFormat.sampleRate, fileFrames: f.length)
-        else { return }
-        player.volume = Float(clip.envelope(at: t + seg.delay))
-        player.scheduleSegment(f, startingFrame: fr.start, frameCount: AVAudioFrameCount(fr.count), at: nil)
-        let when = mach_absolute_time() + AVAudioTime.hostTime(forSeconds: seg.delay)
-        player.play(at: seg.delay > 0.001 ? AVAudioTime(hostTime: when) : nil)
+        let now = mach_absolute_time()
+        for v in voices {
+            guard let f = v.file, let c = clip(v), let seg = c.segment(from: t, until: until),
+                let fr = AudioClip.frames(seg, sampleRate: f.processingFormat.sampleRate, fileFrames: f.length)
+            else { continue }
+            v.player.volume = Float(c.envelope(at: t + seg.delay))
+            v.player.scheduleSegment(f, startingFrame: fr.start, frameCount: AVAudioFrameCount(fr.count), at: nil)
+            let when = now + AVAudioTime.hostTime(forSeconds: seg.delay)
+            v.player.play(at: seg.delay > 0.001 ? AVAudioTime(hostTime: when) : nil)
+        }
     }
 
     private func stop() {
-        player.stop()
+        for v in voices { v.player.stop() }
         running = false
         timer?.invalidate(); timer = nil
     }
@@ -115,13 +148,13 @@ final class AudioPlayback {
         timer = t
     }
 
-    /// Volume envelope + seek / loop detection.
+    /// Volume envelopes + seek / loop detection.
     private func update() {
-        guard running, let doc, let a = doc.scene.audio, let f = file else { return }
+        guard running, let doc else { return }
         let expected = anchorT + (CACurrentMediaTime() - anchorHost)
         if abs(doc.playTime - expected) > 0.06 { start(); return }
-        let clip = AudioClip(
-            a, fileDuration: Double(f.length) / f.processingFormat.sampleRate, sceneDuration: doc.scene.duration)
-        player.volume = Float(clip.envelope(at: doc.playTime))
+        for v in voices {
+            if let c = clip(v) { v.player.volume = Float(c.envelope(at: doc.playTime)) }
+        }
     }
 }

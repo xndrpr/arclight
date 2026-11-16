@@ -107,9 +107,18 @@ extension Schema {
                 "trim", .number(min: 0, step: 0.01, unit: "s"), "Seconds skipped at the start of the file.", default: 0),
             Field("gain", .number(min: 0, max: 4, step: 0.05), "Volume multiplier.", default: 1),
             Field("fadeIn", .number(min: 0, step: 0.05, unit: "s"), "Fade-in length.", default: 0),
-            Field("fadeOut", .number(min: 0, step: 0.05, unit: "s"), "Fade-out at the scene end.", default: 0),
+            Field(
+                "fadeOut", .number(min: 0, step: 0.05, unit: "s"), "Fade-out where the audio stops (its end or the scene end).",
+                default: 0),
+            Field(
+                "length", .number(min: 0, step: 0.01, unit: "s"), "Seconds played from trim (default: the rest of the file)."),
             Field("mute", .bool, "Leave out of exports.", default: false),
         ])
+
+    private static let sound = ObjectSchema(
+        "sound",
+        "A sound clip (whoosh, pop, stinger, extra voice line) mixed over the reference audio at its own time.",
+        [Field("id", .string(), "Unique name, e.g. \"whoosh-1\".")] + audio.fields)
 
     public static let sceneFields: [Field] = [
         Field(
@@ -126,5 +135,9 @@ extension Schema {
             "markers", .list(marker), "Named times (scene_apply {\"op\":\"marker\",\"name\":\"lock\",\"t\":3.4}).",
             animatable: false),
         Field("audio", .object(audio), "Reference audio track.", animatable: false),
+        Field(
+            "sounds", .list(sound),
+            "Sound clips over the audio (scene_apply {\"op\":\"sound\",\"id\":\"pop-1\",\"src\":\"pop.wav\",\"offset\":1.2}).",
+            animatable: false),
     ]
 }

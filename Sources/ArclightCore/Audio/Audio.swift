@@ -72,59 +72,97 @@ public enum SceneAudio {
         return try result.get()
     }
 
+    /// Where a clip lands in a scene: file seconds `fileStart…` play at scene time `at` for `length` seconds.
+    /// The same placement the editor's timeline and playback use (`AudioClip`).
+    public struct Placement: Equatable, Sendable {
+        public var fileStart: Double
+        public var at: Double
+        public var length: Double
+    }
+
+    public static func placement(_ a: AudioRef, fileDuration: Double, sceneDuration: Double) -> Placement? {
+        let trim = max(0, a.trim ?? 0)
+        var start = trim, at = a.offset ?? 0
+        if at < 0 { start -= at; at = 0 }
+        var avail = fileDuration - start
+        if let l = a.length { avail = min(avail, l - (start - trim)) }
+        let length = min(avail, sceneDuration - at)
+        return length > 0.01 ? Placement(fileStart: start, at: at, length: length) : nil
+    }
+
     /// Writes `video` + the scene's audio into `output`. Video samples are copied as-is (no re-encode, alpha kept);
     /// audio is placed at `offset`, trimmed, gain/fades applied, cut at the scene end, and encoded as AAC.
     public static func mux(
         video: URL, audio a: AudioRef, assets: URL?, sceneDuration: Double, output: URL, fileType: AVFileType
     ) throws {
-        let audioURL = url(a, assets: assets)
-        guard FileManager.default.fileExists(atPath: audioURL.path) else {
-            throw RenderError.setup("audio file not found: \(audioURL.path)")
-        }
-        let vAsset = AVURLAsset(url: video), aAsset = AVURLAsset(url: audioURL)
-        let (vTrack, vFormat, srcTrack, aDur) = try sync {
-            () -> (AVAssetTrack, CMFormatDescription?, AVAssetTrack, Double) in
-            guard let v = try await vAsset.loadTracks(withMediaType: .video).first,
-                let s = try await aAsset.loadTracks(withMediaType: .audio).first
-            else { throw RenderError.setup("missing video or audio track") }
-            let fd = try await v.load(.formatDescriptions).first
-            let d = try await aAsset.load(.duration).seconds
-            return (v, fd, s, d)
+        _ = try mux(
+            video: video, clips: [a], assets: assets, sceneDuration: sceneDuration, output: output, fileType: fileType)
+    }
+
+    /// Writes `video` + every clip (reference audio and sounds, mixed) into `output`. Returns false — and writes
+    /// nothing — when no clip is heard inside the scene.
+    @discardableResult
+    public static func mux(
+        video: URL, clips: [AudioRef], assets: URL?, sceneDuration: Double, output: URL, fileType: AVFileType
+    ) throws -> Bool {
+        let vAsset = AVURLAsset(url: video)
+        let (vTrack, vFormat) = try sync { () -> (AVAssetTrack, CMFormatDescription?) in
+            guard let v = try await vAsset.loadTracks(withMediaType: .video).first else {
+                throw RenderError.setup("missing video track")
+            }
+            return (v, try await v.load(.formatDescriptions).first)
         }
 
-        // Place the audio on a composition timeline.
+        // Place every clip on its own composition track; the mix output sums them.
         let comp = AVMutableComposition()
-        guard let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
-        else { throw RenderError.setup("audio track") }
         let ts: CMTimeScale = 48000
         func t(_ s: Double) -> CMTime { CMTime(seconds: s, preferredTimescale: ts) }
-        var start = max(0, a.trim ?? 0), at = a.offset ?? 0
-        if at < 0 { start -= at; at = 0 }
-        let length = min(aDur - start, sceneDuration - at)
-        if length > 0.01 {
-            try track.insertTimeRange(CMTimeRange(start: t(start), duration: t(length)), of: srcTrack, at: t(at))
+        var tracks: [AVMutableCompositionTrack] = []
+        var inputs: [AVMutableAudioMixInputParameters] = []
+        for a in clips {
+            let audioURL = url(a, assets: assets)
+            guard FileManager.default.fileExists(atPath: audioURL.path) else {
+                throw RenderError.setup("audio file not found: \(audioURL.path)")
+            }
+            let aAsset = AVURLAsset(url: audioURL)
+            let (srcTrack, aDur) = try sync { () -> (AVAssetTrack, Double) in
+                guard let s = try await aAsset.loadTracks(withMediaType: .audio).first else {
+                    throw RenderError.setup("no audio in \(audioURL.lastPathComponent)")
+                }
+                return (s, try await aAsset.load(.duration).seconds)
+            }
+            guard let p = placement(a, fileDuration: aDur, sceneDuration: sceneDuration),
+                let track = comp.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid)
+            else { continue }
+            try track.insertTimeRange(
+                CMTimeRange(start: t(p.fileStart), duration: t(p.length)), of: srcTrack, at: t(p.at))
+            let params = AVMutableAudioMixInputParameters(track: track)
+            let gain = Float(a.gain ?? 1)
+            params.setVolume(gain, at: .zero)
+            if let fi = a.fadeIn, fi > 0 {
+                params.setVolumeRamp(
+                    fromStartVolume: 0, toEndVolume: gain,
+                    timeRange: CMTimeRange(start: t(p.at), duration: t(min(fi, p.length))))
+            }
+            if let fo = a.fadeOut, fo > 0 {
+                let f = min(fo, p.length)
+                params.setVolumeRamp(
+                    fromStartVolume: gain, toEndVolume: 0,
+                    timeRange: CMTimeRange(start: t(p.at + p.length - f), duration: t(f)))
+            }
+            tracks.append(track)
+            inputs.append(params)
         }
-        let params = AVMutableAudioMixInputParameters(track: track)
-        let gain = Float(a.gain ?? 1)
-        params.setVolume(gain, at: .zero)
-        if let fi = a.fadeIn, fi > 0 {
-            params.setVolumeRamp(
-                fromStartVolume: 0, toEndVolume: gain, timeRange: CMTimeRange(start: t(at), duration: t(fi)))
-        }
-        if let fo = a.fadeOut, fo > 0 {
-            params.setVolumeRamp(
-                fromStartVolume: gain, toEndVolume: 0,
-                timeRange: CMTimeRange(start: t(max(0, sceneDuration - fo)), duration: t(fo)))
-        }
+        guard !tracks.isEmpty else { return false }
         let mix = AVMutableAudioMix()
-        mix.inputParameters = [params]
+        mix.inputParameters = inputs
 
         let vReader = try AVAssetReader(asset: vAsset)
         let vOut = AVAssetReaderTrackOutput(track: vTrack, outputSettings: nil)
         vReader.add(vOut)
         let aReader = try AVAssetReader(asset: comp)
         let aOut = AVAssetReaderAudioMixOutput(
-            audioTracks: [track],
+            audioTracks: tracks,
             audioSettings: [
                 AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 2,
                 AVLinearPCMBitDepthKey: 32, AVLinearPCMIsFloatKey: true, AVLinearPCMIsNonInterleaved: false,
@@ -174,5 +212,6 @@ public enum SceneAudio {
         writer.finishWriting { sem.signal() }
         sem.wait()
         guard writer.status == .completed else { throw writer.error ?? RenderError.setup("mux failed") }
+        return true
     }
 }

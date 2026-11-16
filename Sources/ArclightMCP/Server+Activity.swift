@@ -73,6 +73,16 @@ extension MCPServer {
         case "asset_write": return "write asset " + (a["name"]?.string ?? "")
         case "symbol_save": return "save symbol " + (a["pack"]?.string ?? "") + "/" + (a["id"]?.string ?? "")
         case "font_list": return "list fonts" + (a["query"]?.string.map { " “\($0)”" } ?? "")
+        case "sound_search": return "search sounds “\(a["query"]?.string ?? "")”"
+        case "sound_import": return "import sound \(a["sound"]?.string ?? "")"
+        case "sound_synth": return "make a \(a["preset"]?.string ?? "") sound"
+        case "sound_generate":
+            return "generate \(a["kind"]?.string ?? "sfx") “\((a["prompt"]?.string ?? "").prefix(60))”"
+        case "voice_generate":
+            return a["list"]?.bool == true ? "list voices" : "voiceover “\((a["text"]?.string ?? "").prefix(60))”"
+        case "audio_analyze":
+            return "listen to \(a["sound"]?.string ?? a["src"]?.string ?? "scene audio")"
+                + (a["markers"]?.string.map { " (\($0) markers)" } ?? "")
         default: return tool
         }
     }

@@ -45,7 +45,7 @@ struct AudioLaneDrawing {
         // Gain envelope line: 0 at the audible start, ramps for the fades.
         let a = c.audibleStart, e = c.audibleEnd
         guard e > a else { return }
-        var ts = [a, a + c.fadeIn, c.sceneDuration - c.fadeOut, e].filter { $0 >= a && $0 <= e }
+        var ts = [a, a + c.fadeIn, c.fadeOutStart, e].filter { $0 >= a && $0 <= e }
         ts.sort()
         var line = Path()
         for (i, t) in ts.enumerated() {
@@ -55,7 +55,7 @@ struct AudioLaneDrawing {
         }
         ctx.stroke(line, with: .color(UI.text.opacity(0.85)), lineWidth: 1.2)
         let gy = AudioLane.gainY(c.gain, height: size.height)
-        for x in [map.x(a + c.fadeIn), map.x(max(a, min(e, c.sceneDuration - c.fadeOut)))] {
+        for x in [map.x(a + c.fadeIn), map.x(c.fadeOutStart)] {
             let r = CGRect(x: x - 3.5, y: gy - 3.5, width: 7, height: 7)
             ctx.fill(Path(ellipseIn: r), with: .color(UI.text))
             ctx.stroke(Path(ellipseIn: r), with: .color(UI.panel), lineWidth: 1)

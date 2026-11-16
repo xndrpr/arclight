@@ -124,7 +124,7 @@ struct AudioLane: View {
         guard p.x >= b.minX - 6, p.x <= b.maxX + 6 else { return .none }
         let gy = Self.gainY(c.gain, height: TL.audioH)
         let fiX = map.x(c.audibleStart + c.fadeIn),
-            foX = map.x(max(c.audibleStart, min(c.audibleEnd, c.sceneDuration - c.fadeOut)))
+            foX = map.x(c.fadeOutStart)
         if abs(p.y - gy) < 7 {
             if abs(p.x - fiX) < 6 { return .fadeIn }
             if abs(p.x - foX) < 6 { return .fadeOut }
@@ -186,7 +186,7 @@ struct AudioLane: View {
             let v = (f * doc.fps).rounded() / doc.fps
             doc.setAudio { $0.fadeIn = v < 1e-6 ? nil : v }
         case .fadeOut:
-            let f = min(max(0, c.sceneDuration - t), c.sceneDuration - c.audibleStart)
+            let f = min(max(0, c.audibleEnd - t), c.audibleEnd - c.audibleStart)
             let v = (f * doc.fps).rounded() / doc.fps
             doc.setAudio { $0.fadeOut = v < 1e-6 ? nil : v }
         }

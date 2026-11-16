@@ -35,6 +35,14 @@ extension Schema {
             if a.src.isEmpty { out.append("audio.src is empty") }
             if let g = a.gain, g < 0 || g > 4 { out.append("audio.gain must be 0…4") }
         }
+        var soundIds = Set<String>()
+        for (k, a) in (s.sounds ?? []).enumerated() {
+            let name = "sounds.\(a.id ?? "\(k)")"
+            if a.src.isEmpty { out.append("\(name).src is empty") }
+            if let g = a.gain, g < 0 || g > 4 { out.append("\(name).gain must be 0…4") }
+            if let l = a.length, l <= 0 { out.append("\(name).length must be > 0") }
+            if let id = a.id, !soundIds.insert(id).inserted { out.append("sounds: duplicate id '\(id)'") }
+        }
         return out
     }
 

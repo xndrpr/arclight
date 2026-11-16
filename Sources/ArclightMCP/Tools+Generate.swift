@@ -82,6 +82,7 @@ extension MCPServer {
                 var lines = [
                     "on-device (Apple Vision): image_remove_bg, image_select_subject — always available",
                     "free asset library (Poly Haven, CC0, no key): library_search / library_import — ready-made 3D models and tiling textures; try it before paying to generate",
+                    "sound, free: sound_search / sound_import (Openverse: CC sound effects and music), sound_synth (motion effects made on the device), voice_generate engine local (system voices), audio_analyze (beats, hits, phrases → markers)",
                     fal
                         ? "fal.ai: on — image model \(m.generate), image → 3D \(m.model3D) (the user's choice in the chat's model menu; auto = Arclight picks from purpose), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale), depth \(m.depth)"
                         : "fal.ai: off — the user can add a key in Settings ▸ AI ▸ Image generation (image_generate, image_fill, image_expand, image_upscale, image_depth, model_generate need it)",
@@ -91,6 +92,9 @@ extension MCPServer {
                         "image models (price per image; pass model only when the user asked for one or the setting is auto and purpose isn't enough):\n"
                             + ModelCatalog.summary(.image))
                     lines.append("3D models (price per model):\n" + ModelCatalog.summary(.model3D))
+                    lines.append(
+                        "audio models (sound_generate, voice_generate engine fal; paid per generation, see fal.ai pricing):\n"
+                            + AudioCatalog.summary)
                 }
                 if let s = store {
                     let h = ImageAI.history(s).suffix(5)

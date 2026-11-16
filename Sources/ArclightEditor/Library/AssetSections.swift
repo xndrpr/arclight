@@ -84,7 +84,9 @@ struct AudioSection: View {
     var body: some View {
         let files = LibraryModel.files(.audio, in: doc.url)
         if files.isEmpty {
-            EmptyNote(text: "Import a voiceover or music (WAV, M4A, MP3) to time animation against it.")
+            EmptyNote(
+                text:
+                    "Import a voiceover, music or sound effects (WAV, M4A, MP3) — or ask the AI to find, generate or synthesise them.")
         }
         VStack(spacing: 2) {
             ForEach(files, id: \.self) { u in AudioRow(doc: doc, url: u) }
@@ -99,6 +101,7 @@ private struct AudioRow: View {
 
     var body: some View {
         let inUse = doc.scene.audio?.src == url.lastPathComponent
+        let asSound = doc.scene.sounds?.contains { $0.src == url.lastPathComponent } == true
         HStack(spacing: 8) {
             Image(systemName: "waveform").font(.system(size: 11)).foregroundStyle(inUse ? UI.text : UI.dim)
             VStack(alignment: .leading, spacing: 1) {
@@ -106,6 +109,9 @@ private struct AudioRow: View {
                 Text(duration.map { Self.time($0) } ?? "—").font(UI.monoSmall).foregroundStyle(UI.dim)
             }
             Spacer(minLength: 0)
+            IconButton(symbol: "plus.circle", help: asSound ? "Used as a sound — add it again at the playhead" : "Add as a sound clip at the playhead") {
+                doc.addSound(url.lastPathComponent)
+            }
             if inUse {
                 Image(systemName: "checkmark").font(.system(size: 10, weight: .semibold)).foregroundStyle(UI.text).help(
                     "Scene audio")
@@ -118,6 +124,7 @@ private struct AudioRow: View {
         .padding(.horizontal, 4).frame(height: 34).hitArea()
         .contextMenu {
             Button("Use as scene audio") { doc.useAsSceneAudio(url.lastPathComponent) }
+            Button("Add as Sound at Playhead") { doc.addSound(url.lastPathComponent) }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }
         }
         .task(id: url) { duration = await Task.detached(priority: .utility) { SceneAudio.info(url)?.duration }.value }

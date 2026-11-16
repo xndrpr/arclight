@@ -10,6 +10,20 @@ project format; older projects keep loading.
 
 ### Added
 
+- Sound for the AI: scenes take any number of sound clips (`sounds`) over the reference audio, each at its own time,
+  played in the editor (a new Sounds lane on the timeline) and mixed into exports. `scene_apply {"op":"sound",…}`
+  adds, moves and removes them.
+- `sound_search` / `sound_import`: free Creative Commons sound effects and music from the web (Openverse: Freesound,
+  Jamendo, Wikimedia), commercial-use licences by default; credits are written to `assets/CREDITS.md`.
+- `sound_synth`: 20 motion-graphics effects made on the device for free (whoosh, swipe, riser, reverse, impact, boom,
+  hit, pop, click, tick, blip, beep, ding, chime, success, error, glitch, typing, sparkle, drop).
+- `voice_generate`: voiceover with the Mac's system voices (free, offline) or ElevenLabs on fal.ai.
+- `sound_generate`: AI sound effects and music on fal.ai (ElevenLabs Sound Effects and Music, Stable Audio).
+- `audio_analyze`: tempo, beats, onsets, phrases between pauses and the loudest moment; can write them as scene
+  markers (`beat-1`, `bar-1`, `hit-1`, `line-1`…) to animate to. New guide topic `sound`.
+- Audio clips take `length` (seconds played); a clip's fade-out now ends where it stops being heard.
+- Assets ▸ Audio: add a file as a sound clip at the playhead; + Layer ▸ Sound Effect….
+
 - Free asset library: `library_search` and `library_import` find and import ready-made CC0 3D models (~500) and
   tiling textures (~900) from Poly Haven at no cost. A model's glTF is packed into one .glb. The AI looks there
   before paying to generate a model or texture.

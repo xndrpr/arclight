@@ -18,6 +18,8 @@ enum TL {
     static let markerBandH: CGFloat = 14
     /// Reference-audio lane under the ruler.
     static let audioH: CGFloat = 46
+    /// Sound-clips lane under the audio lane.
+    static let soundsH: CGFloat = 34
 
     /// Keyframe times (scene seconds) shown on a row.
     static func keyTimes(_ r: TLRow) -> [Double] {
@@ -62,7 +64,9 @@ struct TimelineView: View {
             GeometryReader { geo in
                 let trackW = max(geo.size.width - TL.nameW - 1, 50)
                 // Rows area fills the panel, so the empty space below the last row is clickable / box-selectable.
-                let rowsH = max(geo.size.height - TL.rulerH - 1 - (doc.scene.audio != nil ? TL.audioH + 1 : 0), 60)
+                let rowsH = max(
+                    geo.size.height - TL.rulerH - 1 - (doc.scene.audio != nil ? TL.audioH + 1 : 0)
+                        - (doc.scene.sounds?.isEmpty == false ? TL.soundsH + 1 : 0), 60)
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
                         LayerListHeader(doc: doc)
@@ -78,6 +82,15 @@ struct TimelineView: View {
                             AudioLane(doc: doc, width: trackW)
                         }
                         .frame(height: TL.audioH)
+                        Hairline()
+                    }
+                    if doc.scene.sounds?.isEmpty == false {
+                        HStack(spacing: 0) {
+                            SoundsLaneHeader(doc: doc).frame(width: TL.nameW)
+                            Hairline(vertical: true)
+                            SoundsLane(doc: doc, width: trackW)
+                        }
+                        .frame(height: TL.soundsH)
                         Hairline()
                     }
                     ScrollView(.vertical) {

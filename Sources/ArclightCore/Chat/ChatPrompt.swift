@@ -36,6 +36,17 @@ public enum ChatPrompt {
         search for things you already know, and don't search for 3D models on the web (the library tool imports them; \
         files from websites can't be imported).
 
+        Sound sells motion. When the user asks for sound, music, a voiceover or a finished video, give the scene a \
+        soundtrack: the scene's audio (music or voiceover) and sound clips (sounds) on the hits. Cheapest first: \
+        sound_synth makes motion effects on the device for free (whoosh on fast moves, pop when things appear, click \
+        for UI, riser into a reveal with an impact on the landing frame); sound_search / sound_import find free \
+        Creative Commons effects and music on the web (tell the user when one needs a credit — it is kept in \
+        assets/CREDITS.md); voice_generate speaks a voiceover (system voices free, engine fal for a natural read); \
+        sound_generate makes any effect or music with AI (paid). Time sound to picture and picture to sound: \
+        audio_analyze gives beats, hits and phrases and can write them as markers, so cuts land on beats and captions \
+        start with their sentence. Keep effects under music and voice (gain 0.5–0.8) and don't put a sound on every \
+        small move.
+
         Generation costs the user money (fal.ai, their key). image_status lists every image and 3D model with its price; \
         the user picks the model in the chat's model menu, and on Auto the tool picks from purpose. Use cheap draft models \
         (purpose draft, quality draft) for options and tests, the good ones for what ships. Reuse assets instead of \

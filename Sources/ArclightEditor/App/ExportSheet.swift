@@ -103,7 +103,7 @@ struct ExportSheet: View {
         let frames = Int((d * fps).rounded(.up))
         let what = allScenes ? "\(doc.scenes.count) scenes" : "“\(doc.scene.name ?? doc.scene.id)”"
         return "\(what) · \(fmt((d * 100).rounded() / 100)) s · \(frames) frames at \(fmt(fps)) fps"
-            + (doc.scene.audio != nil && format != .png ? " · with audio" : "")
+            + (!doc.scene.audibleClips.isEmpty && format != .png ? " · with audio" : "")
     }
 
     private func row<C: View>(_ label: String, @ViewBuilder _ c: () -> C) -> some View {

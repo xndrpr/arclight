@@ -163,7 +163,7 @@ import Testing
         #expect(message([["x": 1]]) == "op 0: missing 'op'")
         #expect(
             message([["op": "set", "id": "a", "x": 1], ["op": "zap"]])
-                == "op 1 (zap): unknown op (add, set, key, remove, move, duplicate, shift, scene, marker)")
+                == "op 1 (zap): unknown op (add, set, key, remove, move, duplicate, shift, scene, marker, sound)")
         #expect(message([["op": "set", "id": "nope", "x": 1]]) == "op 0 (set): not found: node 'nope'")
         #expect(message([["op": "set", "x": 1]]) == "op 0 (set): needs 'id' or 'ids'")
         #expect(message([["op": "add", "node": ["id": "d", "type": "shape"]]]) == "op 0 (add): id 'd' already exists")

@@ -125,6 +125,12 @@ public enum Doctor {
                         severity: .error, kind: "asset", scene: scene.id, node: nil,
                         message: "audio '\(a.src)' not found in assets/"))
             }
+            for a in scene.sounds ?? [] where !a.src.isEmpty && !exists(a.src, store) {
+                out.append(
+                    Problem(
+                        severity: .error, kind: "asset", scene: scene.id, node: nil,
+                        message: "sound '\(a.id ?? a.src)': '\(a.src)' not found in assets/"))
+            }
         }
         return out
     }

@@ -17,12 +17,15 @@ enum Guide {
         each a cheap draft they choose from. See guide("direction").
         When the story happens in a place (a room, a street, a void), build it as one 3D space and move the camera through it: \
         a box room, generated models and relief plates, lit and fogged. See guide("space").
+        Sound: music or voiceover as the scene's audio, effects as sound clips at their times — sound_synth (free, on-device), \
+        sound_search/sound_import (free CC sounds and music), voice_generate, sound_generate (AI, paid), audio_analyze (beats → markers). \
+        See guide("sound").
         """
 
     /// Topics in reading order. Layer-type topics and "scene"/"common"/"symbols" are generated.
     static var topicNames: [String] {
         ["overview", "animation", "common"] + Schema.nodes.map(\.type) + [
-            "scene", "symbols", "ops", "export", "direction", "space", "thumbnails", "recipes",
+            "scene", "symbols", "ops", "export", "sound", "direction", "space", "thumbnails", "recipes",
         ]
     }
 
@@ -46,6 +49,11 @@ enum Guide {
         "storyboard": ["direction"],
         "styleframes": ["direction"],
         "look": ["direction"],
+        "audio": ["sound"],
+        "music": ["sound"],
+        "sfx": ["sound"],
+        "voice": ["sound"],
+        "voiceover": ["sound"],
     ]
 
     static func topic(_ name: String) -> String? {
@@ -55,6 +63,7 @@ enum Guide {
         case "animation": return animation
         case "ops": return ops
         case "export": return export
+        case "sound": return sound
         case "recipes": return recipes
         case "direction": return direction
         case "space": return space
@@ -114,6 +123,33 @@ enum Guide {
           mp4: H.264, opaque. hevc: smaller files. prores: ProRes 4444 .mov with transparency for overlaying in an NLE.
           Files go to <project>/exports/<scene>.<ext> unless out_dir is given.
         render_frames {"scene":"id","times":[0,1,2.5],"scale":0.25} returns one labelled contact-sheet image.
+        """
+
+    static let sound = """
+        # Sound
+        A scene has one reference track, audio (music or voiceover), and any number of sound clips, sounds, each at its \
+        own time. All of them play in the editor and are mixed into mp4/hevc/prores exports.
+          {"op":"scene","audio":{"src":"music.mp3","offset":0,"gain":0.8,"fadeOut":1.5}}
+          {"op":"sound","id":"whoosh-1","src":"whoosh.wav","offset":1.15,"gain":0.7}   adds or updates a clip
+          {"op":"sound","id":"whoosh-1","remove":true}
+          Clip fields: src, offset (scene s), trim (file s skipped), length (s played), gain 0…4, fadeIn, fadeOut (ends where \
+        the clip stops), mute.
+        Getting sounds (each can place its result: scene + at, as "sound" or "audio"):
+          sound_synth {preset, duration, pitch, scene, at} — free, instant, no credit: whoosh, swipe, riser, reverse, impact, \
+        boom, hit, pop, click, tick, blip, beep, ding, chime, success, error, glitch, typing, sparkle, drop.
+          sound_search {query, kind:"sfx"|"music", max_seconds} → sound_import {sound, scene, at} — free Creative Commons \
+        sounds (Freesound) and music (Jamendo…). Credits go to assets/CREDITS.md; tell the user when one is CC BY.
+          voice_generate {text, engine:"local"|"fal", voice} — voiceover; local system voices are free (drafts, timing), \
+        fal (ElevenLabs) sounds natural and costs money.
+          sound_generate {kind:"sfx"|"music", prompt, duration} — anything else, with AI (fal.ai, paid).
+        Timing:
+          audio_analyze {scene, markers:"beats"|"bars"|"onsets"|"phrases"} — tempo, beats, hits, sentences, loudest moment; \
+        writes markers (beat-1…, bar-1…, hit-1…, line-1…) that keys snap to and expressions read: marker("bar-2").
+          Put a whoosh so its loudest point (about 40% in) meets the fastest frame of the move: offset = move middle − 0.4 × \
+        length. An impact or pop starts exactly on the landing frame; a riser or reverse ends on it (offset = hit − length).
+          Cut on beats or bars; land the title on the loudest moment; start each caption at its phrase.
+        Mix: voice 1, music 0.3–0.6 under voice (0.8–1 alone), effects 0.5–0.8; fade music out over the last 1–2 s. \
+        A few well-placed sounds beat one on every move.
         """
 
     static var symbols: String {

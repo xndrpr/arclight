@@ -55,6 +55,9 @@ bigger" is one small edit), and your look lives in reusable theme tokens, templa
   motion blur and fades.
 - **Animation**: keyframes with easing, JavaScript expressions (`wiggle`, `smoothstep`, live repeater statistics),
   markers, and reference audio with a waveform that is mixed into exports.
+- **Sound**: sound-effect clips over the music or voiceover; the AI finds free CC sounds and music on the web,
+  synthesises motion effects (whoosh, pop, riser, impact…) on the device, speaks voiceovers, generates audio on
+  fal.ai, and marks beats and phrases to animate to.
 - **Design system**: theme tokens (`$fg`, `$accent`, `$display`, …), built-in theme presets, templates with
   parameters, and symbol packs made of SVG paths.
 - **No dependencies**: Swift, Metal, AVFoundation and JavaScriptCore. Builds with the Command Line Tools; Xcode
@@ -206,7 +209,7 @@ it being built. To start the server on a particular project, pass `--project <pa
   buttons on each row. With nothing selected it shows the scene: camera, look (post effects) and theme tokens.
 - **AI panel** (**⌥⌘A**): a floating panel with a chat, connected agents, notes for the agent, and the activity
   feed with revert.
-- **Export** (**⌘E**): H.264 or HEVC MP4, ProRes 4444 with alpha, or a PNG sequence, with the scene's audio mixed in.
+- **Export** (**⌘E**): H.264 or HEVC MP4, ProRes 4444 with alpha, or a PNG sequence, with the scene's audio and sound clips mixed in.
 
 **Help ▸ Keyboard Shortcuts** (**?**) lists the rest. The editor comes in nine app themes (Dark, Light, Gruvbox,
 Nord, Tokyo Night and others), separate from the theme of your video.

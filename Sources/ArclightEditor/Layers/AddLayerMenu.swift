@@ -91,6 +91,7 @@ struct AddLayerMenu: View {
             }
             Divider()
             Button(doc.scene.audio == nil ? "Audio…" : "Replace Audio…") { doc.importAudio() }
+            Button("Sound Effect…") { doc.importSound() }
             Button("From Template…") { LibrarySheets.templates(doc, mode: .insert) }
         } label: {
             Label("Layer", systemImage: "plus").font(UI.small).hitArea()

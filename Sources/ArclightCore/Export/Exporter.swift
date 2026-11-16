@@ -160,15 +160,18 @@ public final class Exporter {
         writer.finishWriting { done.signal() }
         done.wait()
         guard writer.status == .completed else { throw writer.error ?? RenderError.setup("export failed") }
-        // Reference audio: mux into the finished video (video copied as-is).
-        if let a = scene.audio, a.mute != true, !a.src.isEmpty {
+        // Reference audio and sound clips: mixed and muxed into the finished video (video copied as-is).
+        let clips = scene.audibleClips
+        if !clips.isEmpty {
             let tmp = url.deletingLastPathComponent().appendingPathComponent(
                 ".\(url.lastPathComponent).audio.\(o.format.ext)")
-            try SceneAudio.mux(
-                video: url, audio: a, assets: assets, sceneDuration: Double(frames) / fps, output: tmp,
+            if try SceneAudio.mux(
+                video: url, clips: clips, assets: assets, sceneDuration: Double(frames) / fps, output: tmp,
                 fileType: o.format.fileType)
-            try FileManager.default.removeItem(at: url)
-            try FileManager.default.moveItem(at: tmp, to: url)
+            {
+                try FileManager.default.removeItem(at: url)
+                try FileManager.default.moveItem(at: tmp, to: url)
+            }
         }
         return ExportResult(
             url: url, frames: frames, width: w, height: h, fps: fps, seconds: Date().timeIntervalSince(start))

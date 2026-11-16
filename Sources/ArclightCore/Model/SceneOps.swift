@@ -12,6 +12,8 @@ import Foundation
 /// - `{"op":"duplicate","id":"x","as":"y", ...props}` — copies a node (and its subtree) with prop overrides.
 /// - `{"op":"shift","id"|"ids","by":0.5}` — moves nodes in time (in/out).
 /// - `{"op":"scene","duration":6,"background":"#111","name":"..."}` — scene-level fields.
+/// - `{"op":"sound","id":"whoosh-1","src":"whoosh.wav","offset":1.2,"gain":0.8}` — adds a sound clip or merges
+///   fields into the one with that id (`null` removes a field); `{"op":"sound","id":"x","remove":true}` deletes it.
 public enum SceneOps {
     public struct Result {
         public var scene: Scene
@@ -88,6 +90,30 @@ public enum SceneOps {
         var k = 2
         while ids.contains("\(base)-\(k)") { k += 1 }
         return "\(base)-\(k)"
+    }
+
+    /// A sound id not used yet, from the file name: `whoosh`, `whoosh-2`, …
+    public static func uniqueSoundId(_ src: String, in sounds: [AudioRef]) -> String {
+        let stem = ((src as NSString).lastPathComponent as NSString).deletingPathExtension
+        let words = stem.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        let base = words.prefix(3).joined(separator: "-").isEmpty ? "sound" : words.prefix(3).joined(separator: "-")
+        let ids = Set(sounds.compactMap(\.id))
+        if !ids.contains(base) { return base }
+        var k = 2
+        while ids.contains("\(base)-\(k)") { k += 1 }
+        return "\(base)-\(k)"
+    }
+
+    /// `r` with the op's clip fields merged in (`null` clears one).
+    static func mergeSound(_ r: AudioRef, _ o: [String: JSONValue]) throws -> AudioRef {
+        guard var obj = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(r)).object else { return r }
+        for k in ["src", "offset", "trim", "length", "gain", "fadeIn", "fadeOut", "mute"] {
+            guard let v = o[k] else { continue }
+            if k == "src", v == .null { continue }
+            obj[k] = v == .null ? nil : v
+        }
+        if let g = obj["gain"]?.double, !(0...4).contains(g) { throw ModelError.invalid("gain must be 0…4") }
+        return try JSONValue.object(obj).decoded(as: AudioRef.self)
     }
 
     static func ids(_ o: [String: JSONValue]) throws -> [String] {
@@ -240,6 +266,36 @@ public enum SceneOps {
             if let f = o["fog"] { s.fog = f == .null ? nil : try Prop(json: f) }
             if let p = o["post"] { s.post = p == .null ? nil : try Prop(json: p) }
             if let a = o["audio"] { s.audio = a == .null ? nil : try a.decoded(as: AudioRef.self) }
+            if let list = o["sounds"] {
+                var out: [AudioRef] = []
+                for v in list.array ?? [] {
+                    var r = try v.decoded(as: AudioRef.self)
+                    if r.id?.isEmpty != false { r.id = uniqueSoundId(r.src, in: out) }
+                    out.append(r)
+                }
+                s.sounds = out.isEmpty ? nil : out
+            }
+            return []
+
+        case "sound":
+            var list = s.sounds ?? []
+            let id = o["id"]?.string ?? ""
+            if o["remove"]?.bool == true {
+                guard list.contains(where: { $0.id == id }) else { throw ModelError.notFound("sound '\(id)'") }
+                list.removeAll { $0.id == id }
+            } else if let i = list.firstIndex(where: { $0.id == id }), !id.isEmpty {
+                list[i] = try mergeSound(list[i], o)
+            } else {
+                guard let src = o["src"]?.string, !src.isEmpty else {
+                    throw ModelError.invalid(
+                        id.isEmpty ? "needs 'src' (a file in assets/)" : "no sound '\(id)' — give 'src' to add it")
+                }
+                var r = try mergeSound(AudioRef(src: src), o)
+                r.id = id.isEmpty ? uniqueSoundId(src, in: list) : id
+                list.append(r)
+            }
+            list.sort { ($0.offset ?? 0) < ($1.offset ?? 0) }
+            s.sounds = list.isEmpty ? nil : list
             return []
 
         case "marker":
@@ -256,7 +312,7 @@ public enum SceneOps {
             return []
 
         default:
-            throw ModelError.invalid("unknown op (add, set, key, remove, move, duplicate, shift, scene, marker)")
+            throw ModelError.invalid("unknown op (add, set, key, remove, move, duplicate, shift, scene, marker, sound)")
         }
     }
 }

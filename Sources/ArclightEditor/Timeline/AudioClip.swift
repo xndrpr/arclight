@@ -2,8 +2,9 @@ import ArclightCore
 import Foundation
 
 /// Where the scene's reference audio sits on the timeline, and its gain envelope — the same placement the
-/// exporter uses (`SceneAudio.mux`): file second `trim` plays at scene time `offset`; audio is cut at the scene
-/// end; fade-in starts where the audio becomes audible (≥ 0), fade-out ends at the scene end.
+/// exporter uses (`SceneAudio.mux`): file second `trim` plays at scene time `offset` for `length` seconds (default
+/// the rest of the file); audio is cut at the scene end; fade-in starts where the audio becomes audible (≥ 0),
+/// fade-out ends where it stops (its end or the scene end).
 struct AudioClip: Equatable {
     var offset: Double
     var trim: Double
@@ -13,6 +14,8 @@ struct AudioClip: Equatable {
     var gain: Double
     var fadeIn: Double
     var fadeOut: Double
+    /// Seconds played from `trim` (nil: to the end of the file).
+    var length: Double?
 
     init(_ a: AudioRef, fileDuration: Double, sceneDuration: Double) {
         offset = a.offset ?? 0
@@ -22,12 +25,15 @@ struct AudioClip: Equatable {
         gain = a.gain ?? 1
         fadeIn = max(0, a.fadeIn ?? 0)
         fadeOut = max(0, a.fadeOut ?? 0)
+        length = a.length.map { max(0, $0) }
     }
 
     /// Scene time where the clip starts (may be negative: the head is cut off by the scene start).
     var start: Double { offset }
-    /// Scene time where the file runs out.
-    var end: Double { offset + max(0, fileDuration - trim) }
+    /// Scene time where the fade-out starts.
+    var fadeOutStart: Double { max(audibleStart, audibleEnd - fadeOut) }
+    /// Scene time where the file (or `length`) runs out.
+    var end: Double { offset + max(0, min(fileDuration - trim, length ?? .infinity)) }
     /// Scene time where audio stops in the export (file end or scene end).
     var audibleEnd: Double { min(end, sceneDuration) }
     var audibleStart: Double { max(0, start) }
@@ -40,7 +46,7 @@ struct AudioClip: Equatable {
         guard t >= audibleStart, t < audibleEnd else { return 0 }
         var g = gain
         if fadeIn > 0 { g *= min(1, (t - audibleStart) / fadeIn) }
-        if fadeOut > 0 { g *= min(1, max(0, (sceneDuration - t) / fadeOut)) }
+        if fadeOut > 0 { g *= min(1, max(0, (audibleEnd - t) / fadeOut)) }
         return g
     }
 

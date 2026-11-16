@@ -18,6 +18,14 @@ public enum Outline {
                 "audio: \(a.src) at \(Format.number(a.offset ?? 0))s"
                 + (a.gain.map { " gain \(Format.number($0))" } ?? "") + (a.mute == true ? " (muted)" : "") + "\n"
         }
+        if let ss = s.sounds, !ss.isEmpty {
+            out +=
+                "sounds: "
+                + ss.map { a in
+                    "\(a.id ?? "?")=\(a.src)@\(Format.number(a.offset ?? 0))"
+                        + (a.gain.map { " gain \(Format.number($0))" } ?? "") + (a.mute == true ? " (muted)" : "")
+                }.joined(separator: ", ") + "\n"
+        }
         for (k, p) in [("camera", s.camera), ("fog", s.fog), ("post", s.post)] {
             guard let p else { continue }
             out += "\(k): " + (p.isAnimated ? "(animated, \(p.keyCount) keys) " : "") + compact(p.json) + "\n"

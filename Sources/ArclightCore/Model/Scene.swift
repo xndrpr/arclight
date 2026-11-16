@@ -79,6 +79,9 @@ public struct Scene: Codable, Equatable, Sendable {
     public var markers: [Marker]?
     /// Reference audio (voiceover/music) played with the scene and mixed into exports.
     public var audio: AudioRef?
+    /// Sound clips (effects, stingers, extra voice lines) mixed over the reference audio, each placed at its own
+    /// time: `[{"id":"whoosh-1","src":"whoosh.wav","offset":1.2,"gain":0.8}]`.
+    public var sounds: [AudioRef]?
     public var nodes: [Node]
     /// A throwaway scene for deciding a direction before the real build (look frames, storyboards, motion tests).
     /// Drafts are left out of the scene list, default exports and checks; `scene_delete {drafts:true}` clears them.
@@ -94,7 +97,7 @@ public struct Scene: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, duration, size, fps, background, camera, fog, post, markers, audio, nodes, draft, theme, rev
+        case id, name, duration, size, fps, background, camera, fog, post, markers, audio, sounds, nodes, draft, theme, rev
     }
 
     public init(from decoder: Decoder) throws {
@@ -110,6 +113,7 @@ public struct Scene: Codable, Equatable, Sendable {
         post = try c.decodeIfPresent(Prop.self, forKey: .post)
         markers = try c.decodeIfPresent([Marker].self, forKey: .markers)
         audio = try c.decodeIfPresent(AudioRef.self, forKey: .audio)
+        sounds = try c.decodeIfPresent([AudioRef].self, forKey: .sounds)
         nodes = try c.decodeIfPresent([Node].self, forKey: .nodes) ?? []
         draft = try c.decodeIfPresent(Bool.self, forKey: .draft)
         theme = try c.decodeIfPresent([String: JSONValue].self, forKey: .theme)
@@ -127,6 +131,13 @@ public struct Scene: Codable, Equatable, Sendable {
     }
 
     public func marker(_ name: String) -> Marker? { markers?.first { $0.name == name } }
+
+    /// Every clip that is heard: the reference audio, then the sounds; muted and empty ones left out.
+    public var audibleClips: [AudioRef] {
+        ([audio].compactMap { $0 } + (sounds ?? [])).filter { $0.mute != true && !$0.src.isEmpty }
+    }
+
+    public func sound(_ id: String) -> AudioRef? { sounds?.first { $0.id == id } }
 }
 
 /// A named time in a scene: `{"name":"lock","t":3.4,"color":"#FFCC00"}`.
@@ -137,15 +148,21 @@ public struct Marker: Codable, Equatable, Sendable {
     public init(name: String, t: Double, color: String? = nil) { self.name = name; self.t = t; self.color = color }
 }
 
-/// Reference audio: `{"src":"voice.wav","offset":0.5,"trim":0,"gain":1,"fadeIn":0,"fadeOut":0.3}`.
-/// `offset` = scene time where the audio starts; `trim` = seconds skipped at the start of the file.
+/// Reference audio or a sound clip: `{"src":"voice.wav","offset":0.5,"trim":0,"gain":1,"fadeIn":0,"fadeOut":0.3}`.
+/// `offset` = scene time where the audio starts; `trim` = seconds skipped at the start of the file; `length` =
+/// seconds played (default: to the end of the file). Fade-out ends where the clip stops being heard (its end or
+/// the scene end).
 public struct AudioRef: Codable, Equatable, Sendable {
+    /// Names a sound clip (`sounds`); the reference audio needs none.
+    public var id: String?
     public var src: String
     public var offset: Double?
     public var trim: Double?
     public var gain: Double?
     public var fadeIn: Double?
     public var fadeOut: Double?
+    /// Seconds of the file played from `trim` (default: all of it).
+    public var length: Double?
     /// Silence the audio: left out of exports and muted in editor playback.
     public var mute: Bool?
     public init(src: String) { self.src = src }
