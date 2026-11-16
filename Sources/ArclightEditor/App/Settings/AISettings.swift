@@ -136,7 +136,8 @@ struct ImageGenerationSettings: View {
             Text(
                 "Prices are fal.ai's per result (Nov 2026). Auto picks per request: Seedream 5.5 for photos and cut-outs, GPT Image 2.6 for graphics and lettering, Z-Image Turbo for drafts; Trellis 2 for 3D, Trellis for drafts. If a model rejects a request, another good one is used and the chat says which."
             )
-            .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true).frame(maxWidth: 420, alignment: .leading)
+            .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true).frame(
+                maxWidth: 420, alignment: .leading)
             DisclosureGroup("Model ids") {
                 VStack(alignment: .leading, spacing: 5) {
                     model("Generate", \.generate)
@@ -166,7 +167,9 @@ struct ImageGenerationSettings: View {
                 "",
                 selection: Binding(
                     get: { models[keyPath: kp] },
-                    set: { models[keyPath: kp] = $0; ImageSettings.models = models })
+                    set: {
+                        models[keyPath: kp] = $0; ImageSettings.models = models
+                    })
             ) {
                 Text("Auto (recommended)").tag(ModelCatalog.auto)
                 Divider()

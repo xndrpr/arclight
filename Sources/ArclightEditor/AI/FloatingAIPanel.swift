@@ -67,7 +67,9 @@ struct FloatingAIPanel: View {
     private func frame(_ l: AIPanelLayout, in c: CGSize, sheet: Bool) -> CGRect {
         if expanded && !l.collapsed {
             let m = AIPanelLayout.margin
-            return CGRect(x: m, y: AIPanelLayout.topMargin, width: c.width - 2 * m, height: c.height - m - AIPanelLayout.topMargin)
+            return CGRect(
+                x: m, y: AIPanelLayout.topMargin, width: c.width - 2 * m, height: c.height - m - AIPanelLayout.topMargin
+            )
         }
         let f = l.frame(in: c)
         guard let d = drag, !sheet else { return f }
@@ -220,7 +222,8 @@ struct AIPanelHeader: View {
                 }
                 IconButton(
                     symbol: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
-                    help: expanded ? "Back to a floating panel (double-click the bar)" : "Full size (double-click the bar)",
+                    help: expanded
+                        ? "Back to a floating panel (double-click the bar)" : "Full size (double-click the bar)",
                     action: toggleExpanded)
                 IconButton(
                     symbol: collapsed ? "chevron.down" : "chevron.up",

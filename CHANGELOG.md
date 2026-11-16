@@ -8,6 +8,26 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+### Added
+
+- AI model picker in the chat header and Settings ▸ AI: image and 3D models with their fal.ai prices, or Auto, which
+  picks by purpose (Seedream 5.5 for photos and cut-outs, GPT Image 2.6 for graphics, Z-Image Turbo for drafts;
+  Trellis 2 for 3D, Trellis for drafts).
+- `image_generate` takes `purpose`, `transparent`, `quality` and raw `options`; `model_generate` takes `model` and
+  `quality`. Results say which model made them and its price.
+- Chat progress bar: the AI posts its plan (`update_plan`), shown as goal, step n of m and what it is doing now.
+- Chat history: New chat keeps the old one; reopen or delete past chats from the history menu.
+- Full-size AI panel (button in the panel bar, or double-click it).
+- Chat replies show lists, headings and code, with a copy button; runs of tool calls fold into one line.
+
+### Fixed
+
+- GPT Image on fal.ai failed with HTTP 422 (the size was sent as "1536x1024"); each model now gets its size in the
+  shape it takes, within its pixel limits, and a rejected request falls back to another model.
+- ⌘C and ⌘A copied or selected layers instead of the selected chat text.
+- The chat's message box sometimes jumped to full height until you clicked elsewhere.
+- The chat is saved when you send and during long turns, not only when a turn ends.
+
 ## [0.1.2] - 2026-11-16
 
 3D spaces: the AI can build a whole place and move the camera through it.

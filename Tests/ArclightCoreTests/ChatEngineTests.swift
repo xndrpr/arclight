@@ -265,7 +265,8 @@ private final class Events: @unchecked Sendable {
         // The plan never reaches the tool server, the turn continued, and it was acknowledged to the model.
         #expect(tools.calls.map(\.0) == ["scene_get"])
         #expect(s.bodies.count == 2)
-        let shown = events.all.compactMap { e -> ChatPlan? in if case .plan(let p) = e { return p } else { return nil } }
+        let shown = events.all.compactMap { e -> ChatPlan? in if case .plan(let p) = e { return p } else { return nil }
+        }
         #expect(shown.first?.steps.map(\.status) == [.done, .active, .pending])
         #expect(shown.first?.current?.title == "Build" && shown.first?.fraction == 0.5)
         var t = ChatTranscript()
@@ -277,7 +278,8 @@ private final class Events: @unchecked Sendable {
     }
 
     @Test func newChatKeepsTheOldOneInTheHistory() throws {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-hist-\(UUID().uuidString).arclight")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "chat-hist-\(UUID().uuidString).arclight")
         defer { try? FileManager.default.removeItem(at: dir) }
         var t = ChatTranscript()
         t.items = [ChatItem(kind: .user, text: "Make a caterpillar scene\nwith 16 copies")]

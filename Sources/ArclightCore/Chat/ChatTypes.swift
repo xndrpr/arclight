@@ -122,7 +122,8 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
     /// Moves this chat into the archive (nothing to keep when it is empty).
     public func archive(project: URL) {
         guard !items.isEmpty else { return }
-        try? JSONFile.write(self, to: Self.archiveFolder(project).appendingPathComponent("\(id).json"), encoder: JSONEncoder())
+        try? JSONFile.write(
+            self, to: Self.archiveFolder(project).appendingPathComponent("\(id).json"), encoder: JSONEncoder())
     }
 
     /// One archived chat, for the history menu.

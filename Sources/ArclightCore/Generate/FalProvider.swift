@@ -24,7 +24,9 @@ public struct FalProvider: ImageProvider {
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             let d = Models()
-            func pick(_ v: String?, _ def: String) -> String { v.map { Self.oldDefaults.contains($0) ? def : $0 } ?? def }
+            func pick(_ v: String?, _ def: String) -> String {
+                v.map { Self.oldDefaults.contains($0) ? def : $0 } ?? def
+            }
             generate = pick(try c.decodeIfPresent(String.self, forKey: .generate), d.generate)
             fill = try c.decodeIfPresent(String.self, forKey: .fill) ?? d.fill
             removeBackground = try c.decodeIfPresent(String.self, forKey: .removeBackground) ?? d.removeBackground
