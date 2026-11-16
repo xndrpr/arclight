@@ -20,9 +20,11 @@ public final class Renderer {
 
     /// Pipeline blending. World pipelines have a colour and a circle-of-confusion target: `premulNoCoc` and
     /// `additive` leave the CoC target as it is (shadows, pools, beams, cones); `additiveAll` adds on every target.
-    enum Blend { case premul, additive, premulNoCoc, none, additiveAll, depthOnly }
+    enum Blend { case premul, additive, premulNoCoc, none, additiveAll, depthOnly, modulate }
 
     let shapePSO, texPSO, spritePSO, shadowPSO, beamPSO, poolPSO, contactPSO, conePSO: MTLRenderPipelineState
+    /// Light pools with `"blend": "light"`: they brighten the surface under them (dst × (1 + light)) instead of adding glow.
+    let poolLightPSO: MTLRenderPipelineState
     let dofPSO, brightPSO, downPSO, upPSO, finalPSO, scalePSO, copyPSO: MTLRenderPipelineState
     let coverPSO, unionPSO: MTLRenderPipelineState
     /// 3D cards in the world pass: drawn with a depth test (`shapeWorldPSO`, `texWorldPSO`), then into depth only
@@ -140,9 +142,14 @@ public final class Renderer {
                 switch blend {
                 case .none: break
                 case .depthOnly: a.writeMask = []
-                case .premulNoCoc where isCoc, .additive where isCoc: a.writeMask = []
+                case .premulNoCoc where isCoc, .additive where isCoc, .modulate where isCoc: a.writeMask = []
                 case .premul, .premulNoCoc: blendOne(over: .oneMinusSourceAlpha)
                 case .additive, .additiveAll: blendOne(over: .one)
+                case .modulate:
+                    // dst + src × dst: lights what's there, keeping its texture and contrast; alpha untouched.
+                    a.isBlendingEnabled = true
+                    a.sourceRGBBlendFactor = .destinationColor; a.destinationRGBBlendFactor = .one
+                    a.sourceAlphaBlendFactor = .zero; a.destinationAlphaBlendFactor = .one
                 }
             }
             return try d.makeRenderPipelineState(descriptor: p)
@@ -155,6 +162,7 @@ public final class Renderer {
         shadowPSO = try pipeline("quad_vs", "sprite_fs", two, .premulNoCoc, depth: true)
         beamPSO = try pipeline("quad_vs", "beam_fs", two, .additive, depth: true)
         poolPSO = try pipeline("decal_vs", "pool_fs", two, .additive, depth: true)
+        poolLightPSO = try pipeline("decal_vs", "pool_fs", two, .modulate, depth: true)
         contactPSO = try pipeline("decal_vs", "pool_fs", two, .premulNoCoc, depth: true)
         conePSO = try pipeline("cone_vs", "cone_fs", two, .additive, depth: true)
         shapeWorldPSO = try pipeline("shape_vs", "shape_fs", two, .premul, depth: true)

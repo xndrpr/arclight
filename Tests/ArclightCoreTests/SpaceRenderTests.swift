@@ -128,4 +128,82 @@ import Testing
         let relief = pixel(try r.image(scene: scene(depth: true), project: p, assets: dir, time: 0), 100, 100)
         #expect(relief.b > 200 && relief.r < 30)
     }
+
+    // MARK: Light pools on box surfaces
+
+    /// A size×size PNG of vertical stripes, 8 px dark (0.2 grey), 8 px light (0.6 grey).
+    func stripes(_ name: String, in dir: URL, size: Int = 64) throws {
+        let ctx = try #require(ImageData.context(size, size))
+        for x in stride(from: 0, to: size, by: 8) {
+            let v: CGFloat = (x / 8) % 2 == 0 ? 0.2 : 0.6
+            ctx.setFillColor(CGColor(red: v, green: v, blue: v, alpha: 1))
+            ctx.fill(CGRect(x: x, y: 0, width: 8, height: size))
+        }
+        let img = try #require(ctx.makeImage())
+        let data = try #require(ImageData.png(img))
+        try data.write(to: dir.appendingPathComponent(name))
+    }
+
+    /// A striped box table top seen from above at an angle, optionally under a warm light pool lying on it.
+    /// Returns the (min, max) luminance along the middle row of the table top.
+    func tableTop(pool: [String: JSONValue]?, assets dir: URL) throws -> (lo: Double, hi: Double) {
+        var s = Scene(id: "s", duration: 1)
+        s.background = .value("#000000")
+        s.camera = .value(["position": [100, -500, -150], "target": [100, 80, 300], "fov": 40])
+        var nodes = [
+            Node(
+                id: "table", type: "box",
+                props: ([
+                    "x": 100, "y": 100, "z": 300, "size": [400, 40, 400], "shade": 0,
+                    "top": ["src": "stripes.png", "tile": [4, 4]],
+                ] as [String: JSONValue]).mapValues { .value($0) })
+        ]
+        if let pool {
+            // The pool lies flat at the light's y: the table top (100 − 40 / 2).
+            nodes.append(
+                Node(
+                    id: "spot", type: "light",
+                    props: (["x": 100, "y": 80, "z": 300, "pool": .object(pool)] as [String: JSONValue])
+                        .mapValues { .value($0) }))
+        }
+        s.nodes = nodes
+        let img = try Renderer().image(scene: s, project: Project(name: "t", size: [200, 200]), assets: dir, time: 0)
+        let lum = (80...120).map { x -> Double in
+            let c = pixel(img, x, 100)
+            return 0.2126 * Double(c.r) + 0.7152 * Double(c.g) + 0.0722 * Double(c.b)
+        }
+        return (lum.min()!, lum.max()!)
+    }
+
+    @Test(.requiresMetal) func lightPoolShowsOnABoxTable() throws {
+        // The pool used to be drawn before the boxes and was painted over by the table top.
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pool-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try stripes("stripes.png", in: dir)
+        let dark = try tableTop(pool: nil, assets: dir)
+        #expect(dark.hi > 60 && dark.lo > 5)  // the table top is in view
+        for blend in ["add", "light"] {
+            let lit = try tableTop(
+                pool: ["radius": 200, "color": "#FFC890", "intensity": 2, "blend": .string(blend)], assets: dir)
+            #expect(lit.hi > dark.hi * 1.3, "\(blend) pool should brighten the table top")
+        }
+    }
+
+    @Test(.requiresMetal) func lightBlendPoolKeepsTheTextureContrast() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("pool-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try stripes("stripes.png", in: dir)
+        func contrast(_ v: (lo: Double, hi: Double)) -> Double { (v.hi - v.lo) / max(v.hi, 1) }
+        let plain = contrast(try tableTop(pool: nil, assets: dir))
+        let pool: [String: JSONValue] = ["radius": 200, "color": "#FFC890", "intensity": 1.2]
+        var light = pool; light["blend"] = "light"
+        // "light" multiplies the surface: the dark grain stays dark relative to the light grain.
+        let kept = contrast(try tableTop(pool: light, assets: dir))
+        #expect(kept > plain * 0.75)
+        // "add" (a glow) lifts dark and light grain alike and flattens them.
+        let washed = contrast(try tableTop(pool: pool, assets: dir))
+        #expect(washed < kept * 0.8)
+    }
 }

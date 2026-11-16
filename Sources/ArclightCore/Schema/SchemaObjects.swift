@@ -153,6 +153,10 @@ public enum Schema {
             Field("softness", zeroToOne, "Edge softness (0 = hard disc, 1 = all falloff).", default: 0.5),
             Field("falloff", .number(min: 0, step: 0.1), "How quickly it fades from the centre.", default: 1),
             Field("spill", .object(spill), "Optional wide glow.", canDisable: true),
+            Field(
+                "blend", .choice(["add", "light"]),
+                "add: glow added on top (shows on a dark void, washes out textures); light: brightens the surface under it (a box table or floor), keeping its texture.",
+                default: "add"),
         ])
 
     static let contact = ObjectSchema(

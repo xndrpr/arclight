@@ -130,10 +130,12 @@ extension Renderer {
             let models = world.filter { $0.node.type == "model" }
             let cards = world.filter { !["repeater", "light", "model"].contains($0.node.type) }
             for phase in WorldPhase.allCases {
-                // Cards (flat 3D layers) go first in the objects phase, in list order: each is drawn depth-tested,
-                // then writes its depth where it is solid, so a layer behind it that comes later stays hidden. The
-                // repeater sprites and light beams after them are tested against that depth.
-                if phase == .objects {
+                // Solids (models, then cards: flat 3D layers and boxes) go before the light pools, in list order:
+                // each is drawn depth-tested, then writes its depth where it is solid, so a layer behind it that comes
+                // later stays hidden. Pools and contact shadows then land on top of a box table or room floor (they
+                // used to be drawn first and were painted over), and repeater sprites and beams are tested against
+                // that depth.
+                if phase == .pools {
                     // Models are solid: drawn first, they hide what's behind them from every card after.
                     for n in models { drawModel(n, cam: cam, assets: assets, enc: enc) }
                     for n in cards { drawCard(n, cam: cam, scale: scale, assets: assets, enc: enc) }

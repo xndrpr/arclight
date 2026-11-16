@@ -226,7 +226,12 @@ enum Guide {
         turn it with rotationY. Flat props (posters, photos, cut-outs from image_remove_bg) are images or shapes with "3d": true, 2 px in front of their wall.
         3. Light and air. Give every box and model the same light direction (default [−0.4, −1, −0.6], from the top left front), shade 0.3–0.5 \
         for walls, 0.6–0.8 for models; clay material and a little rim for a sculpted, faceless look. fog {color: the background, near, far} adds \
-        depth (near a little past the subject, far around the back wall); light layers add pools on the floor; post bloom, grain and vignette finish it. \
+        depth (near a little past the subject, far around the back wall); post bloom, grain and vignette finish it. \
+        A lamp's spot is a light layer, not a painted image: it lies flat at its y, so put y on the lit surface (a table top's y = table y − half \
+        its height; the floor y for a floor lamp) with x,z under the lamp, e.g. {"type":"light","id":"spot","x":960,"y":980,"z":1400,\
+        "pool":{"radius":260,"color":"#FFC890","intensity":2,"blend":"light"},"beam":{"height":500,"width":220,"intensity":0.08,"color":"#FFC890"}}. \
+        blend "light" (intensity 1.5–3) brightens what's under it and keeps a wood or tile texture readable; the default "add" is a glow for dark voids and washes \
+        textures out. Keep the radius within the surface (past a table's edge the pool lights the floor behind it). \
         fog and post are keyframed as whole objects (like the camera), not field by field.
         4. Camera. Keyframe the whole camera object {"position","target","fov"} with eased keys (inOutSine, inOutCubic); one connected path, \
         no cuts. Push-in: position moves towards the target over 3–6 s. Pull-back reveal: the reverse, ending outside the room. Drift: move \

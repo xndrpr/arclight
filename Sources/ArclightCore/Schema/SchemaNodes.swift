@@ -124,7 +124,7 @@ extension Schema {
         NodeSchema(
             type: "light", label: "Light", icon: "lightbulb",
             doc:
-                "A single pool of light (and optional beam) on the floor at x,y,z. Number settings inside pool and beam can be keyframed on their own, e.g. \"intensity\": {\"k\": [[0, 0], [1, 1.2]]} (as in any layer's object settings).",
+                "A single pool of light (and optional beam) lying flat at x,y,z: set y to the surface it lights (a floor, or a table top = the table box's y − half its height), not the lamp's height. Over a textured surface use pool blend \"light\". Number settings inside pool and beam can be keyframed on their own, e.g. \"intensity\": {\"k\": [[0, 0], [1, 1.2]]} (as in any layer's object settings).",
             fields: [
                 Field("pool", .object(pool), "The light pool."),
                 Field("beam", .object(beam), "Optional beam.", canDisable: true),

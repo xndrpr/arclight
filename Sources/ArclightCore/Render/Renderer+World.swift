@@ -3,7 +3,8 @@ import Metal
 import simd
 
 /// World-pass drawing phases. Every 3D node is visited once per phase so that ground planes and
-/// light pools always sit under anything standing on them, whatever the node order.
+/// light pools always sit under anything standing on them, whatever the node order. Models and cards (boxes
+/// included) are drawn at the start of `pools`, so pools and shadows light the surfaces they lie on.
 enum WorldPhase: Int, CaseIterable { case ground, pools, shadows, objects, beams }
 
 extension Renderer {
@@ -117,8 +118,17 @@ extension Renderer {
                             uv: SIMD4(1, 1.5, 0, 0), color: light(col, ks, alpha: min(1, ks))))
                 }
             }
-            drawQuads(spills, pso: poolPSO, decal: true, vp: &vp, texture: nil, enc: enc)
-            drawQuads(quads, pso: poolPSO, decal: true, vp: &vp, texture: nil, enc: enc)
+            // "blend": "light" brightens the surface under the pool (keeps a texture's grain and contrast; shows
+            // nothing on empty background); "add" (default) adds glow, which also shows on a dark void.
+            if pool["blend"]?.string == "light" {
+                // Alpha 0: fog fades the light out with distance instead of tinting it.
+                func surface(_ q: QuadI) -> QuadI { var q = q; q.color.w = 0; return q }
+                drawQuads(spills.map(surface), pso: poolLightPSO, decal: true, vp: &vp, texture: nil, enc: enc)
+                drawQuads(quads.map(surface), pso: poolLightPSO, decal: true, vp: &vp, texture: nil, enc: enc)
+            } else {
+                drawQuads(spills, pso: poolPSO, decal: true, vp: &vp, texture: nil, enc: enc)
+                drawQuads(quads, pso: poolPSO, decal: true, vp: &vp, texture: nil, enc: enc)
+            }
 
         case .shadows, .objects:
             guard !isLight,
