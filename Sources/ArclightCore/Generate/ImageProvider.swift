@@ -12,6 +12,14 @@ public protocol ImageProvider: Sendable {
     func fill(image: CGImage, mask: CGImage, prompt: String, seed: Int?) async throws -> CGImage
     func removeBackground(image: CGImage) async throws -> CGImage
     func upscale(image: CGImage, factor: Int) async throws -> CGImage
+    /// Depth map, same size or aspect as `image`: white is near, black far.
+    func depth(image: CGImage) async throws -> CGImage
+}
+
+extension ImageProvider {
+    public func depth(image: CGImage) async throws -> CGImage {
+        throw ImageAIError.unsupported("\(name) can't make depth maps")
+    }
 }
 
 public enum ImageAIError: Error, CustomStringConvertible, Equatable {

@@ -58,6 +58,29 @@ public enum ImageAI {
         return Result(asset: name, ops: [.object(o)], summary: "upscaled \(n.id) ×\(factor)", layer: n.id)
     }
 
+    // MARK: Depth (relief)
+
+    /// Makes a depth map of an image layer's picture and turns the layer into a relief: a 3D surface pushed towards
+    /// the camera where the picture is near, so a camera move through it has real parallax.
+    public static func depth(
+        layer id: String, in scene: Scene, store: ProjectStore, provider: ImageProvider, amount: Double? = nil
+    ) async throws -> Result {
+        let (n, src, img) = try imageLayer(id, scene, store)
+        let out = try await provider.depth(image: img)
+        let name = try write(out, base: stem(src) + "-depth", store: store)
+        log(store, op: "depth", model: provider.name, prompt: nil, source: src, asset: name)
+        var o: [String: JSONValue] = ["op": "set", "id": .string(n.id), "depth": .string(name)]
+        if n.props["3d"] == nil { o["3d"] = true }
+        if let amount {
+            o["depthAmount"] = .number(amount)
+        } else if n.props["depthAmount"] == nil {
+            // A fifth of the picture's drawn width reads as depth without tearing at the edges.
+            let w = n.props["width"].flatMap { if case .value(let v) = $0 { return v.double } else { return nil } }
+            o["depthAmount"] = .number(((w ?? Double(img.width)) * 0.2).rounded())
+        }
+        return Result(asset: name, ops: [.object(o)], summary: "depth for \(n.id)", layer: n.id)
+    }
+
     // MARK: Expand (outpaint)
 
     /// Extends an image layer's picture by `left`/`top`/`right`/`bottom` picture pixels with generated content; the

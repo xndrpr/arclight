@@ -73,6 +73,16 @@ extension Schema {
                     "crop", .vector(labels: ["x", "y", "w", "h"]),
                     "Part of the picture to show, as fractions of it: [x, y, w, h], e.g. [0.2, 0, 0.6, 1] keeps the middle.",
                     default: [0, 0, 1, 1], advanced: true),
+                Field(
+                    "depth", .asset("image"),
+                    "Depth map (white = near, see image_depth): with \"3d\" the picture becomes a relief that stands out towards the camera, for parallax.",
+                    animatable: false),
+                Field(
+                    "depthAmount", .number(min: 0, unit: "px"), "How far the nearest parts of a relief come forward.",
+                    default: 200),
+                Field(
+                    "segments", .integer(min: 8, max: 512), "Relief mesh detail along the picture's longer side.",
+                    default: 160, advanced: true),
             ], is3D: false),
         NodeSchema(
             type: "group", label: "Group", icon: "folder",

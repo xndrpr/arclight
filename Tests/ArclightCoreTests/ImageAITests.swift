@@ -31,6 +31,9 @@ final class FakeProvider: ImageProvider, @unchecked Sendable {
     func upscale(image: CGImage, factor: Int) async throws -> CGImage {
         calls.append("upscale \(factor)"); return solid(image.width * factor, image.height * factor, 1, 1, 0)
     }
+    func depth(image: CGImage) async throws -> CGImage {
+        calls.append("depth"); return solid(image.width, image.height, 0.5, 0.5, 0.5)
+    }
 }
 
 /// Serves canned fal queue responses: submit → status (IN_PROGRESS, then COMPLETED) → result → image bytes.
@@ -245,6 +248,14 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         // Scenes work too.
         _ = try run("image_remove_bg", ["scene": "s", "layer": "photo", "engine": "fal"])
         #expect(try ProjectStore(url: tp.url).scenes["s"]?.node("photo")?.props["src"] == .value("photo-cutout.png"))
+        // A depth map turns the layer into a 3D relief.
+        let d = try run("image_depth", ["scene": "s", "layer": "photo", "amount": 150])
+        #expect(d.contains("-depth.png"))
+        let relief = try #require(try ProjectStore(url: tp.url).scenes["s"]?.node("photo"))
+        #expect(relief.props["3d"] == .value(true) && relief.props["depthAmount"] == .value(150))
+        guard case .value(let depthSrc)? = relief.props["depth"] else { Issue.record("no depth"); return }
+        #expect(depthSrc.string?.hasSuffix("-depth.png") == true)
+        #expect(throws: (any Error).self) { try run("image_depth", ["scene": "s", "layer": "photo", "amount": -1]) }
     }
 
     /// On-device cut-out of a real photo (one of macOS's account pictures), through the same path the editor uses.

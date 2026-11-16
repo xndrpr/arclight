@@ -9,22 +9,25 @@ extension TexU {
 }
 
 extension Renderer {
-    func texture(src: String, assets: URL?) -> MTLTexture? {
+    /// A picture from assets/, cached. `linear` reads the values as they are (data such as a depth map) instead of
+    /// as sRGB colour.
+    func texture(src: String, assets: URL?, linear: Bool = false) -> MTLTexture? {
         let url = AssetPath.url(src, assets: assets)
         // Keyed by path + modification date, so an asset rewritten under the same name (asset_write) shows up.
         let stamp =
             ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
             .timeIntervalSince1970 ?? 0
-        let key = "\(url.path)#\(stamp)"
+        let prefix = url.path + (linear ? "#linear#" : "#srgb#")
+        let key = prefix + "\(stamp)"
         if let t = images[key] { return t }
         let t = try? textureLoader.newTexture(
             URL: url,
             options: [
-                .SRGB: true, .generateMipmaps: true, .allocateMipmaps: true,
+                .SRGB: !linear, .generateMipmaps: true, .allocateMipmaps: true,
                 .textureUsage: MTLTextureUsage.shaderRead.rawValue,
                 .textureStorageMode: MTLStorageMode.private.rawValue,
             ])
-        if let t { images = images.filter { !$0.key.hasPrefix(url.path + "#") }; images[key] = t }
+        if let t { images = images.filter { !$0.key.hasPrefix(prefix) }; images[key] = t }
         return t
     }
 
@@ -34,6 +37,24 @@ extension Renderer {
         var u = TexU(
             mvp: mvp, unit: matrix_identity_float4x4, rect: q.rect,
             color: SIMD4(1, 1, 1, Float(n.opacity)), clip: q.clip, mode: SIMD4(1, 0, 0, 0))
+        // A 3D image with a depth map is a relief: a grid pushed towards the camera where the map is white.
+        if worldStage != .off, let src = n.props["depth"]?.string, !src.isEmpty,
+            let depth = texture(src: src, assets: assets, linear: true)
+        {
+            let seg = Float(min(max(n.num("segments", 160), 8), 512))
+            let aspect = q.rect.z / max(q.rect.w, 1e-3)
+            let cols = aspect >= 1 ? seg : max(8, (seg * aspect).rounded())
+            let rows = aspect >= 1 ? max(8, (seg / aspect).rounded()) : seg
+            u.mode = SIMD4(1, cols, rows, Float(n.num("depthAmount", 200)))
+            enc.setRenderPipelineState(worldStage == .depth ? reliefDepthPSO : reliefPSO)
+            enc.setVertexBytes(&u, length: MemoryLayout<TexU>.stride, index: 0)
+            enc.setFragmentBytes(&u, length: MemoryLayout<TexU>.stride, index: 0)
+            enc.setVertexTexture(depth, index: 0)
+            enc.setVertexSamplerState(sampler, index: 0)
+            enc.setFragmentTexture(tex, index: 0)
+            enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: Int(cols * rows) * 6)
+            return
+        }
         enc.setRenderPipelineState(texPipeline)
         drawTexturedQuad(&u, texture: tex, enc: enc)
     }

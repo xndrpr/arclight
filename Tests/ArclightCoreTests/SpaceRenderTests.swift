@@ -90,4 +90,42 @@ import Testing
         let s = pixel(solid, 100, 100)
         #expect(s.g > 200 && s.r < 30)  // a closed box shows its front
     }
+
+    /// A w×h PNG of one grey level (or colour) in a fresh assets folder.
+    func png(_ name: String, in dir: URL, r: CGFloat, g: CGFloat, b: CGFloat, size: Int = 64) throws {
+        let ctx = try #require(ImageData.context(size, size))
+        ctx.setFillColor(CGColor(red: r, green: g, blue: b, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: size, height: size))
+        let img = try #require(ctx.makeImage())
+        let data = try #require(ImageData.png(img))
+        try data.write(to: dir.appendingPathComponent(name))
+    }
+
+    @Test(.requiresMetal) func reliefBringsThePictureForward() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("relief-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try png("pic.png", in: dir, r: 0, g: 0, b: 1)
+        try png("near.png", in: dir, r: 1, g: 1, b: 1)
+        func scene(depth: Bool) -> Scene {
+            var s = Scene(id: "s", duration: 1)
+            s.background = .value("#000000")
+            var img: [String: JSONValue] = [
+                "src": "pic.png", "x": 100, "y": 100, "z": 600, "width": 300, "height": 300, "3d": true,
+            ]
+            if depth { img["depth"] = "near.png"; img["depthAmount"] = 400 }
+            s.nodes = [
+                Node(id: "img", type: "image", props: img.mapValues { .value($0) }),
+                square("card", "#FF0000", z: 400, size: 120),
+            ]
+            return s
+        }
+        let p = Project(name: "t", size: [200, 200])
+        let r = try Renderer()
+        // Flat at z 600 the picture is behind the red card (z 400); pushed 400 px forward (z 200) it hides it.
+        let flat = pixel(try r.image(scene: scene(depth: false), project: p, assets: dir, time: 0), 100, 100)
+        #expect(flat.r > 200 && flat.b < 30)
+        let relief = pixel(try r.image(scene: scene(depth: true), project: p, assets: dir, time: 0), 100, 100)
+        #expect(relief.b > 200 && relief.r < 30)
+    }
 }
