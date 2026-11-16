@@ -36,6 +36,26 @@ extension ShaderSource {
             return finish(c, in.vz, f);
         }
 
+        // A relief image: a cols x rows grid over the picture's rect (TexU.mode.y, .z), each vertex pushed towards
+        // the camera (local -z) by the depth map (white = near) times mode.w px. Six vertices per cell.
+        vertex VOut relief_vs(uint vid [[vertex_id]], constant TexU& u [[buffer(0)]],
+                              texture2d<float> depth [[texture(0)]], sampler s [[sampler(0)]]) {
+            uint cols = uint(max(u.mode.y, 1.0)), rows = uint(max(u.mode.z, 1.0));
+            uint cell = vid / 6, k = vid % 6;
+            uint cx = cell % cols, cy = cell / cols;
+            // Two triangles: (0,0) (1,0) (0,1) and (1,0) (1,1) (0,1).
+            const uint2 corner[6] = { uint2(0, 0), uint2(1, 0), uint2(0, 1), uint2(1, 0), uint2(1, 1), uint2(0, 1) };
+            float2 uv = float2(float(cx + corner[k].x) / float(cols), float(cy + corner[k].y) / float(rows));
+            float d = depth.sample(s, uv, level(0)).r;
+            float4 p = u.unit * float4(u.rect.xy + uv * u.rect.zw, -d * u.mode.w, 1);
+            VOut o;
+            o.pos = u.mvp * p;
+            o.local = p.xy;
+            o.uv = uv;
+            o.vz = o.pos.w;
+            return o;
+        }
+
         fragment DOut shape_depth_fs(VOut in [[stage_in]], constant ShapeU& u [[buffer(0)]], constant FrameU& f [[buffer(1)]]) {
             float2 h = max(u.geom.xy * 0.5, float2(1e-3));
             float2 p = in.local;

@@ -74,7 +74,7 @@ extension MCPServer {
             Tool(
                 name: "image_status",
                 description:
-                    "Which AI image operations are available: background removal and subject selection always (on-device); generate, fill, expand and upscale need the user's fal.ai key (Settings ▸ AI).",
+                    "Which AI image operations are available: background removal and subject selection always (on-device); generate, fill, expand, upscale, depth (image_depth) and 3D models (model_generate) need the user's fal.ai key (Settings ▸ AI).",
                 schema: schema([:]), readOnly: true
             ) { [unowned self] _ in
                 let fal = imageProviderOverride != nil || (ImageSettings.enabled && KeychainStore.falKey() != nil)
@@ -82,8 +82,8 @@ extension MCPServer {
                 var lines = [
                     "on-device (Apple Vision): image_remove_bg, image_select_subject — always available",
                     fal
-                        ? "fal.ai: on — generate \(m.generate) (image_generate model can pick another fal text-to-image id per call), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale)"
-                        : "fal.ai: off — the user can add a key in Settings ▸ AI ▸ Image generation (image_generate, image_fill, image_expand, image_upscale need it)",
+                        ? "fal.ai: on — generate \(m.generate) (image_generate model can pick another fal text-to-image id per call), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale), depth \(m.depth), image → 3D \(m.model3D)"
+                        : "fal.ai: off — the user can add a key in Settings ▸ AI ▸ Image generation (image_generate, image_fill, image_expand, image_upscale, image_depth, model_generate need it)",
                 ]
                 if let s = store {
                     let h = ImageAI.history(s).suffix(5)
@@ -251,6 +251,30 @@ extension MCPServer {
                 let layer = try a.str("layer"), scene = h.scene
                 let r = try blocking {
                     try await ImageAI.upscale(layer: layer, in: scene, store: s, factor: f, provider: provider)
+                }
+                return text("asset \(r.asset)\n" + (try h.save(r.ops, r.summary)))
+            },
+
+            Tool(
+                name: "image_depth",
+                description:
+                    "Turn an image layer into a 3D relief (fal.ai depth model, needs the user's key): writes a depth map (white = near) and sets the layer's depth, depthAmount and \"3d\", so near parts of the picture stand out towards the camera and a camera move through it has real parallax. Use it on a generated room, street or landscape plate, then move the camera a little (a push-in or a slow drift; large moves show the stretched edges). amount: how far the nearest parts come forward, px (default a fifth of the picture's width).",
+                schema: schema(
+                    MCPServer.with([
+                        "layer": prop("string", "Image layer id"),
+                        "amount": prop("number", "depthAmount in px (default: a fifth of the drawn width)"),
+                    ]), required: ["layer"])
+            ) { [unowned self] a in
+                let s = try requireStore()
+                let h = try layerHost(a, store: s)
+                let provider = try falProvider()
+                let amount = a["amount"]?.double
+                if let amount, !(amount.isFinite && amount >= 0 && amount <= 100_000) {
+                    throw ToolError("amount must be 0–100000 px")
+                }
+                let layer = try a.str("layer"), scene = h.scene
+                let r = try blocking {
+                    try await ImageAI.depth(layer: layer, in: scene, store: s, provider: provider, amount: amount)
                 }
                 return text("asset \(r.asset)\n" + (try h.save(r.ops, r.summary)))
             },

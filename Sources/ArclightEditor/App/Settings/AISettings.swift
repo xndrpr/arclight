@@ -137,6 +137,8 @@ struct ImageGenerationSettings: View {
                     model("Fill / expand", \.fill)
                     model("Background", \.removeBackground)
                     model("Upscale", \.upscale)
+                    model("Depth", \.depth)
+                    model("Image → 3D", \.model3D)
                     Button("Reset to defaults") {
                         models = FalProvider.Models(); ImageSettings.models = models
                     }

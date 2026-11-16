@@ -10,7 +10,23 @@ public struct FalProvider: ImageProvider {
         public var fill = "fal-ai/flux-pro/v1/fill"
         public var removeBackground = "fal-ai/birefnet"
         public var upscale = "fal-ai/esrgan"
+        /// Depth map of a picture (white = near), for relief images.
+        public var depth = "fal-ai/image-preprocessors/depth-anything/v2"
+        /// Image to 3D model (GLB), for model layers.
+        public var model3D = "fal-ai/trellis"
         public init() {}
+
+        /// Missing ids (settings saved before a model was added) take the default.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            let d = Models()
+            generate = try c.decodeIfPresent(String.self, forKey: .generate) ?? d.generate
+            fill = try c.decodeIfPresent(String.self, forKey: .fill) ?? d.fill
+            removeBackground = try c.decodeIfPresent(String.self, forKey: .removeBackground) ?? d.removeBackground
+            upscale = try c.decodeIfPresent(String.self, forKey: .upscale) ?? d.upscale
+            depth = try c.decodeIfPresent(String.self, forKey: .depth) ?? d.depth
+            model3D = try c.decodeIfPresent(String.self, forKey: .model3D) ?? d.model3D
+        }
     }
 
     public var name: String { "fal.ai" }
@@ -88,6 +104,10 @@ public struct FalProvider: ImageProvider {
     public func upscale(image: CGImage, factor: Int) async throws -> CGImage {
         try await run(
             models.upscale, ["image_url": .string(try ImageData.dataURI(image)), "scale": .number(Double(factor))])
+    }
+
+    public func depth(image: CGImage) async throws -> CGImage {
+        try await run(models.depth, ["image_url": .string(try ImageData.dataURI(image))])
     }
 
     // MARK: Queue

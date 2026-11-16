@@ -20,7 +20,10 @@ enum InspectorLayout {
             Group(title: "Shape", names: ["shape", "width", "height", "radius", "to", "cap"]),
             Group(title: "Fill & stroke", names: ["fill", "stroke", "strokeWidth", "trim"]),
         ],
-        "image": [Group(title: "Image", names: ["src", "width", "height"])],
+        "image": [
+            Group(title: "Image", names: ["src", "width", "height"]),
+            Group(title: "Relief (3D)", names: ["depth", "depthAmount", "segments"]),
+        ],
         "repeater": [
             Group(
                 title: "Layout",
