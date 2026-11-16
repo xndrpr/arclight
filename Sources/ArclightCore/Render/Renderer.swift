@@ -20,11 +20,33 @@ public final class Renderer {
 
     /// Pipeline blending. World pipelines have a colour and a circle-of-confusion target: `premulNoCoc` and
     /// `additive` leave the CoC target as it is (shadows, pools, beams, cones); `additiveAll` adds on every target.
-    enum Blend { case premul, additive, premulNoCoc, none, additiveAll }
+    enum Blend { case premul, additive, premulNoCoc, none, additiveAll, depthOnly }
 
     let shapePSO, texPSO, spritePSO, shadowPSO, beamPSO, poolPSO, contactPSO, conePSO: MTLRenderPipelineState
     let dofPSO, brightPSO, downPSO, upPSO, finalPSO, scalePSO, copyPSO: MTLRenderPipelineState
     let coverPSO, unionPSO: MTLRenderPipelineState
+    /// 3D cards in the world pass: drawn with a depth test (`shapeWorldPSO`, `texWorldPSO`), then into depth only
+    /// (`shapeDepthPSO`, `texDepthPSO`). See `WorldStage`.
+    let shapeWorldPSO, texWorldPSO, shapeDepthPSO, texDepthPSO: MTLRenderPipelineState
+    /// World pass depth: `depthTest` tests without writing (colour), `depthWrite` tests and writes (depth step).
+    let depthTest, depthWrite: MTLDepthStencilState
+    /// Which pipelines the draw functions use: the plain 2D ones (overlay, effects), or the world ones.
+    enum WorldStage { case off, color, depth }
+    var worldStage = WorldStage.off
+    var shapePipeline: MTLRenderPipelineState {
+        switch worldStage {
+        case .off: return shapePSO
+        case .color: return shapeWorldPSO
+        case .depth: return shapeDepthPSO
+        }
+    }
+    var texPipeline: MTLRenderPipelineState {
+        switch worldStage {
+        case .off: return texPSO
+        case .color: return texWorldPSO
+        case .depth: return texDepthPSO
+        }
+    }
     /// Per-layer effects (blend, clip, mask, outline, shadow, glow, blur, adjust): pipelines and scratch targets.
     let fx: FxKit
     let sampler: MTLSamplerState
@@ -76,6 +98,7 @@ public final class Renderer {
     static let cocFormat: MTLPixelFormat = .rgba16Float
     public static let outFormat: MTLPixelFormat = .bgra8Unorm_srgb
     static let coverFormat: MTLPixelFormat = .r16Float
+    static let depthFormat: MTLPixelFormat = .depth32Float
 
     public init(evaluator: Evaluator = Evaluator()) throws {
         guard let d = MTLCreateSystemDefaultDevice(), let q = d.makeCommandQueue() else { throw RenderError.noDevice }
@@ -86,13 +109,14 @@ public final class Renderer {
         }
 
         func pipeline(
-            _ vs: String, _ fs: String, _ formats: [MTLPixelFormat], _ blend: Blend
+            _ vs: String, _ fs: String, _ formats: [MTLPixelFormat], _ blend: Blend, depth: Bool = false
         ) throws -> MTLRenderPipelineState {
             let p = MTLRenderPipelineDescriptor()
             guard let v = lib.makeFunction(name: vs), let f = lib.makeFunction(name: fs) else {
                 throw RenderError.setup("missing \(vs)/\(fs)")
             }
             p.vertexFunction = v; p.fragmentFunction = f
+            if depth { p.depthAttachmentPixelFormat = Renderer.depthFormat }
             for (i, fmt) in formats.enumerated() {
                 let a = p.colorAttachments[i]!
                 a.pixelFormat = fmt
@@ -104,6 +128,7 @@ public final class Renderer {
                 }
                 switch blend {
                 case .none: break
+                case .depthOnly: a.writeMask = []
                 case .premulNoCoc where isCoc, .additive where isCoc: a.writeMask = []
                 case .premul, .premulNoCoc: blendOne(over: .oneMinusSourceAlpha)
                 case .additive, .additiveAll: blendOne(over: .one)
@@ -114,12 +139,26 @@ public final class Renderer {
         let two = [Renderer.hdrFormat, Renderer.cocFormat], one = [Renderer.hdrFormat]
         shapePSO = try pipeline("shape_vs", "shape_fs", two, .premul)
         texPSO = try pipeline("tex_vs", "tex_fs", two, .premul)
-        spritePSO = try pipeline("quad_vs", "sprite_fs", two, .premul)
-        shadowPSO = try pipeline("quad_vs", "sprite_fs", two, .premulNoCoc)
-        beamPSO = try pipeline("quad_vs", "beam_fs", two, .additive)
-        poolPSO = try pipeline("decal_vs", "pool_fs", two, .additive)
-        contactPSO = try pipeline("decal_vs", "pool_fs", two, .premulNoCoc)
-        conePSO = try pipeline("cone_vs", "cone_fs", two, .additive)
+        // Instanced 3D draws only ever run in the world pass, which has a depth attachment.
+        spritePSO = try pipeline("quad_vs", "sprite_fs", two, .premul, depth: true)
+        shadowPSO = try pipeline("quad_vs", "sprite_fs", two, .premulNoCoc, depth: true)
+        beamPSO = try pipeline("quad_vs", "beam_fs", two, .additive, depth: true)
+        poolPSO = try pipeline("decal_vs", "pool_fs", two, .additive, depth: true)
+        contactPSO = try pipeline("decal_vs", "pool_fs", two, .premulNoCoc, depth: true)
+        conePSO = try pipeline("cone_vs", "cone_fs", two, .additive, depth: true)
+        shapeWorldPSO = try pipeline("shape_vs", "shape_fs", two, .premul, depth: true)
+        texWorldPSO = try pipeline("tex_vs", "tex_fs", two, .premul, depth: true)
+        shapeDepthPSO = try pipeline("shape_vs", "shape_depth_fs", two, .depthOnly, depth: true)
+        texDepthPSO = try pipeline("tex_vs", "tex_depth_fs", two, .depthOnly, depth: true)
+        func depthState(write: Bool) throws -> MTLDepthStencilState {
+            let ds = MTLDepthStencilDescriptor()
+            ds.depthCompareFunction = .lessEqual
+            ds.isDepthWriteEnabled = write
+            guard let s = d.makeDepthStencilState(descriptor: ds) else { throw RenderError.setup("depth state") }
+            return s
+        }
+        depthTest = try depthState(write: false)
+        depthWrite = try depthState(write: true)
         scalePSO = try pipeline("post_vs", "scale_fs", one, .additiveAll)
         copyPSO = try pipeline("post_vs", "copy_fs", [Renderer.outFormat], .none)
         dofPSO = try pipeline("post_vs", "dof_fs", one, .none)
@@ -216,11 +255,15 @@ public final class Renderer {
             guard let t = device.makeTexture(descriptor: d) else { throw RenderError.setup("textures") }
             return t
         }
+        let dd = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: Renderer.depthFormat, width: max(w, 1), height: max(h, 1), mipmapped: false)
+        dd.usage = [.renderTarget]; dd.storageMode = .private
+        guard let depth = device.makeTexture(descriptor: dd) else { throw RenderError.setup("depth texture") }
         var bloom: [MTLTexture] = []
         for i in 1...6 { bloom.append(try tex(Renderer.hdrFormat, w >> i, h >> i)) }
         return RenderTargets(
             width: w, height: h, hdrA: try tex(Renderer.hdrFormat, w, h), hdrB: try tex(Renderer.hdrFormat, w, h),
             coc: try tex(Renderer.cocFormat, w, h), bloom: bloom, accum: try tex(Renderer.hdrFormat, w, h),
-            cover: try tex(Renderer.coverFormat, w, h))
+            cover: try tex(Renderer.coverFormat, w, h), depth: depth)
     }
 }

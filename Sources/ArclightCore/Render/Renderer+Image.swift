@@ -34,7 +34,7 @@ extension Renderer {
         var u = TexU(
             mvp: mvp, unit: matrix_identity_float4x4, rect: q.rect,
             color: SIMD4(1, 1, 1, Float(n.opacity)), clip: q.clip, mode: SIMD4(1, 0, 0, 0))
-        enc.setRenderPipelineState(texPSO)
+        enc.setRenderPipelineState(texPipeline)
         drawTexturedQuad(&u, texture: tex, enc: enc)
     }
 

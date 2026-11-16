@@ -117,27 +117,26 @@ extension Renderer {
             fu.fog = SIMD4(Float(fog["near"]?.double ?? 1000), Float(fog["far"]?.double ?? 5000), 1, 0)
         }
 
-        if let enc = pass(cb, color: t.hdrA, clear: bg, coc: t.coc, clearCoc: true) {
+        // View depth -> window depth (the projection in CameraState.make), for the depth step's push.
+        let span = max(cam.far - cam.near, 1e-3)
+        fu.misc = SIMD4(cam.far / span, cam.near * cam.far / span, Renderer.coplanarPush, 0)
+
+        if let enc = pass(cb, color: t.hdrA, clear: bg, coc: t.coc, clearCoc: true, depth: t.depth) {
             enc.setFragmentSamplerState(sampler, index: 0)
             enc.setFragmentBytes(&fu, length: MemoryLayout<FrameU>.stride, index: 1)
+            enc.setDepthStencilState(depthTest)
             frameInstances.removeAll(keepingCapacity: true)
+            let instancers = world.filter { $0.node.type == "repeater" || $0.node.type == "light" }
+            let cards = world.filter { $0.node.type != "repeater" && $0.node.type != "light" }
             for phase in WorldPhase.allCases {
-                for n in world {
-                    if n.node.type == "repeater" || n.node.type == "light" {
-                        drawInstancer(
-                            n, phase: phase, cam: cam, scene: scene, T: T, scale: scale, assets: assets, enc: enc)
-                        continue
-                    }
-                    guard phase == .objects else { continue }
-                    let mvp = cam.viewProj * n.world
-                    switch n.node.type {
-                    case "shape": drawShape(n, mvp: mvp, pxScale: pxScale(n, cam: cam, scale: scale), enc: enc)
-                    case "text": drawText(n, mvp: mvp, pxScale: pxScale(n, cam: cam, scale: scale), enc: enc)
-                    case "image": drawImage(n, mvp: mvp, assets: assets, enc: enc)
-                    case "symbol":
-                        drawSymbol(n, mvp: mvp, pxScale: pxScale(n, cam: cam, scale: scale), assets: assets, enc: enc)
-                    default: break
-                    }
+                // Cards (flat 3D layers) go first in the objects phase, in list order: each is drawn depth-tested,
+                // then writes its depth where it is solid, so a layer behind it that comes later stays hidden. The
+                // repeater sprites and light beams after them are tested against that depth.
+                if phase == .objects {
+                    for n in cards { drawCard(n, cam: cam, scale: scale, assets: assets, enc: enc) }
+                }
+                for n in instancers {
+                    drawInstancer(n, phase: phase, cam: cam, scene: scene, T: T, scale: scale, assets: assets, enc: enc)
                 }
             }
             enc.endEncoding()
@@ -152,9 +151,16 @@ extension Renderer {
     }
 
     func pass(
-        _ cb: MTLCommandBuffer, color: MTLTexture, clear: SIMD4<Float>?, coc: MTLTexture, clearCoc: Bool
+        _ cb: MTLCommandBuffer, color: MTLTexture, clear: SIMD4<Float>?, coc: MTLTexture, clearCoc: Bool,
+        depth: MTLTexture? = nil
     ) -> MTLRenderCommandEncoder? {
         let rp = MTLRenderPassDescriptor()
+        if let depth {
+            rp.depthAttachment.texture = depth
+            rp.depthAttachment.loadAction = .clear
+            rp.depthAttachment.clearDepth = 1
+            rp.depthAttachment.storeAction = .dontCare
+        }
         rp.colorAttachments[0].texture = color
         if let c = clear {
             rp.colorAttachments[0].loadAction = .clear
@@ -189,6 +195,29 @@ extension Renderer {
         withUnsafeBytes(of: &params) { enc.setFragmentBytes($0.baseAddress!, length: $0.count, index: 0) }
         enc.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         enc.endEncoding()
+    }
+
+    /// How far a 3D card's written depth is pushed back, as a fraction of its view depth (0.05 % = 1 px at 2000 px):
+    /// layers stacked on one plane, or within that distance in front of it, draw over it in list order.
+    static let coplanarPush: Float = 0.0005
+
+    /// One flat 3D layer in the world pass: colour (depth-tested), then its depth where it is at least half covered.
+    func drawCard(_ n: EvalNode, cam: CameraState, scale: Double, assets: URL?, enc: MTLRenderCommandEncoder) {
+        let mvp = cam.viewProj * n.world
+        let px = pxScale(n, cam: cam, scale: scale)
+        defer { worldStage = .off }
+        for stage in [WorldStage.color, .depth] {
+            worldStage = stage
+            enc.setDepthStencilState(stage == .depth ? depthWrite : depthTest)
+            switch n.node.type {
+            case "shape": drawShape(n, mvp: mvp, pxScale: px, enc: enc)
+            case "text": drawText(n, mvp: mvp, pxScale: px, enc: enc)
+            case "image": drawImage(n, mvp: mvp, assets: assets, enc: enc)
+            case "symbol": drawSymbol(n, mvp: mvp, pxScale: px, assets: assets, enc: enc)
+            default: break
+            }
+        }
+        enc.setDepthStencilState(depthTest)
     }
 
     /// Output pixels per node unit, including perspective for 3D nodes (picks raster resolution for text, AA width for shapes).

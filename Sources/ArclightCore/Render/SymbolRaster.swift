@@ -104,7 +104,7 @@ extension Renderer {
         var u = TexU(
             mvp: mvp, unit: matrix_identity_float4x4, rect: e.rect, color: fill.linearPremultiplied(opacity: n.opacity),
             clip: TexU.noClip, mode: .zero)
-        enc.setRenderPipelineState(texPSO)
+        enc.setRenderPipelineState(texPipeline)
         drawTexturedQuad(&u, texture: e.texture, enc: enc)
     }
 

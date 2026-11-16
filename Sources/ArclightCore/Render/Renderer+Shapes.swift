@@ -56,7 +56,7 @@ extension Renderer {
             mvp: mvp, fill: fill, stroke: stroke, geom: SIMD4(size.x, size.y, radius, strokeWidth),
             extra: SIMD4(ellipse ? 1 : 0, aaPad, 0, 0))
         configure?(&u)
-        enc.setRenderPipelineState(shapePSO)
+        enc.setRenderPipelineState(shapePipeline)
         enc.setVertexBytes(&u, length: MemoryLayout<ShapeU>.stride, index: 0)
         enc.setFragmentBytes(&u, length: MemoryLayout<ShapeU>.stride, index: 0)
         enc.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)

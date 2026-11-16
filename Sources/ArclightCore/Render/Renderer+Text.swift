@@ -51,7 +51,7 @@ extension Renderer {
     func textColor(_ n: EvalNode) -> RGBA { n.color("color") ?? n.color("fill") ?? foreground }
 
     func drawText(_ n: EvalNode, mvp: simd_float4x4, pxScale: Float, enc: MTLRenderCommandEncoder) {
-        enc.setRenderPipelineState(texPSO)
+        enc.setRenderPipelineState(texPipeline)
         for var q in glyphQuads(n, mvp: mvp, pxScale: pxScale) {
             drawTexturedQuad(&q.u, texture: q.texture, enc: enc)
         }
