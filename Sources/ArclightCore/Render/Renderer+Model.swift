@@ -27,9 +27,14 @@ final class GPUMesh {
     let extent: Float
     /// Bottom of the bounds (largest y: y points down).
     let bottom: Float
+    /// Bones, shape keys and clips, when the model can move (`uvs` go with the posed vertices).
+    let rig: Rig?
+    let uvs: [SIMD2<Float>]
 
     init(vertices: MTLBuffer, indices: MTLBuffer, parts: [(Int, Int, SIMD4<Float>, MTLTexture?)], mesh: Mesh) {
         self.vertices = vertices; self.indices = indices
+        rig = mesh.rig?.animated == true ? mesh.rig : nil
+        uvs = rig == nil ? [] : mesh.vertices.map(\.uv)
         self.parts = parts.map { (start: $0.0, count: $0.1, color: $0.2, texture: $0.3) }
         let b = mesh.bounds
         center = (b.min + b.max) / 2
@@ -54,14 +59,10 @@ extension Renderer {
     }
 
     func makeGPUMesh(_ mesh: Mesh) -> GPUMesh? {
-        // float4 position, float4 normal, float4 uv (48 bytes, matches MeshV in the shader).
-        var v = [SIMD4<Float>]()
-        v.reserveCapacity(mesh.vertices.count * 3)
-        for x in mesh.vertices {
-            v.append(SIMD4(x.position, 1)); v.append(SIMD4(x.normal, 0)); v.append(SIMD4(x.uv.x, x.uv.y, 0, 0))
-        }
-        guard !v.isEmpty, !mesh.indices.isEmpty,
-            let vb = device.makeBuffer(bytes: v, length: v.count * MemoryLayout<SIMD4<Float>>.stride),
+        guard !mesh.vertices.isEmpty, !mesh.indices.isEmpty,
+            let vb = vertexBuffer(
+                positions: mesh.vertices.map(\.position), normals: mesh.vertices.map(\.normal),
+                uvs: mesh.vertices.map(\.uv)),
             let ib = device.makeBuffer(bytes: mesh.indices, length: mesh.indices.count * 4)
         else { return nil }
         let parts = mesh.parts.map { p -> (Int, Int, SIMD4<Float>, MTLTexture?) in
@@ -77,6 +78,46 @@ extension Renderer {
             return (p.start, p.count, p.color, t)
         }
         return GPUMesh(vertices: vb, indices: ib, parts: parts, mesh: mesh)
+    }
+
+    /// float4 position, float4 normal, float4 uv (48 bytes, matches MeshV in the shader).
+    func vertexBuffer(positions: [SIMD3<Float>], normals: [SIMD3<Float>], uvs: [SIMD2<Float>]) -> MTLBuffer? {
+        var v = [SIMD4<Float>]()
+        v.reserveCapacity(positions.count * 3)
+        for k in positions.indices {
+            let uv = k < uvs.count ? uvs[k] : .zero
+            v.append(SIMD4(positions[k], 1)); v.append(SIMD4(k < normals.count ? normals[k] : .zero, 0))
+            v.append(SIMD4(uv.x, uv.y, 0, 0))
+        }
+        guard !v.isEmpty else { return nil }
+        return device.makeBuffer(bytes: v, length: v.count * MemoryLayout<SIMD4<Float>>.stride)
+    }
+
+    /// Which clip a model layer plays and where in it (seconds), or nil when it stands still.
+    static func clipTime(_ n: EvalNode, rig: Rig) -> (clip: Int, time: Float)? {
+        guard let i = rig.clipIndex(n.str("clip", "")), rig.clips[i].duration > 0 else { return nil }
+        let d = Double(rig.clips[i].duration)
+        var t = n.props["clipTime"]?.double ?? (n.t * n.num("clipSpeed", 1) + n.num("clipOffset", 0))
+        if n.bool("clipLoop", true) {
+            t = t.truncatingRemainder(dividingBy: d)
+            if t < 0 { t += d }
+        } else {
+            t = min(max(t, 0), d)
+        }
+        return (i, Float(t))
+    }
+
+    /// The model's vertices posed for this layer, cached by pose (copies in step share one buffer).
+    func posedVertices(_ m: GPUMesh, _ n: EvalNode) -> MTLBuffer {
+        guard let rig = m.rig, let ct = Renderer.clipTime(n, rig: rig) else { return m.vertices }
+        // A 1/1000 s grid: frames that land on the same pose reuse it.
+        let key = "\(ObjectIdentifier(m).hashValue)|\(ct.clip)|\(Int((ct.time * 1000).rounded()))"
+        if let b = posedCache[key] { return b }
+        let p = rig.pose(clip: ct.clip, time: ct.time)
+        guard let b = vertexBuffer(positions: p.positions, normals: p.normals, uvs: m.uvs) else { return m.vertices }
+        if posedCache.count > 96 { posedCache.removeAll(keepingCapacity: true) }
+        posedCache[key] = b
+        return b
     }
 
     /// The matrix that takes a model's own units to the layer: centred on its bounds (or standing on them with
@@ -100,7 +141,7 @@ extension Renderer {
         let tint = n.color("color")
         enc.setRenderPipelineState(meshPSO)
         enc.setDepthStencilState(depthWrite)
-        enc.setVertexBuffer(m.vertices, offset: 0, index: 1)
+        enc.setVertexBuffer(posedVertices(m, n), offset: 0, index: 1)
         for p in m.parts {
             // The tint replaces a plain part's colour; a textured part keeps its picture, tinted.
             var base = p.color

@@ -38,6 +38,8 @@ public final class Renderer {
     let meshPSO: MTLRenderPipelineState
     /// Loaded models by path#mtime (nil: the file couldn't be read, don't retry every frame).
     var meshes: [String: GPUMesh?] = [:]
+    /// Posed vertex buffers of moving models (`posedVertices`).
+    var posedCache: [String: MTLBuffer] = [:]
     /// 1×1 white, the picture of a box face that only has a colour.
     let whiteTexture: MTLTexture
     /// World pass depth: `depthTest` tests without writing (colour), `depthWrite` tests and writes (depth step).

@@ -262,7 +262,10 @@ enum Guide {
         model across scenes and instance it for crowds, and ask before making more than three). quality "draft" (Trellis, $0.02) for things seen small or \
         far; "standard" (Trellis 2, $0.30, clean shape and textures) for anything the camera gets close to — draft models look rough in close-ups. Describe only the object and its material; for people use faceless figures, e.g. \
         "faceless matte white mannequin sitting, hands on knees" or "faceless clay hand, palm open". pivot "bottom" with y = floor y stands it on the floor; \
-        turn it with rotationY. Flat props (posters, photos, cut-outs from image_remove_bg) are images or shapes with "3d": true, 2 px in front of their wall.
+        turn it with rotationY. Generated and library models are still; a model the user brings (.glb/.gltf exported with \
+        animation, or a .blend through asset_import when Blender is installed) plays its own clip — a walk, a crawl, shape keys — on loop: \
+        asset_import lists its clips; set clip to choose one, and give each copy a different clipOffset (and slightly different clipSpeed) so a \
+        group doesn't move in step. Move the layer along its path at the pace of the cycle, or the feet slide. Flat props (posters, photos, cut-outs from image_remove_bg) are images or shapes with "3d": true, 2 px in front of their wall.
         3. Light and air. Give every box and model the same light direction (default [−0.4, −1, −0.6], from the top left front), shade 0.3–0.5 \
         for walls, 0.6–0.8 for models; clay material and a little rim for a sculpted, faceless look. fog {color: the background, near, far} adds \
         depth (near a little past the subject, far around the back wall); post bloom, grain and vignette finish it. \

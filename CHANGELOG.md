@@ -10,6 +10,10 @@ project format; older projects keep loading.
 
 ### Added
 
+- 3D models play their own animation: a .glb/.gltf with bones, shape keys or moving parts plays its first clip on loop
+  on a model layer. New model fields `clip` (name or number, or "none"), `clipSpeed`, `clipOffset` (put copies out of
+  step), `clipLoop` and `clipTime` (keyframe to scrub), in the inspector's Animation section. `asset_import` lists a
+  model's clips and exports a .blend to .glb through Blender when it is installed.
 - Sound for the AI: scenes take any number of sound clips (`sounds`) over the reference audio, each at its own time,
   played in the editor (a new Sounds lane on the timeline) and mixed into exports. `scene_apply {"op":"sound",…}`
   adds, moves and removes them.

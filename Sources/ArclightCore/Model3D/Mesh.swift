@@ -23,6 +23,8 @@ public struct Mesh: Sendable {
     public var vertices: [Vertex] = []
     public var indices: [UInt32] = []
     public var parts: [Part] = []
+    /// Bones, shape keys and animation clips (glTF only; nil for a still model).
+    public var rig: Rig?
 
     public var triangleCount: Int { indices.count / 3 }
 

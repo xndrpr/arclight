@@ -40,6 +40,7 @@ enum InspectorLayout {
         "model": [
             Group(title: "Model", names: ["src", "size", "pivot"]),
             Group(title: "Look", names: ["color", "material", "shade", "rim", "light"]),
+            Group(title: "Animation", names: ["clip", "clipSpeed", "clipOffset", "clipLoop", "clipTime"]),
         ],
     ]
 

@@ -106,18 +106,44 @@ extension MCPServer {
             Tool(
                 name: "asset_import",
                 description:
-                    "Copy an image file into the project's assets/ folder. Returns the name to use as an image node's src.",
+                    "Copy a file (image, sound, 3D model) into the project's assets/ folder. Returns the name to use as a layer's src. For a model it also says its triangles and its animation clips (a .glb/.gltf with bones, shape keys or moving parts plays on a model layer). A .blend is exported to .glb through the user's Blender when it is installed (animation included). Run it again on an asset already in assets/ to see its clips.",
                 schema: schema(
                     ["path": prop("string", "Source file path"), "name": prop("string", "Optional new file name")],
                     required: ["path"])
             ) { [unowned self] a in
                 let s = try requireStore()
-                let src = URL(expandingPath: try a.str("path"))
+                var src = URL(expandingPath: try a.str("path"))
+                // A bare name already in assets/ (to see a model's clips again).
+                let inAssets = s.assetsURL.appendingPathComponent(try a.str("path"))
+                if !FileManager.default.fileExists(atPath: src.path), try !a.str("path").contains("/"),
+                    FileManager.default.fileExists(atPath: inAssets.path)
+                {
+                    src = inAssets
+                }
                 guard FileManager.default.fileExists(atPath: src.path) else {
                     throw ToolError("no file at \(src.path)")
                 }
-                let name = try a["name"]?.string.map { try SafeName.fileName($0) }
-                return text("src: " + (try s.importAsset(from: src, name: name)))
+                var name = try a["name"]?.string.map { try SafeName.fileName($0) }
+                var file = src
+                if src.pathExtension.lowercased() == "blend" {
+                    // Blender files go through the user's Blender to a .glb with the animation.
+                    let base =
+                        (name.map { URL(fileURLWithPath: $0).deletingPathExtension().lastPathComponent }
+                            ?? src.deletingPathExtension().lastPathComponent)
+                    let tmp = FileManager.default.temporaryDirectory.appendingPathComponent(
+                        "blend-\(UUID().uuidString)")
+                    try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+                    defer { try? FileManager.default.removeItem(at: tmp) }
+                    file = try BlendConverter.convert(src, to: tmp.appendingPathComponent("\(base).glb"))
+                    name = try SafeName.fileName("\(base).glb")
+                    let n = try s.importAsset(from: file, name: name)
+                    let info = (try? Mesh.load(s.assetsURL.appendingPathComponent(n)))?.summary ?? ""
+                    return text("src: \(n) (exported from \(src.lastPathComponent) with Blender)\n\(info)")
+                }
+                let n = try s.importAsset(from: file, name: name)
+                guard Mesh.extensions.contains(src.pathExtension.lowercased()) else { return text("src: " + n) }
+                let mesh = try Mesh.load(s.assetsURL.appendingPathComponent(n))
+                return text("src: \(n)\n\(mesh.summary)")
             },
         ]
     }

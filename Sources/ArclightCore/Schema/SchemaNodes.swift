@@ -157,7 +157,7 @@ extension Schema {
         NodeSchema(
             type: "model", label: "Model", icon: "cube.transparent",
             doc:
-                "A 3D model (.glb, .gltf, .obj, .usdz, …) from assets/, centred on x,y,z and scaled so its largest side is size px. Lit and solid: it hides what's behind it. Make one with model_generate. Move, turn (rotationX, rotationY, rotation) and keyframe it like any layer; its own animation isn't played.",
+                "A 3D model (.glb, .gltf, .obj, .usdz, …) from assets/, centred on x,y,z and scaled so its largest side is size px. Lit and solid: it hides what's behind it. Make one with model_generate. Move, turn (rotationX, rotationY, rotation) and keyframe it like any layer. A .glb/.gltf with animation (bones, shape keys, moving parts) plays its first clip on loop by default: pick another with clip, set clipSpeed, give each copy its own clipOffset so a crowd doesn't move in step, or drive it with clipTime.",
             fields: [
                 Field("src", .asset("model"), "Model file in assets/ (or an absolute path).", animatable: false),
                 Field("size", .number(min: 0, unit: "px"), "Largest side of the model.", default: 400),
@@ -175,6 +175,23 @@ extension Schema {
                 Field(
                     "light", .vector(labels: ["x", "y", "z"]),
                     "Direction towards the light, in the scene (y up is negative).", default: [-0.4, -1, -0.6]),
+                Field(
+                    "clip", .string(),
+                    "The model's own animation to play: a clip name or number (empty: the first; \"none\": stand still on the first frame).",
+                    default: "", animatable: false),
+                Field(
+                    "clipSpeed", .number(step: 0.05),
+                    "Playback speed of the clip (2 = twice as fast, negative = backwards).",
+                    default: 1),
+                Field(
+                    "clipOffset", .number(step: 0.05, unit: "s"),
+                    "Seconds into the clip at the layer's start: different offsets put copies out of step.", default: 0),
+                Field(
+                    "clipLoop", .bool, "Loop the clip; off holds its last frame.", default: true, animatable: false),
+                Field(
+                    "clipTime", .number(min: 0, step: 0.05, unit: "s"),
+                    "Show the clip at exactly this time (keyframe it to scrub); overrides speed and offset.",
+                    advanced: true),
             ], is3D: true),
     ]
 
