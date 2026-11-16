@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${VERSION:-0.1.1}"
+VERSION="${VERSION:-0.1.2}"
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/arclight"
 

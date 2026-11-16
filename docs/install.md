@@ -1,6 +1,6 @@
 # Installing Arclight
 
-Arclight 0.1.1 is alpha software for macOS 14 or later on a Mac with Metal. There are two ways to install it:
+Arclight 0.1.2 is alpha software for macOS 14 or later on a Mac with Metal. There are two ways to install it:
 download the release, or build it yourself.
 
 **The release is ad-hoc signed and not notarized.** Arclight isn't signed with a paid Apple Developer ID yet, so
@@ -10,7 +10,7 @@ isn't damaged; the steps below tell macOS you trust it. Building it yourself avo
 ## Download the release
 
 1. Download `Arclight-0.1.0.zip` from the [Releases page](https://github.com/xndrpr/arclight/releases). The release
-   notes list its SHA-256 checksum; you can compare it with `shasum -a 256 Arclight-0.1.1.zip`.
+   notes list its SHA-256 checksum; you can compare it with `shasum -a 256 Arclight-0.1.2.zip`.
 2. Unzip it and move `Arclight.app` to `/Applications`.
 3. Open Arclight once. macOS says it "cannot verify" the developer, or that it can't check the app for malicious
    software. Click **Done** (or **OK**), not *Move to Trash*.
