@@ -16,6 +16,8 @@ struct FloatingAIPanel: View {
     var pill: CGRect = .zero
     @AppStorage(Pref.aiPanel) private var open = false
     @AppStorage(Pref.aiFloat) private var raw = ""
+    /// Full size: the panel covers the whole editor area (a focus mode for long chats).
+    @AppStorage("aiPanel.expanded") private var expanded = false
     /// Header drag in progress (translation).
     @State private var drag: CGSize?
     /// Corner resize in progress: frame at the start, and the live layout.
@@ -31,7 +33,7 @@ struct FloatingAIPanel: View {
         GeometryReader { g in
             let c = g.size
             let layout = live ?? saved
-            let sheet = layout.isSheet(in: c)
+            let sheet = layout.isSheet(in: c) || (expanded && !layout.collapsed)
             let f = frame(layout, in: c, sheet: sheet)
             let origin = g.frame(in: .global).origin
             ZStack(alignment: .topLeading) {
@@ -63,6 +65,10 @@ struct FloatingAIPanel: View {
     }
 
     private func frame(_ l: AIPanelLayout, in c: CGSize, sheet: Bool) -> CGRect {
+        if expanded && !l.collapsed {
+            let m = AIPanelLayout.margin
+            return CGRect(x: m, y: AIPanelLayout.topMargin, width: c.width - 2 * m, height: c.height - m - AIPanelLayout.topMargin)
+        }
         let f = l.frame(in: c)
         guard let d = drag, !sheet else { return f }
         return AIPanelLayout.clamped(f.offsetBy(dx: d.width, dy: d.height), in: c)
@@ -84,9 +90,13 @@ struct FloatingAIPanel: View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return VStack(spacing: 0) {
             AIPanelHeader(
-                doc: doc, collapsed: l.collapsed, draggable: !sheet,
+                doc: doc, collapsed: l.collapsed, draggable: !sheet, expanded: expanded && !l.collapsed,
                 toggleCollapsed: {
                     var n = saved; n.collapsed.toggle(); withMotion(Motion.snappy) { raw = n.encoded }
+                },
+                toggleExpanded: {
+                    if l.collapsed { var n = saved; n.collapsed = false; raw = n.encoded }
+                    withMotion(Motion.snappy) { expanded.toggle() }
                 },
                 close: { open = false }
             )
@@ -183,7 +193,9 @@ struct AIPanelHeader: View {
     @ObservedObject var doc: EditorDocument
     let collapsed: Bool
     var draggable = true
+    var expanded = false
     let toggleCollapsed: () -> Void
+    var toggleExpanded: () -> Void = {}
     let close: () -> Void
     @ObservedObject private var monitor = AgentMonitor.shared
 
@@ -207,6 +219,10 @@ struct AIPanelHeader: View {
                     doc.flash("Project path copied — paste it to your AI agent")
                 }
                 IconButton(
+                    symbol: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                    help: expanded ? "Back to a floating panel (double-click the bar)" : "Full size (double-click the bar)",
+                    action: toggleExpanded)
+                IconButton(
                     symbol: collapsed ? "chevron.down" : "chevron.up",
                     help: collapsed ? "Expand the AI panel" : "Collapse to this bar",
                     action: toggleCollapsed)
@@ -216,6 +232,7 @@ struct AIPanelHeader: View {
             .frame(height: AIPanelLayout.headerHeight)
             .background(UI.panel)
             .hitArea()
+            .onTapGesture(count: 2) { toggleExpanded() }
             .cursor(draggable ? .openHand : .arrow)
             .help(draggable ? "Drag to move · snaps to the corners" : "")
         }

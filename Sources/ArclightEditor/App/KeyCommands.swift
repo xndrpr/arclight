@@ -60,6 +60,15 @@ enum KeyCommands {
             }
             return e
         }
+        // Selectable text (chat messages, tool output): ⌘C copies the selected words and ⌘A selects them, instead of
+        // copying layers.
+        if let t = NSApp.keyWindow?.firstResponder as? NSTextView, t.isSelectable, mods == .command,
+            (chars == "c" && t.selectedRange().length > 0) || chars == "a"
+        {
+            return e
+        }
+        // Working in the AI panel (last click was inside it): ⌘C / ⌘A go to the text there, not the layers.
+        if mods == .command, chars == "c" || chars == "a", FloatingRegions.isFocused(NSApp.keyWindow) { return e }
         if NSApp.keyWindow?.firstResponder is NSText { NSApp.keyWindow?.makeFirstResponder(nil) }
         // ⌘-arrows nudge the selected layers 1 px (⌘⇧ 10 px). ⌃-arrows are taken by macOS for Spaces.
         if mods.subtracting(.shift) == .command, (123...126).contains(e.keyCode) {

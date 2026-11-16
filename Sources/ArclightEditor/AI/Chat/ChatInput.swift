@@ -194,6 +194,10 @@ struct ChatTextView: NSViewRepresentable {
         Self.applyTheme(tv)
         context.coordinator.observeTheme(tv)
         scroll.documentView = tv
+        // The box's width settles after layout (and changes when the panel is resized): measure again then.
+        // Measuring before it has a width wrapped every letter onto its own line and the box jumped to full height.
+        tv.postsFrameChangedNotifications = true
+        context.coordinator.observeWidth(tv)
         DispatchQueue.main.async {
             tv.window?.makeFirstResponder(tv)
             context.coordinator.measure(tv)
@@ -225,7 +229,22 @@ struct ChatTextView: NSViewRepresentable {
         var parent: ChatTextView
         private var themeToken: NSObjectProtocol?
         init(_ p: ChatTextView) { parent = p }
-        deinit { if let t = themeToken { NotificationCenter.default.removeObserver(t) } }
+        private var frameToken: NSObjectProtocol?
+        private var lastWidth: CGFloat = 0
+        deinit {
+            if let t = themeToken { NotificationCenter.default.removeObserver(t) }
+            if let t = frameToken { NotificationCenter.default.removeObserver(t) }
+        }
+
+        func observeWidth(_ tv: NSTextView) {
+            frameToken = NotificationCenter.default.addObserver(
+                forName: NSView.frameDidChangeNotification, object: tv, queue: .main
+            ) { [weak self, weak tv] _ in
+                guard let self, let tv, abs(tv.frame.width - self.lastWidth) > 0.5 else { return }
+                self.lastWidth = tv.frame.width
+                self.measure(tv)
+            }
+        }
 
         func observeTheme(_ tv: NSTextView) {
             themeToken = NotificationCenter.default.addObserver(forName: .appThemeChanged, object: nil, queue: .main) {
@@ -246,6 +265,13 @@ struct ChatTextView: NSViewRepresentable {
         /// Sizes the box to the text: one line at least, ten at most (then it scrolls).
         func measure(_ tv: NSTextView) {
             guard let lm = tv.layoutManager, let tc = tv.textContainer else { return }
+            // No real width yet: keep one line (empty) or the current height rather than a wrapped-per-letter one.
+            guard tv.frame.width > 40, tc.size.width > 20 else {
+                if tv.string.isEmpty, abs(parent.height - ChatTextView.minHeight) > 0.5 {
+                    parent.height = ChatTextView.minHeight
+                }
+                return
+            }
             lm.ensureLayout(for: tc)
             let used = lm.usedRect(for: tc).height + tv.textContainerInset.height * 2
             let h = min(max(ceil(used), ChatTextView.minHeight), ChatTextView.maxHeight)

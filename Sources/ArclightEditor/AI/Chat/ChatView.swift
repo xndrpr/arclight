@@ -18,6 +18,7 @@ struct ChatView: View {
         VStack(spacing: 0) {
             header
             Hairline()
+            ChatProgress(chat: chat).animation(UI.fade, value: chat.transcript.plan == nil && chat.activity == nil)
             if chat.transcript.items.isEmpty {
                 ChatEmptyState(chat: chat).frame(maxHeight: .infinity, alignment: .top)
             } else {
@@ -62,11 +63,47 @@ struct ChatView: View {
                     .help("Runs through your own installed command-line agent and its login. Experimental.")
             }
             Spacer()
-            IconButton(symbol: "square.and.pencil", help: "New chat") { chat.newChat() }
-                .disabled(chat.transcript.items.isEmpty)
+            ChatModelMenu()
+            historyMenu
+            IconButton(symbol: "square.and.pencil", help: "New chat (this one stays in the history)") {
+                chat.newChat()
+            }
+            .disabled(chat.transcript.items.isEmpty || chat.running)
             IconButton(symbol: "gearshape", help: "Chat settings") { ChatSettingsLink.open() }
         }
         .padding(.horizontal, 10).frame(height: 32)
+    }
+
+    /// Past chats of this project: open one (the current one is kept), or delete it.
+    private var historyMenu: some View {
+        Menu {
+            if chat.archive.isEmpty {
+                Text("No earlier chats")
+            } else {
+                Section("Earlier chats") {
+                    ForEach(chat.archive.prefix(30)) { c in
+                        Menu("\(c.title)  ·  \(Self.date(c.date))") {
+                            Button("Open") { chat.open(archived: c.id) }.disabled(chat.running)
+                            Button("Delete", role: .destructive) { chat.delete(archived: c.id) }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "clock.arrow.circlepath").font(.system(size: 11, weight: .medium))
+                .foregroundStyle(UI.label2)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help("Chat history")
+        .onAppear { chat.refreshArchive() }
+    }
+
+    static func date(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.doesRelativeDateFormatting = true
+        f.dateStyle = .short
+        f.timeStyle = .short
+        return f.string(from: d)
     }
 
     private var messages: some View {
@@ -74,21 +111,28 @@ struct ChatView: View {
         let lastId = items.last?.id
         return ScrollViewReader { proxy in
             ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(items) { item in
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(ChatBlock.group(items)) { block in
                         Group {
-                            if item.kind == .choice, let c = item.choice {
-                                ChoiceCard(doc: doc, chat: chat, choice: c)
-                            } else {
-                                ChatRow(item: item, live: chat.running && item.id == lastId).equatable()
+                            switch block {
+                            case .item(let item):
+                                if item.kind == .choice, let c = item.choice {
+                                    ChoiceCard(doc: doc, chat: chat, choice: c)
+                                } else {
+                                    ChatRow(item: item, live: chat.running && item.id == lastId).equatable()
+                                }
+                            case .tools(let tools):
+                                ChatToolGroup(tools: tools)
                             }
                         }
-                        .id(item.id)
+                        .id(block.id)
                     }
-                    if chat.running, items.last?.kind != .thinking { ChatWorking() }
+                    if chat.running, items.last?.kind != .thinking { ChatWorking(label: chat.activity) }
                     Color.clear.frame(height: 1).id(Self.bottom)
                 }
-                .padding(12)
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                // Wide panels (expanded) keep a readable line length.
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
                 .background(
                     GeometryReader { g in
                         Color.clear.preference(
@@ -208,17 +252,17 @@ struct ChatRow: View, Equatable {
                     }
                 }
                 if !item.text.isEmpty {
-                    Text(item.text).font(UI.font).foregroundStyle(UI.text).textSelection(.enabled)
-                        .padding(.horizontal, 10).padding(.vertical, 7)
-                        .background(RoundedRectangle(cornerRadius: 10).fill(UI.selected))
+                    Text(item.text).font(Self.body).foregroundStyle(UI.text).textSelection(.enabled)
+                        .lineSpacing(2)
+                        .padding(.horizontal, 11).padding(.vertical, 8)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(UI.selected))
+                        .contextMenu { Button("Copy Message") { Self.copy(item.text) } }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.leading, 30)
         case .assistant:
-            Text(Self.markdown(item.text)).font(UI.font).foregroundStyle(UI.text).textSelection(.enabled)
-                .lineSpacing(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            ChatAssistantRow(text: item.text, live: live)
         case .thinking:
             ChatThinkingRow(item: item, live: live && item.duration == nil)
         case .tool:
@@ -254,6 +298,14 @@ struct ChatRow: View, Equatable {
         }
     }
 
+    /// Message text: a touch larger than the editor's UI font, for reading.
+    static let body = Font.system(size: 13)
+
+    static func copy(_ s: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(s, forType: .string)
+    }
+
     static func markdown(_ s: String) -> AttributedString {
         (try? AttributedString(
             markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
@@ -272,8 +324,9 @@ struct ChatToolRow: View {
             } label: {
                 HStack(spacing: 6) {
                     status.frame(width: 12)
-                    Text(item.tool ?? "tool").font(UI.monoSmall).foregroundStyle(UI.text)
-                    Text(item.input ?? "").font(UI.monoSmall).foregroundStyle(UI.faint).lineLimit(1)
+                    Text(item.ok == nil ? ChatToolNames.doing(item.tool ?? "") : ChatToolNames.done(item.tool ?? ""))
+                        .font(UI.small).foregroundStyle(UI.text).lineLimit(1)
+                    Text(item.tool ?? "tool").font(UI.monoSmall).foregroundStyle(UI.faint).lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 0)
                 }
@@ -284,6 +337,11 @@ struct ChatToolRow: View {
             .buttonStyle(.plain).cursor(.pointingHand).help("Show what the tool returned")
             if open {
                 VStack(alignment: .leading, spacing: 6) {
+                    if let input = item.input, !input.isEmpty, input != "{}" {
+                        Text(input.count > 600 ? String(input.prefix(600)) + "…" : input).font(UI.monoSmall)
+                            .foregroundStyle(UI.faint).textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if !item.text.isEmpty {
                         Text(item.text).font(UI.monoSmall).foregroundStyle(UI.label2).textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
@@ -309,10 +367,11 @@ struct ChatToolRow: View {
 
 /// Shown under the last row while a turn runs.
 private struct ChatWorking: View {
+    var label: String?
     var body: some View {
         HStack(spacing: 6) {
             ProgressView().controlSize(.mini)
-            Text("Working…").font(UI.small).foregroundStyle(UI.dim)
+            Text((label ?? "Working") + "…").font(UI.small).foregroundStyle(UI.dim)
         }
     }
 }

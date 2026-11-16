@@ -28,7 +28,7 @@ public final class MCPServer {
     /// `ask_choice` tool is listed too.
     public init(projectPath: String?, chat: Bool = false) {
         if let p = projectPath { store = try? ProjectStore(url: URL(expandingPath: p)) }
-        tools = makeTools() + libraryTools() + themeTools() + (chat ? [chatChoiceTool()] : [])
+        tools = makeTools() + libraryTools() + themeTools() + (chat ? [chatChoiceTool(), chatPlanTool()] : [])
     }
 
     /// Created on first use: loading the GPU renderer is slow and most tools never need it.

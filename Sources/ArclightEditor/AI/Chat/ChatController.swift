@@ -31,6 +31,11 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     init(project: URL) {
         self.project = project
         transcript = ChatTranscript.load(project: project)
+        // A tool row left running by a turn that never finished (the app quit mid-call) is shown as stopped.
+        for i in transcript.items.indices where transcript.items[i].kind == .tool && transcript.items[i].ok == nil {
+            transcript.items[i].ok = false
+        }
+        archive = ChatTranscript.archived(project: project)
     }
 
     deinit {
@@ -64,7 +69,10 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         noteBackendSwitch()
         // Typed while a question waits: that's the answer, in the user's own words.
         let waiting = transcript.pendingChoice
+        transcript.plan?.waiting = false
         transcript.items.append(ChatItem(kind: .user, text: text, attachments: files.isEmpty ? nil : files))
+        // Saved right away: a turn that never finishes (quit, crash, lost network) still keeps the message.
+        transcript.save(project: project)
         if let c = waiting {
             let a = ChatChoice.Answer(comment: text, typed: true)
             transcript.answer(c.id, a)
@@ -113,6 +121,8 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         noteBackendSwitch()
         let a = ChatChoice.Answer(picked: picked, comment: comment)
         transcript.answer(choice.id, a)
+        transcript.plan?.waiting = false
+        transcript.save(project: project)
         run(choice.resultText(a))
     }
 
@@ -156,13 +166,50 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         backend?.close()  // the CLI backend's process; the API one stops with the task
     }
 
+    /// Starts a new chat. The current one is kept in the history (`ChatTranscript.archive`), not deleted.
     func newChat() {
         stop()
+        transcript.archive(project: project)
         transcript = ChatTranscript()
         backend = nil
         transcript.save(project: project)
-        ChatAttachment.prune(project: project, keep: pending)
+        refreshArchive()
         revision += 1
+    }
+
+    /// Past chats of this project, newest first (the header's history menu).
+    @Published private(set) var archive: [ChatTranscript.Summary] = []
+
+    func refreshArchive() { archive = ChatTranscript.archived(project: project) }
+
+    /// Opens a past chat; the current one goes into the history.
+    func open(archived id: String) {
+        guard !running, let t = ChatTranscript.restore(id, project: project) else { return }
+        transcript.archive(project: project)
+        transcript = t
+        backend = nil  // the restored history is passed to a fresh backend on the next send
+        backendConfig = ""
+        transcript.save(project: project)
+        refreshArchive()
+        revision += 1
+    }
+
+    func delete(archived id: String) {
+        ChatTranscript.deleteArchived(id, project: project)
+        refreshArchive()
+    }
+
+    /// What the AI is doing right now, in words (the progress bar's live line).
+    var activity: String? {
+        guard running else { return nil }
+        if let t = transcript.items.last(where: { $0.kind == .tool && $0.ok == nil }) {
+            return ChatToolNames.doing(t.tool ?? "")
+        }
+        switch transcript.items.last?.kind {
+        case .thinking?: return "Thinking"
+        case .assistant?: return "Writing"
+        default: return "Working"
+        }
     }
 
     /// Applies the events that arrived since the last frame, in one change.
@@ -173,7 +220,14 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         for e in events { t.apply(e) }
         transcript = t
         revision += 1
+        // Long turns are saved as they go (at most every few seconds).
+        if Date().timeIntervalSince(lastSave) > 4 {
+            lastSave = Date()
+            transcript.save(project: project)
+        }
     }
+
+    private var lastSave = Date.distantPast
 
     // MARK: Turn
 

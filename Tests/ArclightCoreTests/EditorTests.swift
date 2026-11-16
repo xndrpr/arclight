@@ -128,6 +128,7 @@ import Testing
         #expect(doc.tlVisible <= doc.panLimit + 1e-9)
 
         doc.time = 2
+        doc.snapping = true  // not the stored preference: another suite writes it in parallel
         #expect(doc.snapTime(1.03, tolerance: 0.1) == 1)  // snaps to the opacity key at t=1
         doc.snapping = false
         #expect(abs(doc.snapTime(1.03, tolerance: 0.1) - 31.0 / 30) < 1e-9)  // frame only

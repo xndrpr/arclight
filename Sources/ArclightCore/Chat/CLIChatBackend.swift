@@ -154,6 +154,8 @@ struct CLIStreamParser {
     private var toolNames: [String: String] = [:]
     /// ask_choice calls waiting for the server's check.
     private var choices: [String: [String: JSONValue]] = [:]
+    /// update_plan calls: shown as the progress bar, their results hidden.
+    private var plans: Set<String> = []
     static let prefix = "mcp__arclight__"
 
     mutating func feed(_ line: Data) -> [ChatEvent] {
@@ -186,6 +188,11 @@ struct CLIStreamParser {
                 var name = b["name"]?.string ?? ""
                 if name.hasPrefix(Self.prefix) { name = String(name.dropFirst(Self.prefix.count)) }
                 toolNames[id] = name
+                if name == ChatPlan.toolName {
+                    plans.insert(id)
+                    if let p = try? ChatPlan.parse(b["input"]?.object ?? [:]) { return .plan(p) }
+                    return nil
+                }
                 if name == ChatChoice.toolName {
                     // Shown as a card once the server accepts it (its result); a rejected one shows as a failed call.
                     choices[id] = b["input"]?.object ?? [:]
@@ -196,6 +203,7 @@ struct CLIStreamParser {
         case "user":
             return (v["message"]?["content"]?.array ?? []).flatMap { b -> [ChatEvent] in
                 guard b["type"]?.string == "tool_result", let id = b["tool_use_id"]?.string else { return [] }
+                if plans.remove(id) != nil { return [] }
                 if let input = choices.removeValue(forKey: id) {
                     let ok = !(b["is_error"]?.bool ?? false)
                     if ok, let c = try? ChatChoice.parse(id: id, input: input) { return [.choice(c)] }

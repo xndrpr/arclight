@@ -21,4 +21,16 @@ extension MCPServer {
             )
         }
     }
+
+    /// `update_plan` for the CLI chat: the editor reads the call from the agent's output; this only checks it.
+    func chatPlanTool() -> Tool {
+        let def = ChatPlan.tool
+        return Tool(
+            name: ChatPlan.toolName, description: def["description"]?.string ?? "",
+            schema: def["input_schema"] ?? schema([:]), readOnly: true
+        ) { args in
+            do { _ = try ChatPlan.parse(args) } catch { throw ToolError("\(error)") }
+            return text(ChatPlan.ack)
+        }
+    }
 }
