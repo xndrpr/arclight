@@ -16,6 +16,8 @@ public final class MCPServer {
     private var _renderer: Renderer?
     /// Tests inject a stand-in for fal.ai here.
     var imageProviderOverride: ImageProvider?
+    /// Tests point the asset library at a mock server.
+    var assetLibraryOverride: AssetLibrary?
     var tools: [Tool] = []
     let out = FileHandle.standardOutput
     /// This session as shown in the editor's top bar and AI panel. Only written to disk while `run()` serves stdio.

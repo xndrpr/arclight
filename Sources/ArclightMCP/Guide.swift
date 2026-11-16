@@ -214,12 +214,15 @@ enum Guide {
         1. Shell. A room is a box with "inside": true, e.g. {"type":"box","id":"room","x":960,"y":540,"z":1200,"size":[2600,1300,3000],\
         "inside":true,"color":"#cfc8bc","shade":0.45,"bottom":{"color":"#5e5040"},"top":{"color":"#e9e5dd"}}: floor y 1190, ceiling y −110, \
         back wall z 2700, near wall z −300. Keep the camera inside it (z −250…2650, y −60…1150); from outside, its near walls drop away like a dollhouse \
-        (a pull-out reveal of the whole room). Faces take colours or images: image_generate a "seamless … texture, flat, even light" and set \
+        (a pull-out reveal of the whole room). Faces take colours or images: library_search {kind:"texture"} for a free tiling texture \
+        (library_import gives a .jpg), or image_generate a "seamless … texture, flat, even light", and set \
         {"src", "tile":[u,v]}. Or a plate: image_generate the whole place, place it as an image with "3d": true far back (big enough to fill the \
         view there), then image_depth for parallax; keep moves small (push-ins, drifts) because a relief's edges stretch. A plate also works seen \
         through a window cut in a box room (set that wall to false and build the window frame from boxes).
         2. Things in it. box for simple solids (tables, shelves, blocks: x,y,z is the centre, so a table top's y = floor − leg height). \
-        model for objects and figures: model_generate {prompt, scene, x, y, z, size, material, quality} makes one object per call (1–2 min, paid: reuse a \
+        model for objects and figures. First library_search {query} — free realistic CC0 models (furniture, props, plants, food, \
+        tools, lamps) and textures (wood, stone, fabric for box faces) — then library_import {id, scene, x, y, z, size}. Only when nothing fits: \
+        model_generate {prompt, scene, x, y, z, size, material, quality} makes one object per call (1–2 min, paid: reuse a \
         model across scenes and instance it for crowds, and ask before making more than three). quality "draft" (Trellis, $0.02) for things seen small or \
         far; "standard" (Trellis 2, $0.30, clean shape and textures) for anything the camera gets close to — draft models look rough in close-ups. Describe only the object and its material; for people use faceless figures, e.g. \
         "faceless matte white mannequin sitting, hands on knees" or "faceless clay hand, palm open". pivot "bottom" with y = floor y stands it on the floor; \

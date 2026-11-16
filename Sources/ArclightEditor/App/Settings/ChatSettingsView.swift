@@ -15,6 +15,7 @@ struct ChatSettingsView: View {
     @State private var model = ChatSettings.model
     @State private var effort = ChatSettings.effort
     @State private var stages = Set(ChatSettings.directionStages)
+    @State private var web = ChatSettings.webSearch
     @State private var message: String?
 
     var body: some View {
@@ -66,6 +67,14 @@ struct ChatSettingsView: View {
             .padding(.top, 4)
             Text(
                 "Before building a new scene, the AI checks these with you in the chat: a short brief, a few style frames to pick from, a storyboard of still beats, and how things move. Turn all off to build straight away, or say “just build it”."
+            )
+            .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
+            Toggle("Let the AI search the web", isOn: $web).toggleStyle(.switch).controlSize(.small).padding(.top, 4)
+                .onChange(of: web) { _, v in
+                    ChatSettings.webSearch = v; ChatSettingsChange.post()
+                }
+            Text(
+                "For references, facts and finding free assets. About 1 cent per search (billed by Anthropic with the chat); up to 5 searches per reply."
             )
             .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
         }

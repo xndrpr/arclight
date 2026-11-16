@@ -3,7 +3,8 @@ import Foundation
 
 extension MCPServer {
     func makeTools() -> [Tool] {
-        projectTools() + sceneTools() + thumbnailTools() + generateTools() + modelTools() + creatorTools()
+        projectTools() + sceneTools() + thumbnailTools() + generateTools() + modelTools() + assetLibraryTools()
+            + creatorTools()
             + outputTools()
             + editorTools()
     }

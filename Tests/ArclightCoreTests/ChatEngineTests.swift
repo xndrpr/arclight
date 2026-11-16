@@ -424,3 +424,62 @@ private final class Events: @unchecked Sendable {
         #expect(ChatPrompt.directionNote([]).contains("off"))
     }
 }
+
+/// Web search and fetch run on the provider's side: their blocks are kept verbatim and shown as tool rows.
+@Suite struct ChatWebSearchTests {
+    @Test func searchBlocksStreamAsToolRowsAndAreKeptVerbatim() throws {
+        var a = MessageAssembler()
+        let events: [String] = [
+            #"{"type":"content_block_start","index":0,"content_block":{"type":"server_tool_use","id":"srv1","name":"web_search"}}"#,
+            #"{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"query\":\"free cc0 3d plant pot\"}"}}"#,
+            #"{"type":"content_block_stop","index":0}"#,
+            #"{"type":"content_block_start","index":1,"content_block":{"type":"web_search_tool_result","tool_use_id":"srv1","content":[{"type":"web_search_result","url":"https://polyhaven.com/a/potted_plant_01","title":"Potted Plant 01","encrypted_content":"abc"}]}}"#,
+            #"{"type":"content_block_stop","index":1}"#,
+            #"{"type":"message_delta","delta":{"stop_reason":"end_turn"}}"#,
+            #"{"type":"message_stop"}"#,
+        ]
+        var out: [ChatEvent] = []
+        for e in events { if let ev = try a.feed(Data(e.utf8)) { out.append(ev) } }
+        #expect(out.count == 2)
+        guard case .toolStart(let id, let name, let input) = out[0],
+            case .toolEnd(let id2, let ok, let summary, _) = out[1]
+        else { Issue.record("expected a tool row"); return }
+        #expect(id == "srv1" && id2 == "srv1" && name == "web_search" && input.contains("plant pot") && ok)
+        #expect(summary.contains("Potted Plant 01 — https://polyhaven.com/a/potted_plant_01"))
+        // Sent back exactly: the query parsed into input, the encrypted content untouched.
+        #expect(a.message.content[0]["input"]?["query"] == "free cc0 3d plant pot")
+        #expect(a.message.content[1]["content"]?.array?.first?["encrypted_content"] == "abc")
+        let err = MessageAssembler.serverResult(
+            id: "x", block: ["type": "web_search_tool_result", "content": ["error_code": "max_uses_exceeded"]])
+        #expect(err == .toolEnd(id: "x", ok: false, summary: "failed: max_uses_exceeded", image: nil))
+    }
+
+    @Test func pausedSearchTurnContinuesAndOrgWithoutSearchFallsBack() async throws {
+        let paused: JSONValue = [
+            "type": "server_tool_use", "id": "srv1", "name": "web_search", "input": ["query": "x"],
+        ]
+        let s = FakeStream([
+            .failure(.http(400, "web search is not enabled for this organization")),
+            .success(message([paused], stop: "pause_turn")),
+            .success(message([["type": "text", "text": "Found it."]], stop: "end_turn")),
+        ])
+        let b = APIChatBackend(
+            client: s, runner: FakeTools(), model: .opus, effort: .medium, projectPath: "/p.arclight", history: [],
+            web: true)
+        b.retryDelays = [0, 0]
+        let events = Events()
+        try await b.send("find a free pot model", context: nil) { events.add($0) }
+        let names = { (i: Int) in (s.bodies[i]["tools"]?.array ?? []).compactMap { $0["name"]?.string } }
+        #expect(names(0).contains("web_search") && !names(1).contains("web_search"))
+        #expect(
+            events.all.contains {
+                if case .notice(let n) = $0 { return n.contains("Web search is turned off") }; return false
+            })
+        // The paused turn went back as the last message, with no extra user message.
+        #expect(s.bodies.count == 3)
+        #expect(s.bodies[2]["messages"]?.array?.last?["role"] == "assistant")
+        // One assistant message: the paused search and the reply that continued it.
+        #expect(b.history.map { $0["role"]?.string ?? "" } == ["user", "assistant"])
+        #expect(b.history.last?["content"]?.array?.map { $0["type"]?.string ?? "" } == ["server_tool_use", "text"])
+    }
+}

@@ -120,7 +120,7 @@ Many copies of a symbol standing on a floor in 3D: crowds, fields of icons, char
 
 ## `light` — Light
 
-A single pool of light (and optional beam) on the floor at x,y,z. Number settings inside pool and beam can be keyframed on their own, e.g. "intensity": {"k": [[0, 0], [1, 1.2]]} (as in any layer's object settings).
+A single pool of light (and optional beam) lying flat at x,y,z: set y to the surface it lights (a floor, or a table top = the table box's y − half its height), not the lamp's height. Over a textured surface use pool blend "light". Number settings inside pool and beam can be keyframed on their own, e.g. "intensity": {"k": [[0, 0], [1, 1.2]]} (as in any layer's object settings).
 
 | Property | Kind | Default | Description |
 |---|---|---|---|
@@ -412,6 +412,7 @@ Spotlight pool on the floor under each lit copy (additive, blooms).
 | `softness` | number | `0.5` | Edge softness (0 = hard disc, 1 = all falloff). |
 | `falloff` | number | `1` | How quickly it fades from the centre. |
 | `spill` | {spill} |  | Optional wide glow. `false` turns it off. |
+| `blend` | "add"\|"light" | `"add"` | add: glow added on top (shows on a dark void, washes out textures); light: brightens the surface under it (a box table or floor), keeping its texture. |
 
 ### `spill` object
 

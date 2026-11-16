@@ -4,6 +4,11 @@ import SwiftUI
 /// Plain words for the tools the AI calls, for the progress line and tool rows.
 enum ChatToolNames {
     static let names: [String: (doing: String, done: String)] = [
+        "web_search": ("Searching the web", "Searched the web"),
+        "web_fetch": ("Reading a web page", "Read a web page"),
+        "code_execution": ("Sorting the search results", "Sorted the search results"),
+        "library_search": ("Looking in the free asset library", "Looked in the free asset library"),
+        "library_import": ("Importing a free asset", "Imported a free asset"),
         "image_generate": ("Generating an image", "Generated an image"),
         "image_fill": ("Repainting an area", "Repainted an area"),
         "image_expand": ("Extending a picture", "Extended a picture"),

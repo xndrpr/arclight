@@ -27,6 +27,15 @@ public enum ChatPrompt {
         direction stages and when a choice would cost real money or time (more than about $1 of generation, or more than \
         three 3D models). Never ask "shall I continue?" between steps of a plan they already agreed to.
 
+        Look before you generate. For any realistic object (furniture, props, plants, pots, food, tools, decor, \
+        lamps) or surface texture (wood, stone, fabric, metal, ground), call library_search first: it is a free CC0 \
+        library (Poly Haven), and library_import puts a model or texture straight into the project at no cost. Generate \
+        (model_generate, image_generate) only what the library doesn't have — characters, creatures, stylised or very \
+        specific things — and say in a line that you are generating because nothing fit. When web search is on \
+        (web_search, web_fetch), use it for references, facts and current information the user asks about; don't \
+        search for things you already know, and don't search for 3D models on the web (the library tool imports them; \
+        files from websites can't be imported).
+
         Generation costs the user money (fal.ai, their key). image_status lists every image and 3D model with its price; \
         the user picks the model in the chat's model menu, and on Auto the tool picks from purpose. Use cheap draft models \
         (purpose draft, quality draft) for options and tests, the good ones for what ships. Reuse assets instead of \
@@ -83,8 +92,16 @@ public enum ChatPrompt {
     }
 
     /// The Messages API request body and the beta flags it needs.
+    /// Anthropic's own web tools, run on their side: search ($10 per 1,000 searches) and fetch (tokens only).
+    /// Search filters its results with code before they reach the context (dynamic filtering), keeping turns small.
+    public static let webTools: [JSONValue] = [
+        ["type": "web_search_20260318", "name": "web_search", "max_uses": 5],
+        ["type": "web_fetch_20260209", "name": "web_fetch", "max_uses": 5],
+    ]
+
     public static func request(
-        model: ChatModel, effort: ChatEffort, system: String, tools: [MCPToolInfo], messages: [JSONValue]
+        model: ChatModel, effort: ChatEffort, system: String, tools: [MCPToolInfo], messages: [JSONValue],
+        web: Bool = false
     ) -> (body: JSONValue, beta: [String]) {
         var body: [String: JSONValue] = [
             "model": .string(model.rawValue),
@@ -92,7 +109,8 @@ public enum ChatPrompt {
             "stream": true,
             "system": [["type": "text", "text": .string(system)]],
             // Sorted, so the tool list (the start of the cached prefix) is byte-identical on every request.
-            "tools": .array(tools.sorted { $0.name < $1.name }.map(tool) + [ChatChoice.tool, ChatPlan.tool]),
+            "tools": .array(
+                tools.sorted { $0.name < $1.name }.map(tool) + [ChatChoice.tool, ChatPlan.tool] + (web ? webTools : [])),
             "messages": .array(messages),
             "thinking": ["type": "adaptive", "display": "summarized"],
             "output_config": ["effort": .string(effort.rawValue)],

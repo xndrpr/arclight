@@ -142,7 +142,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         let setup = Setup(
             kind: kind, model: ChatSettings.model, effort: ChatSettings.effort, cliPath: ChatSettings.cliPath,
             key: kind == .api ? KeychainStore.chatKey() : nil, history: transcript.history,
-            session: transcript.cliSession)
+            session: transcript.cliSession, web: ChatSettings.webSearch)
         let reuse = setup.config == backendConfig ? backend : nil
         let server = tools
         task = Task { [weak self] in
@@ -272,7 +272,8 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         var key: String?
         var history: [JSONValue]
         var session: String?
-        var config: String { "\(kind)|\(model)|\(effort)|\(cliPath)|\(key?.hashValue ?? 0)" }
+        var web: Bool
+        var config: String { "\(kind)|\(model)|\(effort)|\(cliPath)|\(key?.hashValue ?? 0)|\(web)" }
     }
 
     /// A backend for `setup`, starting the tool server if there is none. Runs in the turn's task; what it makes is
@@ -288,7 +289,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
             await MainActor.run { tools = runner }
             made = APIChatBackend(
                 client: MessagesAPIClient(key: key), runner: runner, model: setup.model, effort: setup.effort,
-                projectPath: path, history: setup.history)
+                projectPath: path, history: setup.history, web: setup.web)
         case .cli:
             guard let exe = CLILocator.locate(custom: setup.cliPath) else {
                 throw ChatAPIError.stream(

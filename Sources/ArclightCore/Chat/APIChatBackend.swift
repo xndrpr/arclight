@@ -42,13 +42,16 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
     let system: String
     /// Tool rounds allowed in one user turn before the chat stops and asks the user.
     var maxRounds = 40
+    /// Web search and fetch (Settings ▸ AI ▸ Chat). Turned off for the rest of the chat if the account has them off.
+    var web: Bool
     /// Pauses before retrying an overloaded or rate-limited request (tests shorten them).
     var retryDelays: [Double] = [2, 6, 15]
 
     public init(
         client: MessageStreaming, runner: ChatToolRunner, model: ChatModel, effort: ChatEffort, projectPath: String,
-        history: [JSONValue]
+        history: [JSONValue], web: Bool = false
     ) {
+        self.web = web
         self.client = client
         self.runner = runner
         self.model = model
@@ -88,7 +91,9 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
             default: break
             }
             guard !calls.isEmpty else {
-                if !msg.content.isEmpty { history.append(["role": "assistant", "content": .array(msg.content)]) }
+                if !msg.content.isEmpty { appendAssistant(msg.content) }
+                // A long web search turn was paused on the server: send it back as is and it carries on.
+                if msg.stopReason == "pause_turn", !msg.content.isEmpty { continue }
                 return
             }
             // The assistant turn and its results are appended together, so a stop never leaves a call unanswered.
@@ -144,7 +149,7 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
                     onEvent(event)
                 }
             }
-            history.append(["role": "assistant", "content": .array(msg.content)])
+            appendAssistant(msg.content)
             if let asked, !cancelled {
                 // Stop and wait. The other results are kept; the answer joins them in the same message next turn.
                 if !results.isEmpty { history.append(["role": "user", "content": .array(results)]) }
@@ -159,6 +164,17 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
             if !runTools { return }
         }
         onEvent(.notice("Stopped after \(maxRounds) tool rounds. Say “continue” to keep going."))
+    }
+
+    /// Adds the model's blocks. After a paused server-tool turn (`pause_turn`) the reply continues that same
+    /// assistant message, so it joins it instead of following it.
+    private func appendAssistant(_ content: [JSONValue]) {
+        if var last = history.last?.object, last["role"]?.string == "assistant" {
+            last["content"] = .array((last["content"]?.array ?? []) + content)
+            history[history.count - 1] = .object(last)
+        } else {
+            history.append(["role": "assistant", "content": .array(content)])
+        }
     }
 
     /// Adds the user's blocks: to the last message when it is already the user's (a turn that was stopped or
@@ -211,12 +227,16 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
     }
 
     private func streamWithRetry(_ onEvent: @escaping @Sendable (ChatEvent) -> Void) async throws -> StreamedMessage {
-        let (body, beta) = ChatPrompt.request(
-            model: model, effort: effort, system: system, tools: runner.tools, messages: history)
         var attempt = 0
         while true {
+            let (body, beta) = ChatPrompt.request(
+                model: model, effort: effort, system: system, tools: runner.tools, messages: history, web: web)
             do {
                 return try await client.stream(body, beta: beta, onEvent: onEvent)
+            } catch ChatAPIError.http(400, let m) where web && m.lowercased().contains("web") {
+                // The organization has web search turned off (Console ▸ Settings): carry on without it.
+                web = false
+                onEvent(.notice("Web search is turned off for this API key's organization; continuing without it."))
             } catch let e as ChatAPIError where e.retryable && attempt < retryDelays.count {
                 onEvent(.notice("The AI service is busy — trying again…"))
                 try await Task.sleep(nanoseconds: UInt64(retryDelays[attempt] * 1_000_000_000))

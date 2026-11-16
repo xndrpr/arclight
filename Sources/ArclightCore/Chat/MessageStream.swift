@@ -50,6 +50,12 @@ public struct MessageAssembler {
         case "content_block_start":
             guard let i = ev["index"]?.double.map(Int.init), let b = ev["content_block"] else { return nil }
             blocks[i] = b
+            // A web search or fetch finished (server tools): its results arrive whole.
+            if let t = b["type"]?.string, t == "web_search_tool_result" || t == "web_fetch_tool_result",
+                let id = b["tool_use_id"]?.string
+            {
+                return Self.serverResult(id: id, block: b)
+            }
         case "content_block_delta":
             guard let i = ev["index"]?.double.map(Int.init), let d = ev["delta"], var b = blocks[i]?.object else {
                 return nil
@@ -76,6 +82,11 @@ public struct MessageAssembler {
         case "content_block_stop":
             guard let i = ev["index"]?.double.map(Int.init) else { return nil }
             finish(i)
+            // A server tool (web search, fetch, the code that filters results) is starting: show it like a tool call.
+            if let b = blocks[i], b["type"]?.string == "server_tool_use", let id = b["id"]?.string {
+                return .toolStart(
+                    id: id, name: b["name"]?.string ?? "server_tool", input: ChatPrompt.compact(b["input"] ?? [:]))
+            }
         case "message_delta":
             if let r = ev["delta"]?["stop_reason"]?.string { message.stopReason = r }
             if let sd = ev["delta"]?["stop_details"], sd != .null { message.stopDetails = sd }
@@ -94,7 +105,7 @@ public struct MessageAssembler {
     private mutating func finish(_ i: Int) {
         guard var b = blocks[i]?.object else { return }
         closed.insert(i)
-        if b["type"]?.string == "tool_use" {
+        if b["type"]?.string == "tool_use" || b["type"]?.string == "server_tool_use" {
             let raw = partialJSON[i] ?? ""
             if raw.isEmpty {
                 if b["input"] == nil { b["input"] = [:] }
@@ -107,6 +118,26 @@ public struct MessageAssembler {
         }
         blocks[i] = .object(b)
         message.content = blocks.keys.sorted().compactMap { blocks[$0] }
+    }
+}
+
+extension MessageAssembler {
+    /// A web search / fetch result as a finished tool row: the pages found, or the error.
+    static func serverResult(id: String, block b: JSONValue) -> ChatEvent {
+        let c = b["content"]
+        if let err = c?["error_code"]?.string {
+            return .toolEnd(id: id, ok: false, summary: "failed: \(err)", image: nil)
+        }
+        if let list = c?.array {
+            let lines = list.prefix(8).compactMap { r -> String? in
+                guard let url = r["url"]?.string else { return nil }
+                return (r["title"]?.string.map { "\($0) — " } ?? "") + url
+            }
+            return .toolEnd(
+                id: id, ok: true, summary: lines.isEmpty ? "no results" : lines.joined(separator: "\n"), image: nil)
+        }
+        let url = c?["url"]?.string ?? c?["content"]?["source"]?["url"]?.string
+        return .toolEnd(id: id, ok: true, summary: url.map { "read \($0)" } ?? "read the page", image: nil)
     }
 }
 

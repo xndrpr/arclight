@@ -10,6 +10,13 @@ project format; older projects keep loading.
 
 ### Added
 
+- Free asset library: `library_search` and `library_import` find and import ready-made CC0 3D models (~500) and
+  tiling textures (~900) from Poly Haven at no cost. A model's glTF is packed into one .glb. The AI looks there
+  before paying to generate a model or texture.
+- Web search in the in-app chat (Anthropic's web search and fetch, about 1 cent per search, up to 5 per reply),
+  shown as steps in the chat; turn it off in Settings ▸ AI ▸ Chat. If the organization has web search disabled, the
+  chat carries on without it.
+
 - AI model picker in the chat header and Settings ▸ AI: image and 3D models with their fal.ai prices, or Auto, which
   picks by purpose (Seedream 5.5 for photos and cut-outs, GPT Image 2.6 for graphics, Z-Image Turbo for drafts;
   Trellis 2 for 3D, Trellis for drafts).

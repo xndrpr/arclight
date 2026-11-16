@@ -229,6 +229,7 @@ public enum ChatSettings {
         var backend: ChatBackendKind?
         var cliPath: String?
         var direction: [ChatChoice.Stage]?
+        var web: Bool?
     }
 
     nonisolated(unsafe) public static var overrideURL: URL? { didSet { memo = nil } }
@@ -269,6 +270,12 @@ public enum ChatSettings {
     public static var directionStages: [ChatChoice.Stage] {
         get { read().direction ?? ChatChoice.Stage.allCases }
         set { update { $0.direction = ChatChoice.Stage.allCases.filter(newValue.contains) } }
+    }
+
+    /// Web search and page reading in the chat (Anthropic's server tools, about 1 cent a search). On by default.
+    public static var webSearch: Bool {
+        get { read().web ?? true }
+        set { update { $0.web = newValue } }
     }
 
     /// A path to the command-line agent set by hand (empty: look in the usual places).
