@@ -138,8 +138,23 @@ enum Guide {
     static let notes: [String: String] = [
         "text": """
         Count-up: "text":"{v}%", "value":{"k":[[0,0],[1.5,45,"outExpo"]]}, "tabular":true.
-        Typewriter: "reveal":{"by":"char","stagger":0.045,"duration":0.01,"from":{"opacity":0}}.
-        Slide up from behind a line: "reveal":{"by":"word","mask":true,"from":{"opacity":0,"y":60}}.
+        Entrances: the generic one (fade + slide up by word, outExpo, 0.05 s stagger) reads as auto-generated. \
+        Use it rarely, never on every text, and pick a treatment for what the words do:
+          Hard cut on a beat: no reveal; set "in" on the beat. Swap a word in place with two layers cut at the same time.
+          Punch: "reveal":{"by":"word","stagger":0.12,"duration":0.35,"ease":"outBack","from":{"opacity":1,"scale":1.6}} \
+        (no fade: the word is there at once, just too big).
+          Crisp line wipe: "reveal":{"by":"line","mask":true,"duration":0.5,"ease":"outQuart","from":{"opacity":1,"y":<size>}} \
+        (opacity 1, so the mask does the work and the edge stays sharp).
+          Typewriter: "reveal":{"by":"char","stagger":0.045,"duration":0.01,"from":{"opacity":0}}.
+          Scatter into place: "reveal":{"by":"char","order":"random","stagger":0.02,"duration":0.6,"ease":"spring",\
+        "from":{"opacity":1,"x":-40,"y":30,"rotation":-25}}.
+          Tracking squeeze: no reveal; key "tracking" from wide to tight (e.g. 60 → 0 over 1.2 s, outCubic) while the layer holds.
+          Wipe by a shape: a moving rect as the text's "mask" {"node":"wipe"} (the mask itself is not drawn; \
+        duplicate it as a visible coloured bar to lead the edge).
+          Focus pull: key effects.blur 20 → 0 with opacity at 1, ideally while the camera moves.
+          Pushed in: an object hits or slides past and the text reacts (key x with a spring timed to the contact).
+        Mix speeds: fast arrival, slow drift afterwards (a small x or scale key over the hold) so text never \
+        freezes dead. Exits matter too: key the layer out, push it off with the next element, or let the camera pass it.
         """,
         "repeater": """
         Place the repeater on the floor with x/y/z (y = floor height, larger = lower on screen) and look at it with the scene camera,
@@ -170,7 +185,7 @@ enum Guide {
            Render all of them in one render_frames call per draft (times:[0.5], scale 0.25) to check them yourself, fix what's broken, \
            then ask_choice with one option per draft: visual {scene:"look-a", time:0.5}, a 2–4 word title and a one-line note on the idea.
         3. Storyboard (stage "storyboard"): in the chosen look, 3–6 beats of the scene in order as ONE draft scene ("board") where each beat \
-           holds still for 1 s (a group per beat with "in":n-1, "out":n). Real words, real layout, no motion yet. \
+           holds still for 1 s (a group per beat with "in":n-1, "out":n). Real layout and only the copy the brief calls for (no captions explaining the action, no invented HUD or flavour text: show it instead), no motion yet. \
            ask_choice with one option: visual {scene:"board", times:[0.5, 1.5, …]}, title "Storyboard", note listing the beats. \
            If the user comments, change the board and ask again.
         4. Motion feel (stage "motion"): the hero element of the board animating in, 2–3 ways that differ in timing and character: \
@@ -186,7 +201,7 @@ enum Guide {
         # Recipes
         Stat with a crowd: repeater (symbol basic/person, 45% lit via pick) + text "{v}%" whose value is
           {"expr":"Math.min(45, Math.ceil(45 * litCount('crowd') / Math.round(instanceCount('crowd') * 0.45)))"} so the number tracks the lights.
-        Title card: text centred (align "center", x = width/2) with reveal by word + a line shape whose trim animates [0,0]→[0,1].
+        Title card: text centred (align "center", x = width/2) with a crisp line wipe (see guide("text")) led by a line shape whose trim animates [0,0]→[0,1].
         Vertical short: project_update {"size":[1080,1920]} (or a scene override {"op":"scene","size":[1080,1920]}); keep text within x 80…1000.
         Dark backdrop behind type: rect 1920x1080 at 960,540 with a linear gradient fill from opaque top-left to transparent.
         """
@@ -220,7 +235,7 @@ enum Guide {
         # AI pixels (image_status says what's available)
         - image_remove_bg {layer} — on-device and free: cut a person/object out of a photo, then add effects.outline for the sticker look.
         - image_select_subject {layer} — the subject's box in canvas px (place text beside it, or use it as an image_fill rect).
-        - With the user's fal.ai key: image_generate {prompt} (a new picture; no words in it — use text layers), image_fill {rect|area_layer, prompt}
+        - With the user's fal.ai key: image_generate {prompt, model?} (a new picture; no words in it — use text layers; model = a fal text-to-image id for this call, default from Settings), image_fill {rect|area_layer, prompt}
           (repaint an area: remove or add things; result is a new layer), image_expand {layer, left/top/right/bottom} (outpaint a tight photo to 16:9),
           image_upscale {layer, factor}. If they return "image generation is off", tell the user they can add a key in Settings ▸ AI.
         - All take scene, or thumbnail + artboard. Results are new assets plus normal layer edits (revertible via history).

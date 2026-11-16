@@ -145,7 +145,7 @@ public enum ImageAI {
         func snap(_ v: Int) -> Int { max(256, min(2048, (v + 8) / 16 * 16)) }
         let img = try await provider.generate(prompt: prompt, width: snap(width), height: snap(height), seed: seed)
         let name = try write(img, base: "gen-" + slug(prompt), store: store)
-        log(store, op: "generate", model: provider.name, prompt: prompt, source: nil, asset: name)
+        log(store, op: "generate", model: (provider as? FalProvider)?.models.generate ?? provider.name, prompt: prompt, source: nil, asset: name)
         guard place, let scene, let project else {
             return Result(asset: name, ops: [], summary: "generated \(name)", layer: "")
         }
@@ -157,7 +157,7 @@ public enum ImageAI {
             "node": [
                 "id": .string(id), "type": "image", "name": .string(String(prompt.prefix(40))), "src": .string(name),
                 "x": .number(c.x.rounded()), "y": .number(c.y.rounded()), "width": .number(Double(width)),
-                "height": .number(Double(height)),
+                "height": .number(Double(height)), "fit": "cover",
             ],
         ]
         return Result(asset: name, ops: [add], summary: "generated “\(prompt.prefix(40))”", layer: id)

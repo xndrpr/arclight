@@ -46,6 +46,17 @@ extension MCPServer {
         return p
     }
 
+    /// The provider for one `image_generate` call: Settings' generate model, or `model` when the call names one.
+    func generateProvider(model: String?) throws -> ImageProvider {
+        let model = model?.trimmingCharacters(in: .whitespaces).lowercased()
+        if let model, !model.isEmpty, !FalProvider.isModelID(model) {
+            throw ToolError("model '\(model)' isn't a fal model id like fal-ai/flux/dev")
+        }
+        let p = try falProvider()
+        guard let model, !model.isEmpty, let fal = p as? FalProvider else { return p }
+        return fal.generating(with: model)
+    }
+
     private static let hostProps: [String: JSONValue] = [
         "scene": prop("string", "Scene id (or use thumbnail + artboard)"),
         "thumbnail": prop("string", "Thumbnail page id"),
@@ -69,7 +80,7 @@ extension MCPServer {
                 var lines = [
                     "on-device (Apple Vision): image_remove_bg, image_select_subject — always available",
                     fal
-                        ? "fal.ai: on — generate \(m.generate), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale)"
+                        ? "fal.ai: on — generate \(m.generate) (image_generate model can pick another fal text-to-image id per call), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale)"
                         : "fal.ai: off — the user can add a key in Settings ▸ AI ▸ Image generation (image_generate, image_fill, image_expand, image_upscale need it)",
                 ]
                 if let s = store {
@@ -122,17 +133,18 @@ extension MCPServer {
             Tool(
                 name: "image_generate",
                 description:
-                    "Generate a picture from a prompt (fal.ai, needs the user's key). Saved as an asset; with scene or thumbnail it is also placed as a new image layer (centred on x,y, default the canvas centre). Describe subject, style, lighting; no text in the picture — add words as text layers.",
+                    "Generate a picture from a prompt (fal.ai, needs the user's key). Saved as an asset; with scene or thumbnail it is also placed as a new image layer (centred on x,y, default the canvas centre, fit cover). Describe subject, style, lighting; no text in the picture — add words as text layers. model picks the fal text-to-image model for this call (default: the one in Settings, see image_status), e.g. fal-ai/flux/dev or a GPT Image model id from fal; use one the user asked for.",
                 schema: schema(
                     MCPServer.with([
                         "prompt": prop("string", "What to make"),
                         "width": prop("integer", "Pixels, default 1280"), "height": prop("integer", "Pixels, default 720"),
                         "x": prop("number", "Centre x on the canvas"), "y": prop("number", "Centre y"),
-                        "seed": prop("integer", "Repeatable result"),
+                        "seed": prop("integer", "Repeatable result (models that support it)"),
+                        "model": prop("string", "fal model id for this call, e.g. fal-ai/flux/dev (default: Settings)"),
                     ]), required: ["prompt"])
             ) { [unowned self] a in
                 let s = try requireStore()
-                let provider = try falProvider()
+                let provider = try generateProvider(model: a["model"]?.string)
                 let place = a["scene"] != nil || a["thumbnail"] != nil
                 let h = place ? try layerHost(a, store: s) : nil
                 let w = try SafeNumber.int(a["width"]?.double ?? 1280, "width", in: 64...4096)

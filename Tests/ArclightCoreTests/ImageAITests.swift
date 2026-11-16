@@ -95,6 +95,25 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         #expect(FalMock.log.last?.hasPrefix("GET https://cdn.test/out.png") == true)
     }
 
+    @Test func generateModelCanBeChosenPerCall() async throws {
+        FalMock.log = []; FalMock.statuses = []; FalMock.submitCode = 200
+        FalMock.png = ImageData.png(FakeProvider().solid(64, 32, 1, 0, 0))!
+        var fal = FalProvider(key: "k", session: session(), base: URL(string: "https://queue.test")!)
+        fal.poll = 0.01
+        _ = try await fal.generating(with: "fal-ai/flux-pro/v1.1").generate(prompt: "x", width: 64, height: 32, seed: nil)
+        #expect(FalMock.log.first == "POST https://queue.test/fal-ai/flux-pro/v1.1 Key k")
+        #expect(fal.models.generate == "fal-ai/flux/dev")  // the original is unchanged
+
+        let gpt = FalProvider.generateInput(model: "fal-ai/gpt-image-1/text-to-image", prompt: "x", width: 1280, height: 720, seed: 3)
+        #expect(gpt["image_size"] == "1536x1024" && gpt["seed"] == nil && gpt["enable_safety_checker"] == nil)
+        #expect(FalProvider.generateInput(model: "fal-ai/gpt-image-1", prompt: "x", width: 720, height: 1280, seed: nil)["image_size"] == "1024x1536")
+        let flux = FalProvider.generateInput(model: "fal-ai/flux/dev", prompt: "x", width: 1280, height: 720, seed: 3)
+        #expect(flux["image_size"]?["width"] == 1280 && flux["seed"] == 3)
+
+        #expect(FalProvider.isModelID("fal-ai/flux-pro/v1.1-ultra"))
+        #expect(!FalProvider.isModelID("flux") && !FalProvider.isModelID("fal-ai/../x") && !FalProvider.isModelID("a/b?c=1"))
+    }
+
     @Test func falReportsRejectedKeysAndFailures() async throws {
         FalMock.submitCode = 401; FalMock.statuses = []
         let fal = FalProvider(key: "bad", session: session(), base: URL(string: "https://queue.test")!)
@@ -195,6 +214,8 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         #expect(out.contains("photo-x3.png") && out.contains("saved thumbnail t rev 2"))
         let gen = try run("image_generate", ["prompt": "sunset", "thumbnail": "t", "width": 512, "height": 512])
         #expect(gen.contains("gen-sunset.png"))
+        #expect(throws: (any Error).self) { try run("image_generate", ["prompt": "x", "model": "../etc"]) }
+        _ = try run("image_generate", ["prompt": "dusk", "model": "fal-ai/flux-pro/v1.1"])  // fake provider ignores it
         let st = try ProjectStore(url: tp.url)
         #expect(st.thumbnails["t"]?.artboards[0].nodes.count == 2)
         #expect(try run("image_status", [:]).contains("fal.ai: on"))
