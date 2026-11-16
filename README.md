@@ -12,7 +12,7 @@ edits scenes through Arclight's MCP server while you watch the changes appear in
 hand with a timeline, keyframes and an inspector. Rendering is Metal; export is H.264, HEVC, ProRes 4444 with alpha or
 a PNG sequence.
 
-> **Alpha.** This is Arclight 0.1.0, the first public release. Expect rough edges. The project format may still
+> **Alpha.** This is Arclight 0.1.1. Expect rough edges. The project format may still
 > change before 1.0; older projects keep loading. See the [changelog](CHANGELOG.md).
 
 <p align="center"><img src="docs/assets/demo.gif" alt="The kinetic-type example, rendered by Arclight"><br>
@@ -35,10 +35,17 @@ bigger" is one small edit), and your look lives in reusable theme tokens, templa
 - **Editor**: Metal viewport, timeline with keyframes and markers, a layer list with thumbnails, an inspector
   generated from the engine's schema, undo, autosave, revision history with restore, a cinema viewer, and
   landscape, vertical or square canvases. Keyboard shortcuts follow DaVinci Resolve (J/K/L, I/O, and so on).
-- **AI agents over MCP**: 28 tools to create projects and scenes, apply small atomic edits, preview frames, check a
-  project for problems, make artwork (`symbol_save` for vector shapes, `asset_write` for images from SVG or PNG/JPEG
-  data) and export. Every call shows up in the editor's AI panel with one-click revert, and you can leave notes for
-  the agent pinned to a layer and a moment in time.
+- **AI agents over MCP**: over 40 tools to create projects and scenes, apply small atomic edits, preview frames,
+  check a project for problems, make artwork (`symbol_save` for vector shapes, `asset_write` for images from SVG or
+  PNG/JPEG data) and export. Every call shows up in the editor's AI panel with one-click revert, and you can leave
+  notes for the agent pinned to a layer and a moment in time.
+- **Chat in the editor**: talk to the AI inside the app; it settles the brief, look, storyboard and motion with you
+  before building a scene.
+- **YouTube thumbnails**: a second workspace (**⌘2**) with artboards, layer effects (blend modes, clipping, masks,
+  outline, shadow, glow, blur, colour adjustments), templates, A/B variants, frames pulled from your video and
+  reference analysis, exported as PNG or JPG under YouTube's 2 MB limit.
+- **AI pixel tools**: remove a background or select the subject on-device, plus optional generate, fill, expand and
+  upscale with your own fal.ai key.
 - **Layers**: text (per-character, word or line reveals, count-ups), shapes (gradients, lines that draw on),
   symbols (vector icons and logos), images, groups, repeaters (hundreds of symbols on a 3D floor: crowds, fields of
   icons) and lights.
