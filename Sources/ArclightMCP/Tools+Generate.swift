@@ -51,8 +51,8 @@ extension MCPServer {
     /// The provider for one `image_generate` call: Settings' generate model, or `model` when the call names one.
     func generateProvider(model: String?) throws -> ImageProvider {
         let model = model?.trimmingCharacters(in: .whitespaces).lowercased()
-        if let model, !model.isEmpty, !FalProvider.isModelID(model) {
-            throw ToolError("model '\(model)' isn't a fal model id like fal-ai/flux/dev")
+        if let model, !model.isEmpty, model != ModelCatalog.auto, !FalProvider.isModelID(model) {
+            throw ToolError("model '\(model)' isn't a fal model id like \(ModelCatalog.defaultImage), or auto")
         }
         let p = try falProvider()
         guard let model, !model.isEmpty, let fal = p as? FalProvider else { return p }
@@ -82,9 +82,15 @@ extension MCPServer {
                 var lines = [
                     "on-device (Apple Vision): image_remove_bg, image_select_subject — always available",
                     fal
-                        ? "fal.ai: on — generate \(m.generate) (image_generate model can pick another fal text-to-image id per call), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale), depth \(m.depth), image → 3D \(m.model3D)"
+                        ? "fal.ai: on — image model \(m.generate), image → 3D \(m.model3D) (the user's choice in the chat's model menu; auto = Arclight picks from purpose), fill/expand \(m.fill), background \(m.removeBackground), upscale \(m.upscale), depth \(m.depth)"
                         : "fal.ai: off — the user can add a key in Settings ▸ AI ▸ Image generation (image_generate, image_fill, image_expand, image_upscale, image_depth, model_generate need it)",
                 ]
+                if fal {
+                    lines.append(
+                        "image models (price per image; pass model only when the user asked for one or the setting is auto and purpose isn't enough):\n"
+                            + ModelCatalog.summary(.image))
+                    lines.append("3D models (price per model):\n" + ModelCatalog.summary(.model3D))
+                }
                 if let s = store {
                     let h = ImageAI.history(s).suffix(5)
                     if !h.isEmpty {
@@ -137,7 +143,7 @@ extension MCPServer {
             Tool(
                 name: "image_generate",
                 description:
-                    "Generate a picture from a prompt (fal.ai, needs the user's key). Saved as an asset; with scene or thumbnail it is also placed as a new image layer (centred on x,y, default the canvas centre, fit cover). Describe subject, style, lighting; no text in the picture — add words as text layers. model picks the fal text-to-image model for this call (default: the one in Settings, see image_status), e.g. fal-ai/flux/dev or a GPT Image model id from fal; use one the user asked for.",
+                    "Generate a picture from a prompt (fal.ai, needs the user's key). Saved as an asset; with scene or thumbnail it is also placed as a new image layer (centred on x,y, default the canvas centre, fit cover). Describe subject, style, lighting; no text in the picture — add words as text layers. The model is the user's choice (chat model menu); with auto, purpose picks it. transparent:true gives a cut-out with real alpha (no remove_bg needed). Size is fitted to each model's limits automatically; if a model rejects the request another good one is tried and the result says which made it and its price. Don't pass model unless the user asked for a specific one (image_status lists ids and prices).",
                 schema: schema(
                     MCPServer.with([
                         "prompt": prop("string", "What to make"),
@@ -145,7 +151,13 @@ extension MCPServer {
                         "height": prop("integer", "Pixels, default 720"),
                         "x": prop("number", "Centre x on the canvas"), "y": prop("number", "Centre y"),
                         "seed": prop("integer", "Repeatable result (models that support it)"),
-                        "model": prop("string", "fal model id for this call, e.g. fal-ai/flux/dev (default: Settings)"),
+                        "model": prop("string", "fal model id for this call, or auto (default: the user's setting)"),
+                        "purpose": prop(
+                            "string", "photo (default), draft, graphic, illustration or background — picks the model when it is auto",
+                            extra: ["enum": .array(ModelCatalog.Purpose.allCases.map { .string($0.rawValue) })]),
+                        "transparent": prop("boolean", "Transparent background (cut-out asset)"),
+                        "quality": prop("string", "low, medium or high on models with a quality setting (GPT Image)"),
+                        "options": prop("object", "Raw fal parameters for the model, merged into the request last"),
                     ]), required: ["prompt"])
             ) { [unowned self] a in
                 let s = try requireStore()
@@ -158,12 +170,17 @@ extension MCPServer {
                 let prompt = try a.str("prompt")
                 let seed = a["seed"]?.double.map { Int($0) }
                 let scene = h?.scene, project = h?.project
+                let options = GenerateOptions(
+                    transparent: a["transparent"]?.bool ?? false, quality: a["quality"]?.string,
+                    purpose: a["purpose"]?.string.flatMap(ModelCatalog.Purpose.init(rawValue:)),
+                    extra: a["options"]?.object ?? [:])
                 let r = try blocking {
                     try await ImageAI.generate(
                         prompt: prompt, width: w, height: hh, in: scene, project: project, store: s, provider: provider,
-                        place: place, at: at, seed: seed)
+                        place: place, at: at, seed: seed, options: options)
                 }
-                return text("asset \(r.asset)" + (h.map { "\n" + ((try? $0.save(r.ops, r.summary)) ?? "") } ?? ""))
+                return text(
+                    "asset \(r.asset) — \(r.note)" + (h.map { "\n" + ((try? $0.save(r.ops, r.summary)) ?? "") } ?? ""))
             },
 
             Tool(

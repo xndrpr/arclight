@@ -6,26 +6,31 @@ import Foundation
 /// Model ids are defaults that Settings (and `ARCLIGHT_FAL_MODELS`) can override.
 public struct FalProvider: ImageProvider {
     public struct Models: Codable, Equatable, Sendable {
-        public var generate = "fal-ai/flux/dev"
+        /// "auto" lets `ModelCatalog.pick` choose per request.
+        public var generate = ModelCatalog.auto
         public var fill = "fal-ai/flux-pro/v1/fill"
         public var removeBackground = "fal-ai/birefnet"
         public var upscale = "fal-ai/esrgan"
         /// Depth map of a picture (white = near), for relief images.
         public var depth = "fal-ai/image-preprocessors/depth-anything/v2"
         /// Image to 3D model (GLB), for model layers.
-        public var model3D = "fal-ai/trellis"
+        public var model3D = ModelCatalog.auto
         public init() {}
+
+        /// Ids that were the defaults before the catalog: saved settings holding them follow the new Auto default.
+        static let oldDefaults = ["fal-ai/flux/dev", "fal-ai/trellis"]
 
         /// Missing ids (settings saved before a model was added) take the default.
         public init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             let d = Models()
-            generate = try c.decodeIfPresent(String.self, forKey: .generate) ?? d.generate
+            func pick(_ v: String?, _ def: String) -> String { v.map { Self.oldDefaults.contains($0) ? def : $0 } ?? def }
+            generate = pick(try c.decodeIfPresent(String.self, forKey: .generate), d.generate)
             fill = try c.decodeIfPresent(String.self, forKey: .fill) ?? d.fill
             removeBackground = try c.decodeIfPresent(String.self, forKey: .removeBackground) ?? d.removeBackground
             upscale = try c.decodeIfPresent(String.self, forKey: .upscale) ?? d.upscale
             depth = try c.decodeIfPresent(String.self, forKey: .depth) ?? d.depth
-            model3D = try c.decodeIfPresent(String.self, forKey: .model3D) ?? d.model3D
+            model3D = pick(try c.decodeIfPresent(String.self, forKey: .model3D), d.model3D)
         }
     }
 
@@ -46,15 +51,64 @@ public struct FalProvider: ImageProvider {
     }
 
     public func generate(prompt: String, width: Int, height: Int, seed: Int?) async throws -> CGImage {
-        try await run(
-            models.generate,
-            Self.generateInput(model: models.generate, prompt: prompt, width: width, height: height, seed: seed))
+        try await generate(prompt: prompt, width: width, height: height, seed: seed, options: GenerateOptions()).image
+    }
+
+    /// Generates with `options`, resolving "auto" to a catalog model. When the model rejects the request (a 4xx
+    /// other than a bad key or rate limit: wrong input shape, model gone) and `options.fallback` is on, the next
+    /// model of `ModelCatalog.fallbacks` is tried, so one bad model id doesn't stop the work.
+    public func generate(
+        prompt: String, width: Int, height: Int, seed: Int?, options: GenerateOptions
+    ) async throws -> GeneratedImage {
+        let first =
+            models.generate == ModelCatalog.auto
+            ? ModelCatalog.pick(options.purpose, transparent: options.transparent) : models.generate
+        var queue = [first]
+        if options.fallback { queue += ModelCatalog.fallbacks(after: first, transparent: options.transparent) }
+        var failed: [String] = []
+        var lastError: Error?
+        for model in queue {
+            do {
+                let body = Self.generateInput(
+                    model: model, prompt: prompt, width: width, height: height, seed: seed, options: options)
+                let img = try await run(model, body)
+                return GeneratedImage(image: img, model: model, failed: failed)
+            } catch let e as ImageAIError {
+                guard case .http(let code, let body) = e, Self.isRequestError(code) else { throw e }
+                failed.append("\(model): HTTP \(code) \(Self.reason(body))")
+                lastError = e
+            }
+        }
+        throw lastError ?? ImageAIError.failed("fal.ai: no model to try")
+    }
+
+    /// 4xx answers that another model might not give (not auth, not rate limits).
+    static func isRequestError(_ code: Int) -> Bool { (400..<500).contains(code) && ![401, 403, 429].contains(code) }
+
+    /// The first `msg` of a fal validation error, else the body's start.
+    static func reason(_ body: String) -> String {
+        if let v = try? JSONDecoder().decode(JSONValue.self, from: Data(body.utf8)),
+            let d = v["detail"]?.array?.first, let m = d["msg"]?.string
+        {
+            let loc = d["loc"]?.array?.compactMap(\.string).filter { $0 != "body" }.joined(separator: ".") ?? ""
+            return loc.isEmpty ? m : "\(loc): \(m)"
+        }
+        return String(body.prefix(120))
     }
 
     /// This provider with another text-to-image model (one `image_generate` call), everything else unchanged.
     public func generating(with model: String) -> FalProvider {
         var m = models
         m.generate = model
+        var p = FalProvider(key: key, models: m, session: session, base: base)
+        p.poll = poll; p.timeout = timeout
+        return p
+    }
+
+    /// This provider with another image-to-3D model.
+    public func modelling(with model: String) -> FalProvider {
+        var m = models
+        m.model3D = model
         var p = FalProvider(key: key, models: m, session: session, base: base)
         p.poll = poll; p.timeout = timeout
         return p
@@ -70,21 +124,29 @@ public struct FalProvider: ImageProvider {
             }
     }
 
-    /// The request body for a text-to-image model. Flux-style models (the default) take an exact pixel size;
-    /// GPT Image models take one of three fixed sizes, so the closest aspect is picked (the layer crops to fit).
-    static func generateInput(model: String, prompt: String, width: Int, height: Int, seed: Int?) -> [String: JSONValue]
-    {
-        if model.contains("gpt-image") {
-            let aspect = Double(width) / Double(max(height, 1))
-            let size = aspect > 1.2 ? "1536x1024" : aspect < 1 / 1.2 ? "1024x1536" : "1024x1024"
-            return ["prompt": .string(prompt), "num_images": 1, "image_size": .string(size), "output_format": "png"]
+    /// The request body for a text-to-image model, shaped by its catalog entry: an exact `{width, height}` fitted
+    /// into the model's pixel limits, or the nearest `aspect_ratio` + `resolution`. Unknown models get the
+    /// Flux-style body. The layer crops the result to the asked size, so a slightly different size is fine.
+    static func generateInput(
+        model: String, prompt: String, width: Int, height: Int, seed: Int?, options: GenerateOptions = GenerateOptions()
+    ) -> [String: JSONValue] {
+        let entry = ModelCatalog.entry(model)
+        var body: [String: JSONValue] = ["prompt": .string(prompt), "num_images": 1, "output_format": "png"]
+        switch entry?.sizing ?? ModelCatalog.flexibleSize {
+        case .pixels(let m, let area):
+            let (w, h) = ModelCatalog.fit(width, height, multiple: m, area: area)
+            body["image_size"] = ["width": .number(Double(w)), "height": .number(Double(h))]
+        case .aspect(let ratios, let resolution):
+            body["aspect_ratio"] = .string(ModelCatalog.nearestRatio(width, height, in: ratios))
+            body["resolution"] = .string(resolution)
         }
-        var body: [String: JSONValue] = [
-            "prompt": .string(prompt), "num_images": 1,
-            "image_size": ["width": .number(Double(width)), "height": .number(Double(height))],
-            "enable_safety_checker": true, "output_format": "png",
-        ]
-        if let seed { body["seed"] = .number(Double(seed)) }
+        if entry == nil || entry?.seed == true, let seed { body["seed"] = .number(Double(seed)) }
+        if entry == nil { body["enable_safety_checker"] = true }
+        for (k, v) in entry?.defaults ?? [:] { body[k] = v }
+        if options.transparent, entry?.transparent == true { body["background"] = "transparent" }
+        if let q = options.quality, entry?.defaults["quality"] != nil { body["quality"] = .string(q) }
+        // The caller's own model parameters win, except the prompt.
+        for (k, v) in options.extra where k != "prompt" { body[k] = v }
         return body
     }
 
@@ -115,15 +177,24 @@ public struct FalProvider: ImageProvider {
     public func model3D(image: CGImage) async throws -> Data {
         var p = self
         p.timeout = max(timeout, 600)
-        let result = try await p.result(models.model3D, ["image_url": .string(try ImageData.dataURI(image))])
+        let model = models.model3D == ModelCatalog.auto ? ModelCatalog.defaultModel3D : models.model3D
+        let result = try await p.result(model, Self.model3DInput(model: model, image: try ImageData.dataURI(image)))
         guard let url = FalProvider.modelURL(in: result) else {
             throw ImageAIError.failed("fal.ai: no model in the result")
         }
         return try await download(url)
     }
 
+    /// The image-to-3D request: the picture in the field the model wants, plus its catalog defaults.
+    static func model3DInput(model: String, image: String) -> [String: JSONValue] {
+        let e = ModelCatalog.entry(model)
+        var body = e?.defaults ?? [:]
+        body[e?.imageField ?? "image_url"] = e?.imageList == true ? [.string(image)] : .string(image)
+        return body
+    }
+
     static func modelURL(in v: JSONValue) -> String? {
-        for k in ["model_mesh", "model_glb", "glb", "model", "mesh"] {
+        for k in ["model_glb", "model_mesh", "pbr_model", "glb", "model", "mesh"] {
             if let u = v[k]?["url"]?.string ?? v[k]?.string { return u }
         }
         return nil

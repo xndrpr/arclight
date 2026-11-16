@@ -45,6 +45,8 @@ final class FalMock: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var statuses: [String] = []
     nonisolated(unsafe) static var submitCode = 200
     nonisolated(unsafe) static var png = Data()
+    /// Model paths whose submit answers 422 (fallback tests).
+    nonisolated(unsafe) static var reject: Set<String> = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -62,7 +64,9 @@ final class FalMock: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didLoad: body)
             client?.urlProtocolDidFinishLoading(self)
         }
-        if request.httpMethod == "POST" {
+        if request.httpMethod == "POST", FalMock.reject.contains(where: { u.hasSuffix("/" + $0) }) {
+            reply(422, Data(#"{"detail":[{"loc":["body","image_size"],"msg":"Input should be a valid dictionary"}]}"#.utf8))
+        } else if request.httpMethod == "POST" {
             reply(
                 FalMock.submitCode,
                 Data(
@@ -105,7 +109,7 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         fal.poll = 0.01
         let img = try await fal.generate(prompt: "a cat", width: 64, height: 32, seed: 1)
         #expect(img.width == 64 && img.height == 32)
-        #expect(FalMock.log.first == "POST https://queue.test/fal-ai/flux/dev Key k123")
+        #expect(FalMock.log.first == "POST https://queue.test/\(ModelCatalog.defaultImage) Key k123")
         #expect(FalMock.log.filter { $0.contains("/status") }.count == 3)  // queue, progress, completed
         #expect(FalMock.log.last?.hasPrefix("GET https://cdn.test/out.png") == true)
     }
@@ -118,21 +122,66 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         _ = try await fal.generating(with: "fal-ai/flux-pro/v1.1").generate(
             prompt: "x", width: 64, height: 32, seed: nil)
         #expect(FalMock.log.first == "POST https://queue.test/fal-ai/flux-pro/v1.1 Key k")
-        #expect(fal.models.generate == "fal-ai/flux/dev")  // the original is unchanged
+        #expect(fal.models.generate == ModelCatalog.auto)  // the original is unchanged
 
+        // GPT Image on fal takes {width, height} (a "1536x1024" string was a 422), within its pixel limits.
         let gpt = FalProvider.generateInput(
-            model: "fal-ai/gpt-image-1/text-to-image", prompt: "x", width: 1280, height: 720, seed: 3)
-        #expect(gpt["image_size"] == "1536x1024" && gpt["seed"] == nil && gpt["enable_safety_checker"] == nil)
-        #expect(
-            FalProvider.generateInput(model: "fal-ai/gpt-image-1", prompt: "x", width: 720, height: 1280, seed: nil)[
-                "image_size"] == "1024x1536")
+            model: "openai/gpt-image-2.6/flare/text-to-image", prompt: "x", width: 1280, height: 720, seed: 3,
+            options: GenerateOptions(transparent: true, quality: "medium"))
+        #expect(gpt["image_size"]?["width"] == 1280 && gpt["image_size"]?["height"] == 720)
+        #expect(gpt["background"] == "transparent" && gpt["quality"] == "medium" && gpt["seed"] == nil)
+        // Seedream needs at least 921,600 px: a small request is scaled up, keeping the aspect, in multiples of 16.
+        let sd = FalProvider.generateInput(
+            model: "bytedance/seedream/v5.5/text-to-image", prompt: "x", width: 512, height: 512, seed: nil)
+        let sw = Int(sd["image_size"]?["width"]?.double ?? 0), sh = Int(sd["image_size"]?["height"]?.double ?? 0)
+        #expect(sw == sh && sw % 16 == 0 && sw * sh >= 921_600)
+        // Aspect-ratio models get the nearest ratio.
+        let f3 = FalProvider.generateInput(
+            model: "blackforestlabs/flux-3/text-to-image", prompt: "x", width: 1280, height: 720, seed: nil)
+        #expect(f3["aspect_ratio"] == "16:9" && f3["image_size"] == nil)
+        // Raw options win; the transparent flag is dropped on models without it.
+        let z = FalProvider.generateInput(
+            model: "fal-ai/z-image/turbo", prompt: "x", width: 640, height: 640, seed: 2,
+            options: GenerateOptions(transparent: true, extra: ["num_inference_steps": 4]))
+        #expect(z["background"] == nil && z["num_inference_steps"] == 4 && z["seed"] == 2)
         let flux = FalProvider.generateInput(model: "fal-ai/flux/dev", prompt: "x", width: 1280, height: 720, seed: 3)
         #expect(flux["image_size"]?["width"] == 1280 && flux["seed"] == 3)
+        // Auto picks by purpose.
+        #expect(ModelCatalog.pick(.draft, transparent: false) == "fal-ai/z-image/turbo")
+        #expect(ModelCatalog.pick(nil, transparent: true) == ModelCatalog.defaultImage)
+        #expect(FalProvider.model3DInput(model: "fal-ai/hyper3d/rodin/v2", image: "d")["input_image_urls"] == ["d"])
+        #expect(FalProvider.model3DInput(model: "fal-ai/hunyuan3d-v3/image-to-3d", image: "d")["input_image_url"] == "d")
 
         #expect(FalProvider.isModelID("fal-ai/flux-pro/v1.1-ultra"))
         #expect(
             !FalProvider.isModelID("flux") && !FalProvider.isModelID("fal-ai/../x") && !FalProvider.isModelID("a/b?c=1")
         )
+    }
+
+    @Test func rejectedModelFallsBackToAnother() async throws {
+        FalMock.log = []; FalMock.statuses = []; FalMock.submitCode = 200
+        FalMock.reject = ["openai/gpt-image-2.6/flare/text-to-image"]
+        defer { FalMock.reject = [] }
+        FalMock.png = ImageData.png(FakeProvider().solid(64, 32, 1, 0, 0))!
+        var fal = FalProvider(key: "k", session: session(), base: URL(string: "https://queue.test")!)
+        fal.poll = 0.01
+        let g = try await fal.generating(with: "openai/gpt-image-2.6/flare/text-to-image").generate(
+            prompt: "x", width: 64, height: 32, seed: nil, options: GenerateOptions())
+        #expect(g.model == ModelCatalog.defaultImage)
+        #expect(g.failed.first?.contains("image_size: Input should be a valid dictionary") == true)
+        // With fallback off the error comes through.
+        await #expect(throws: ImageAIError.self) {
+            _ = try await fal.generating(with: "openai/gpt-image-2.6/flare/text-to-image").generate(
+                prompt: "x", width: 64, height: 32, seed: nil, options: GenerateOptions(fallback: false))
+        }
+    }
+
+    @Test func savedOldDefaultsFollowAuto() throws {
+        let m = try JSONDecoder().decode(
+            FalProvider.Models.self, from: Data(#"{"generate":"fal-ai/flux/dev","model3D":"fal-ai/hyper3d/rodin/v2"}"#.utf8))
+        #expect(m.generate == ModelCatalog.auto && m.model3D == "fal-ai/hyper3d/rodin/v2")
+        #expect(ModelCatalog.fit(1280, 720, multiple: 16, area: 655_360...8_294_400) == (1280, 720))
+        #expect(ModelCatalog.nearestRatio(1080, 1920, in: ["16:9", "1:1", "9:16"]) == "9:16")
     }
 
     @Test func falReportsRejectedKeysAndFailures() async throws {

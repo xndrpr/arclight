@@ -8,6 +8,9 @@ import UniformTypeIdentifiers
 public protocol ImageProvider: Sendable {
     var name: String { get }
     func generate(prompt: String, width: Int, height: Int, seed: Int?) async throws -> CGImage
+    /// With options (transparency, quality, model parameters); reports the model that made it.
+    func generate(prompt: String, width: Int, height: Int, seed: Int?, options: GenerateOptions) async throws
+        -> GeneratedImage
     /// Inpaint: replaces the white area of `mask` (same size as `image`) following `prompt`.
     func fill(image: CGImage, mask: CGImage, prompt: String, seed: Int?) async throws -> CGImage
     func removeBackground(image: CGImage) async throws -> CGImage
@@ -18,7 +21,42 @@ public protocol ImageProvider: Sendable {
     func model3D(image: CGImage) async throws -> Data
 }
 
+/// Extra choices for one generation.
+public struct GenerateOptions: Sendable, Equatable {
+    /// A transparent background, on models that make one (`ModelCatalog.Entry.transparent`).
+    public var transparent = false
+    /// Model quality setting where the model has one (GPT Image: low, medium, high).
+    public var quality: String?
+    /// What the picture is for; with the Auto model it picks the model.
+    public var purpose: ModelCatalog.Purpose?
+    /// Raw model parameters, merged into the request last.
+    public var extra: [String: JSONValue] = [:]
+    /// Try another good model when this one rejects the request.
+    public var fallback = true
+    public init(
+        transparent: Bool = false, quality: String? = nil, purpose: ModelCatalog.Purpose? = nil,
+        extra: [String: JSONValue] = [:], fallback: Bool = true
+    ) {
+        self.transparent = transparent; self.quality = quality; self.purpose = purpose; self.extra = extra
+        self.fallback = fallback
+    }
+}
+
+/// A generated picture and the model that made it (after any fallbacks, listed in `failed`).
+public struct GeneratedImage: @unchecked Sendable {
+    public var image: CGImage
+    public var model: String
+    public var failed: [String] = []
+}
+
 extension ImageProvider {
+    /// Providers without options just generate.
+    public func generate(
+        prompt: String, width: Int, height: Int, seed: Int?, options: GenerateOptions
+    ) async throws -> GeneratedImage {
+        GeneratedImage(image: try await generate(prompt: prompt, width: width, height: height, seed: seed), model: name)
+    }
+
     public func model3D(image: CGImage) async throws -> Data {
         throw ImageAIError.unsupported("\(name) can't make 3D models")
     }
