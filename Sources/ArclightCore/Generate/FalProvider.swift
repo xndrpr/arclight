@@ -30,13 +30,41 @@ public struct FalProvider: ImageProvider {
     }
 
     public func generate(prompt: String, width: Int, height: Int, seed: Int?) async throws -> CGImage {
+        try await run(models.generate, Self.generateInput(model: models.generate, prompt: prompt, width: width, height: height, seed: seed))
+    }
+
+    /// This provider with another text-to-image model (one `image_generate` call), everything else unchanged.
+    public func generating(with model: String) -> FalProvider {
+        var m = models
+        m.generate = model
+        var p = FalProvider(key: key, models: m, session: session, base: base)
+        p.poll = poll; p.timeout = timeout
+        return p
+    }
+
+    /// A fal model id: `owner/name[/variant…]`, lowercase letters, digits and `-._` (it becomes the URL path).
+    public static func isModelID(_ s: String) -> Bool {
+        let parts = s.split(separator: "/", omittingEmptySubsequences: false)
+        let ok = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789-._")
+        return parts.count >= 2 && s.count <= 120
+            && parts.allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." && String($0).unicodeScalars.allSatisfy(ok.contains) }
+    }
+
+    /// The request body for a text-to-image model. Flux-style models (the default) take an exact pixel size;
+    /// GPT Image models take one of three fixed sizes, so the closest aspect is picked (the layer crops to fit).
+    static func generateInput(model: String, prompt: String, width: Int, height: Int, seed: Int?) -> [String: JSONValue] {
+        if model.contains("gpt-image") {
+            let aspect = Double(width) / Double(max(height, 1))
+            let size = aspect > 1.2 ? "1536x1024" : aspect < 1 / 1.2 ? "1024x1536" : "1024x1024"
+            return ["prompt": .string(prompt), "num_images": 1, "image_size": .string(size), "output_format": "png"]
+        }
         var body: [String: JSONValue] = [
             "prompt": .string(prompt), "num_images": 1,
             "image_size": ["width": .number(Double(width)), "height": .number(Double(height))],
             "enable_safety_checker": true, "output_format": "png",
         ]
         if let seed { body["seed"] = .number(Double(seed)) }
-        return try await run(models.generate, body)
+        return body
     }
 
     public func fill(image: CGImage, mask: CGImage, prompt: String, seed: Int?) async throws -> CGImage {
