@@ -85,7 +85,9 @@ struct StillExportSheet: View {
 
     private func summary(_ page: ArclightCore.Thumbnail?) -> String {
         guard let page else { return "Nothing to export" }
-        if allArtboards && page.artboards.count > 1 { return "“\(page.name ?? page.id)” · \(page.artboards.count) artboards" }
+        if allArtboards && page.artboards.count > 1 {
+            return "“\(page.name ?? page.id)” · \(page.artboards.count) artboards"
+        }
         let a = doc.target.artboardId.flatMap { page.artboard($0) }
         return "“\(a?.name ?? a?.id ?? "")” · \(a?.width ?? 0)×\(a?.height ?? 0)"
     }
@@ -126,7 +128,9 @@ struct StillExportSheet: View {
                     results = out; running = false; d.busy = nil; d.flash("Export finished")
                 }
             } catch {
-                DispatchQueue.main.async { self.error = "\(error)"; running = false; d.busy = nil }
+                DispatchQueue.main.async {
+                    self.error = "\(error)"; running = false; d.busy = nil
+                }
             }
         }
     }

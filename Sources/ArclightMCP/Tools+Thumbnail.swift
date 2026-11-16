@@ -18,7 +18,8 @@ extension MCPServer {
     }
 
     func thumbnailOutline(_ p: Thumbnail, store s: ProjectStore, only: Set<String>? = nil) -> String {
-        var out = "thumbnail \(p.id)\(p.name.map { " \"\($0)\"" } ?? "")  rev \(p.rev)  \(p.artboards.count) artboard(s)"
+        var out =
+            "thumbnail \(p.id)\(p.name.map { " \"\($0)\"" } ?? "")  rev \(p.rev)  \(p.artboards.count) artboard(s)"
         switch p.theme {
         case .project: out += "  theme: project"
         case .detached(let t): out += "  theme: detached " + compactJSON(t)
@@ -125,7 +126,9 @@ extension MCPServer {
                         do {
                             try ThumbnailOps.setFields(o, on: &ab)
                             ab.nodes = try (o["nodes"]?.array ?? []).enumerated().map { k, n in
-                                do { return try SceneOps.decodeNode(n) } catch { throw ToolError("node \(k): \(error)") }
+                                do { return try SceneOps.decodeNode(n) } catch {
+                                    throw ToolError("node \(k): \(error)")
+                                }
                             }
                         } catch let e as ToolError { throw ToolError("artboard \(aid): \(e)") } catch {
                             throw ToolError("artboard \(aid): \(error)")
@@ -202,7 +205,9 @@ extension MCPServer {
                 let r = try ThumbnailOps.apply(ops, to: p, artboard: a["artboard"]?.string)
                 let saved = try saveValidated(
                     r.thumbnail, store: s,
-                    expectedRev: try a["rev"]?.double.map { try SafeNumber.int($0, "rev", in: 0...SafeNumber.maxCount) },
+                    expectedRev: try a["rev"]?.double.map {
+                        try SafeNumber.int($0, "rev", in: 0...SafeNumber.maxCount)
+                    },
                     summary: r.summary)
                 return text(thumbnailReport(saved, changed: r.changed, store: s))
             },

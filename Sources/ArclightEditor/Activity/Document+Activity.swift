@@ -20,11 +20,15 @@ extension EditorDocument {
 
     /// Whether a layer still exists in a scene (the working copy for the open one).
     func layerExists(_ id: String, in sceneId: String?) -> Bool {
-        let s = sceneId == nil || sceneId == scene.id ? scene : sceneId.flatMap { id in
-            store.scenes[id] ?? id.split(separator: "~", maxSplits: 1).map(String.init).nonEmptyPair.flatMap {
-                store.thumbnails[$0.0]?.artboard($0.1)?.asScene(thumbnail: $0.0)
+        let s =
+            sceneId == nil || sceneId == scene.id
+            ? scene
+            : sceneId.flatMap { id in
+                store.scenes[id]
+                    ?? id.split(separator: "~", maxSplits: 1).map(String.init).nonEmptyPair.flatMap {
+                        store.thumbnails[$0.0]?.artboard($0.1)?.asScene(thumbnail: $0.0)
+                    }
             }
-        }
         return s?.node(id) != nil
     }
 

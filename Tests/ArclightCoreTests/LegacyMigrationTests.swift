@@ -168,6 +168,6 @@ import Testing
     }
 
     @Test func versionStrings() {
-        #expect(ArclightVersion.display == "0.1.0 (alpha)")
+        #expect(ArclightVersion.display == "0.1.1 (alpha)")
     }
 }

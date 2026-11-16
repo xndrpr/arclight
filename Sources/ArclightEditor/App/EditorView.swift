@@ -66,7 +66,9 @@ struct EditorView: View {
             VSplit(
                 collapsed: !doc.isThumbnail || doc.isEmptyWorkspace,
                 top: { LeftSidebar(doc: doc) },
-                bottom: { if doc.isThumbnail && !doc.isEmptyWorkspace { ThumbnailLayersPanel(doc: doc).workspaceFade() } }
+                bottom: {
+                    if doc.isThumbnail && !doc.isEmptyWorkspace { ThumbnailLayersPanel(doc: doc).workspaceFade() }
+                }
             )
             .frame(width: w.left)
             SideResizeHandle(width: $leftW, range: 160...420, growsRight: true, defaultWidth: 210)
@@ -177,16 +179,20 @@ struct VSplit<Top: View, Bottom: View>: View {
             VStack(spacing: 0) {
                 top().frame(width: g.size.width, height: topH).clipped()
                 if !collapsed {
-                Rectangle().fill(UI.border).frame(height: 1)
-                    .overlay(Color.clear.frame(height: 7).contentShape(Rectangle()).cursor(.resizeUpDown)
-                        .gesture(
-                            DragGesture()
-                                .onChanged { v in
-                                    if startFraction == nil { startFraction = fraction }
-                                    fraction = min(max((startFraction ?? fraction) + v.translation.height / max(h, 1), 0.15), 0.85)
-                                }
-                                .onEnded { _ in startFraction = nil }))
-                bottom().frame(width: g.size.width).frame(maxHeight: .infinity).clipped()
+                    Rectangle().fill(UI.border).frame(height: 1)
+                        .overlay(
+                            Color.clear.frame(height: 7).contentShape(Rectangle()).cursor(.resizeUpDown)
+                                .gesture(
+                                    DragGesture()
+                                        .onChanged { v in
+                                            if startFraction == nil { startFraction = fraction }
+                                            fraction = min(
+                                                max(
+                                                    (startFraction ?? fraction) + v.translation.height / max(h, 1), 0.15
+                                                ), 0.85)
+                                        }
+                                        .onEnded { _ in startFraction = nil }))
+                    bottom().frame(width: g.size.width).frame(maxHeight: .infinity).clipped()
                 }
             }
         }

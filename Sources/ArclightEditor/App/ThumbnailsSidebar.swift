@@ -82,7 +82,8 @@ struct ThumbnailsSidebar: View {
                 } else {
                     Text(a.name ?? a.id).font(UI.font).foregroundStyle(UI.text).lineLimit(1)
                 }
-                Text("\(String(a.width))×\(String(a.height)) · \(a.nodes.count) layers").font(UI.monoSmall).foregroundStyle(UI.dim)
+                Text("\(String(a.width))×\(String(a.height)) · \(a.nodes.count) layers").font(UI.monoSmall)
+                    .foregroundStyle(UI.dim)
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
@@ -99,7 +100,11 @@ struct ThumbnailsSidebar: View {
         .onHover { h in hover = h ? key : nil }
         .cursor(.pointingHand)
         .onClick(enabled: renaming != key) { count in
-            if count >= 2 { renaming = key } else if !selected { endEditing(); doc.open(thumbnail: p.id, artboard: a.id) }
+            if count >= 2 {
+                renaming = key
+            } else if !selected {
+                endEditing(); doc.open(thumbnail: p.id, artboard: a.id)
+            }
         }
         .help("Click to open · double-click to rename · right-click for more")
         .contextMenu {
@@ -110,7 +115,12 @@ struct ThumbnailsSidebar: View {
                     Button(pr.title + (pr.size == a.size ? "  ✓" : "")) {
                         doc.applyPage(
                             p.id,
-                            [["op": "artboard_set", "id": .string(a.id), "size": .array(pr.size.map { .number(Double($0)) })]],
+                            [
+                                [
+                                    "op": "artboard_set", "id": .string(a.id),
+                                    "size": .array(pr.size.map { .number(Double($0)) }),
+                                ]
+                            ],
                             summary: "resize \(a.id)")
                     }
                 }
@@ -215,8 +225,10 @@ private struct ReferencesSection: View {
                 Spacer()
                 Button {
                     if let u = FilePicker.files([.image]).first { doc.addReference(u.path) }
-                } label: { Image(systemName: "plus").font(.system(size: 10.5, weight: .medium)).foregroundStyle(UI.dim) }
-                    .buttonStyle(.plain).help("Add a reference picture").cursor(.pointingHand)
+                } label: {
+                    Image(systemName: "plus").font(.system(size: 10.5, weight: .medium)).foregroundStyle(UI.dim)
+                }
+                .buttonStyle(.plain).help("Add a reference picture").cursor(.pointingHand)
             }
             TextField("Paste a YouTube link…", text: $link).textFieldStyle(.roundedBorder).font(UI.small)
                 .onSubmit { if !link.isEmpty { doc.addReference(link); link = "" } }
@@ -249,7 +261,11 @@ private struct ReferenceThumb: View {
     @State private var image: CGImage?
     var body: some View {
         Group {
-            if let image { Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fill) } else { UI.raised }
+            if let image {
+                Image(decorative: image, scale: 1).resizable().aspectRatio(contentMode: .fill)
+            } else {
+                UI.raised
+            }
         }
         // Off the main thread, once per file (not on every redraw).
         .task(id: url) {
@@ -274,15 +290,21 @@ private struct ReferenceReportView: View {
                 HStack(spacing: 4) {
                     ForEach(Array(zip(r.palette, r.shares)), id: \.0) { c, share in
                         VStack(spacing: 2) {
-                            RoundedRectangle(cornerRadius: 3).fill(Color(arclight: .string(c)) ?? .gray).frame(width: 40, height: 28)
+                            RoundedRectangle(cornerRadius: 3).fill(Color(arclight: .string(c)) ?? .gray).frame(
+                                width: 40, height: 28)
                             Text("\(Int(share * 100))%").font(UI.monoSmall).foregroundStyle(UI.faint)
                         }
                     }
                 }
-                Text("\(r.tone.capitalized), contrast \(String(format: "%.1f", r.contrast)):1").font(UI.small).foregroundStyle(UI.label2)
-                ForEach(r.layout, id: \.self) { Text("• " + $0).font(UI.small).foregroundStyle(UI.text).fixedSize(horizontal: false, vertical: true) }
-                Button("Use These Colours on This Page") { doc.applyPalette(r) }.buttonStyle(PillButtonStyle(primary: true))
-                Text("Follow the structure, not the artwork: use your own photos and words.").font(UI.small).foregroundStyle(UI.faint)
+                Text("\(r.tone.capitalized), contrast \(String(format: "%.1f", r.contrast)):1").font(UI.small)
+                    .foregroundStyle(UI.label2)
+                ForEach(r.layout, id: \.self) {
+                    Text("• " + $0).font(UI.small).foregroundStyle(UI.text).fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Use These Colours on This Page") { doc.applyPalette(r) }.buttonStyle(
+                    PillButtonStyle(primary: true))
+                Text("Follow the structure, not the artwork: use your own photos and words.").font(UI.small)
+                    .foregroundStyle(UI.faint)
             } else {
                 ProgressView().controlSize(.small)
             }

@@ -32,7 +32,9 @@ public enum ImageAI {
             out = try await fal.removeBackground(image: img)
         }
         let name = try write(out, base: stem(src) + "-cutout", store: store)
-        log(store, op: "remove_bg", model: engine == .local ? "apple-vision" : "fal", prompt: nil, source: src, asset: name)
+        log(
+            store, op: "remove_bg", model: engine == .local ? "apple-vision" : "fal", prompt: nil, source: src,
+            asset: name)
         var ops: [JSONValue] = [["op": "set", "id": .string(n.id), "src": .string(name)]]
         // Keep the drawn size when the layer took it from the picture.
         if n.props["width"] == nil && n.props["height"] == nil {
@@ -69,14 +71,16 @@ public enum ImageAI {
         guard let (canvas, mask) = ImageData.padded(img, left: left, top: top, right: right, bottom: bottom) else {
             throw ImageAIError.badImage
         }
-        var out = try await provider.fill(image: canvas, mask: mask, prompt: prompt.isEmpty ? "continue the picture naturally" : prompt, seed: nil)
+        var out = try await provider.fill(
+            image: canvas, mask: mask, prompt: prompt.isEmpty ? "continue the picture naturally" : prompt, seed: nil)
         if out.width != canvas.width || out.height != canvas.height {
             out = ImageData.resize(out, canvas.width, canvas.height) ?? out
         }
         let name = try write(out, base: stem(src) + "-expanded", store: store)
         log(store, op: "expand", model: provider.name, prompt: prompt, source: src, asset: name)
         // Drawn size per picture pixel, and the shift that keeps the old picture in place (layers are centred).
-        let shownW = n.props["width"].flatMap { if case .value(let v) = $0 { return v.double } else { return nil } }
+        let shownW =
+            n.props["width"].flatMap { if case .value(let v) = $0 { return v.double } else { return nil } }
             ?? n.props["height"].flatMap { if case .value(let v) = $0 { return v.double } else { return nil } }.map {
                 $0 * Double(img.width) / Double(img.height)
             } ?? Double(img.width)
@@ -145,7 +149,9 @@ public enum ImageAI {
         func snap(_ v: Int) -> Int { max(256, min(2048, (v + 8) / 16 * 16)) }
         let img = try await provider.generate(prompt: prompt, width: snap(width), height: snap(height), seed: seed)
         let name = try write(img, base: "gen-" + slug(prompt), store: store)
-        log(store, op: "generate", model: (provider as? FalProvider)?.models.generate ?? provider.name, prompt: prompt, source: nil, asset: name)
+        log(
+            store, op: "generate", model: (provider as? FalProvider)?.models.generate ?? provider.name, prompt: prompt,
+            source: nil, asset: name)
         guard place, let scene, let project else {
             return Result(asset: name, ops: [], summary: "generated \(name)", layer: "")
         }
@@ -164,7 +170,9 @@ public enum ImageAI {
     }
 
     /// Bounding box (canvas pixels) of the subject in an image layer, for "select subject".
-    public static func subjectRect(layer id: String, in scene: Scene, store: ProjectStore, nodes: [EvalNode]) throws
+    public static func subjectRect(
+        layer id: String, in scene: Scene, store: ProjectStore, nodes: [EvalNode]
+    ) throws
         -> CGRect?
     {
         let (n, _, img) = try imageLayer(id, scene, store)

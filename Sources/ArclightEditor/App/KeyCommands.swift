@@ -28,7 +28,8 @@ enum KeyCommands {
         if e.keyCode == 49, e.modifierFlags.intersection([.command, .control, .option]).isEmpty {
             let fr = NSApp.keyWindow?.firstResponder
             // Thumbnail: hold Space for the Hand tool (Figma / Photoshop); released in `handleUp`.
-            if let wc = EditorWindowController.frontmost, wc.doc.isThumbnail, !(fr is NSTextView && (fr as? NSTextView)?.isEditable == true),
+            if let wc = EditorWindowController.frontmost, wc.doc.isThumbnail,
+                !(fr is NSTextView && (fr as? NSTextView)?.isEditable == true),
                 NSApp.keyWindow?.attachedSheet == nil
             {
                 if !e.isARepeat, wc.doc.tool != .hand { springTool = wc.doc.tool; wc.doc.tool = .hand }
@@ -182,7 +183,11 @@ enum KeyCommands {
         case 51, 117: doc.deleteSelection(); return nil  // delete
         case 53:  // esc: AI panel, cinema, the active tool, then the selection
             if AIPanelState.handleEscape(in: NSApp.keyWindow) { return nil }
-            if doc.cinema { wc.setCinema(false) } else if doc.viewerOnly { doc.viewerOnly = false } else if doc.aiPrompt != nil {
+            if doc.cinema {
+                wc.setCinema(false)
+            } else if doc.viewerOnly {
+                doc.viewerOnly = false
+            } else if doc.aiPrompt != nil {
                 doc.aiPrompt = nil
             } else if doc.marquee != nil {
                 doc.marquee = nil

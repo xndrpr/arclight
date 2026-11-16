@@ -190,7 +190,6 @@ public enum Schema {
             Field("color", .color, "Light colour.", default: "#FFFFFF"),
         ])
 
-
     // MARK: Layer effects (2D layers)
 
     public static let layerEffects: [Field] = [
@@ -200,16 +199,20 @@ public enum Schema {
         Field(
             "clip", .bool, "Clip to the layer below (Photoshop clipping mask): only shows where that layer is.",
             label: "Clip to below", default: false, animatable: false),
-        Field("mask", .object(maskObject), "Show this layer only where another layer is.", advanced: true, canDisable: true),
+        Field(
+            "mask", .object(maskObject), "Show this layer only where another layer is.", advanced: true,
+            canDisable: true),
         Field("effects", .object(effectsObject), "Outline, drop shadow, glow, blur."),
-        Field("adjust", .object(adjustObject), "Brightness, contrast, saturation, hue and temperature.", canDisable: true),
+        Field(
+            "adjust", .object(adjustObject), "Brightness, contrast, saturation, hue and temperature.", canDisable: true),
     ]
 
     static let maskObject = ObjectSchema(
         "mask", "Another layer used as this layer's mask; the mask layer itself is not drawn.",
         [
             Field("node", .string(), "Id of the mask layer.", animatable: false),
-            Field("mode", .choice(["alpha", "luma"]), "Use the mask's opacity, or its brightness.", default: "alpha",
+            Field(
+                "mode", .choice(["alpha", "luma"]), "Use the mask's opacity, or its brightness.", default: "alpha",
                 animatable: false),
             Field("invert", .bool, "Show the layer where the mask is NOT.", default: false, animatable: false),
         ])

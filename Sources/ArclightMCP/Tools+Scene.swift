@@ -25,7 +25,9 @@ extension MCPServer {
                             "A draft for deciding a direction (look frame, storyboard, motion test; see guide direction): hidden from the scene list and exports"
                         ),
                         "theme": prop(
-                            "object", "Tokens for this scene only, over the project theme (e.g. a look draft's palette and fonts)"),
+                            "object",
+                            "Tokens for this scene only, over the project theme (e.g. a look draft's palette and fonts)"
+                        ),
                     ],
                     required: ["id"])
             ) { [unowned self] a in

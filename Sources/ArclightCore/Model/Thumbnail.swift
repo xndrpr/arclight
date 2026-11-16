@@ -18,9 +18,10 @@ public struct Artboard: Codable, Equatable, Sendable {
 
     public static let youtubeSize = [1280, 720]
 
-    public init(id: String, name: String? = nil, x: Double = 0, y: Double = 0, size: [Int] = Artboard.youtubeSize,
-        nodes: [Node] = [])
-    {
+    public init(
+        id: String, name: String? = nil, x: Double = 0, y: Double = 0, size: [Int] = Artboard.youtubeSize,
+        nodes: [Node] = []
+    ) {
         self.id = id; self.name = name; self.x = x; self.y = y; self.size = size; self.nodes = nodes
     }
 

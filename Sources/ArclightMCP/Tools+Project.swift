@@ -62,7 +62,9 @@ extension MCPServer {
                 let size = try a["size"].map(MCPServer.canvasSize)
                 let fps = try a["fps"].map(MCPServer.frameRate)
                 let start = a["start"]?.string
-                if let start, !["motion", "thumbnail"].contains(start) { throw ToolError("start must be motion or thumbnail") }
+                if let start, !["motion", "thumbnail"].contains(start) {
+                    throw ToolError("start must be motion or thumbnail")
+                }
                 let s = try ProjectStore.create(
                     at: url, name: a["name"]?.string ?? url.deletingPathExtension().lastPathComponent)
                 var p = s.project

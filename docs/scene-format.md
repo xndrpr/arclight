@@ -76,6 +76,8 @@ A picture from the project's assets/ folder, centred on x,y.
 | `src` | image file |  | File in assets/ (or an absolute path). Not animatable. |
 | `width` | number (px) |  | Width (keeps aspect if height is unset). |
 | `height` | number (px) |  | Height (keeps aspect if width is unset). |
+| `fit` | "stretch"\|"cover"\|"contain" | `"stretch"` | With both width and height: stretch the picture, fill the box and crop (cover), or fit inside it (contain). Not animatable. |
+| `crop` | [x, y, w, h] | `[0,0,1,1]` | Part of the picture to show, as fractions of it: [x, y, w, h], e.g. [0.2, 0, 0.6, 1] keeps the middle. |
 
 ## `group` — Group
 

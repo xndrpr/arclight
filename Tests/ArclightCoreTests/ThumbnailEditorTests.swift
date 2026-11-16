@@ -61,7 +61,8 @@ import Testing
         #expect(disk.thumbnails["thumb"]?.rev == 2)
         #expect(disk.scenes["s"]?.nodes.isEmpty == true)  // the motion scene is untouched
         doc.undo(); doc.saveNow()
-        #expect(try ProjectStore(url: tp.url).thumbnails["thumb"]?.artboards[0].nodes[0].props["text"] == .value("HELLO"))
+        #expect(
+            try ProjectStore(url: tp.url).thumbnails["thumb"]?.artboards[0].nodes[0].props["text"] == .value("HELLO"))
         // History lists the page's revisions and restores this artboard from one.
         #expect(doc.history().map(\.rev).contains(2))
         doc.restore(rev: 2)

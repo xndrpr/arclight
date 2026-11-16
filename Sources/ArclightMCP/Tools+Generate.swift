@@ -42,7 +42,9 @@ extension MCPServer {
     /// fal.ai, if the user enabled it and saved a key (tests inject their own).
     func falProvider() throws -> ImageProvider {
         if let p = imageProviderOverride { return p }
-        guard ImageSettings.enabled, let p = KeychainStore.falProvider() else { throw ToolError("\(ImageAIError.noKey)") }
+        guard ImageSettings.enabled, let p = KeychainStore.falProvider() else {
+            throw ToolError("\(ImageAIError.noKey)")
+        }
         return p
     }
 
@@ -108,7 +110,9 @@ extension MCPServer {
                 let fal = engine == .fal ? try falProvider() : nil
                 let layer = try a.str("layer")
                 let scene = h.scene
-                let r = try blocking { try await ImageAI.removeBackground(layer: layer, in: scene, store: s, engine: engine, fal: fal) }
+                let r = try blocking {
+                    try await ImageAI.removeBackground(layer: layer, in: scene, store: s, engine: engine, fal: fal)
+                }
                 return text("asset \(r.asset)\n" + (try h.save(r.ops, r.summary)))
             },
 
@@ -137,7 +141,8 @@ extension MCPServer {
                 schema: schema(
                     MCPServer.with([
                         "prompt": prop("string", "What to make"),
-                        "width": prop("integer", "Pixels, default 1280"), "height": prop("integer", "Pixels, default 720"),
+                        "width": prop("integer", "Pixels, default 1280"),
+                        "height": prop("integer", "Pixels, default 720"),
                         "x": prop("number", "Centre x on the canvas"), "y": prop("number", "Centre y"),
                         "seed": prop("integer", "Repeatable result (models that support it)"),
                         "model": prop("string", "fal model id for this call, e.g. fal-ai/flux/dev (default: Settings)"),
@@ -189,7 +194,8 @@ extension MCPServer {
                         n.world * SIMD4<Float>(Float($0.0), Float($0.1), 0, 1)
                     }
                     let xs = pts.map { CGFloat($0.x) }, ys = pts.map { CGFloat($0.y) }
-                    rect = CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
+                    rect = CGRect(
+                        x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
                 } else {
                     throw ToolError("give rect [x,y,w,h] or area_layer")
                 }
@@ -243,7 +249,9 @@ extension MCPServer {
                 let provider = try falProvider()
                 let f = try SafeNumber.int(a["factor"]?.double ?? 2, "factor", in: 2...4)
                 let layer = try a.str("layer"), scene = h.scene
-                let r = try blocking { try await ImageAI.upscale(layer: layer, in: scene, store: s, factor: f, provider: provider) }
+                let r = try blocking {
+                    try await ImageAI.upscale(layer: layer, in: scene, store: s, factor: f, provider: provider)
+                }
                 return text("asset \(r.asset)\n" + (try h.save(r.ops, r.summary)))
             },
         ]

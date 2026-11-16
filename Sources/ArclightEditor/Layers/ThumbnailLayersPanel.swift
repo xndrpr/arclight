@@ -25,9 +25,11 @@ struct ThumbnailLayersPanel: View {
             ScrollView(.vertical) {
                 NamesColumn(doc: doc, rows: rows).frame(maxWidth: .infinity, alignment: .top)
                 if rows.isEmpty {
-                    Text("No layers yet. Pick a tool on the left of the canvas (T text, R rectangle), drop an image, or ask the AI.")
-                        .font(UI.small).foregroundStyle(UI.faint).fixedSize(horizontal: false, vertical: true)
-                        .padding(14)
+                    Text(
+                        "No layers yet. Pick a tool on the left of the canvas (T text, R rectangle), drop an image, or ask the AI."
+                    )
+                    .font(UI.small).foregroundStyle(UI.faint).fixedSize(horizontal: false, vertical: true)
+                    .padding(14)
                 }
             }
             .scrollIndicators(.never)

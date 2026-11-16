@@ -66,14 +66,21 @@ struct BoardOverlay: View {
             .modifier(LeadingAnchor())
             .gesture(
                 DragGesture(minimumDistance: 3)
-                    .onChanged { g in dragging = a.id; drag = g.translation }
+                    .onChanged { g in
+                        dragging = a.id; drag = g.translation
+                    }
                     .onEnded { g in
                         let d = CGSize(width: g.translation.width / scale, height: g.translation.height / scale)
                         let wasOpen = open
                         dragging = nil; drag = .zero
                         doc.moveArtboard(a.id, by: d)
                         // Board coordinates are relative to the open artboard: moving it moves the view with it.
-                        if wasOpen { vp.setPan(CGSize(width: vp.pan.width + g.translation.width, height: vp.pan.height + g.translation.height)) }
+                        if wasOpen {
+                            vp.setPan(
+                                CGSize(
+                                    width: vp.pan.width + g.translation.width,
+                                    height: vp.pan.height + g.translation.height))
+                        }
                     }
             )
             .onTapGesture { if !open { openArtboard(a.id) } }
@@ -87,7 +94,11 @@ private struct LeadingAnchor: ViewModifier {
     @State private var w: CGFloat = 0
     func body(content: Content) -> some View {
         content
-            .background(GeometryReader { g in Color.clear.onAppear { w = g.size.width }.onChange(of: g.size.width) { _, v in w = v } })
+            .background(
+                GeometryReader { g in
+                    Color.clear.onAppear { w = g.size.width }.onChange(of: g.size.width) { _, v in w = v }
+                }
+            )
             .offset(x: w / 2)
     }
 }
@@ -131,7 +142,9 @@ struct FeedThumbnail: View {
             HStack {
                 Text("FEED SIZE").font(.system(size: 9, weight: .bold)).tracking(0.5).foregroundStyle(UI.dim)
                 Spacer()
-                Button { on = false } label: {
+                Button {
+                    on = false
+                } label: {
                     Image(systemName: "xmark").font(.system(size: 8, weight: .bold)).foregroundStyle(UI.dim)
                 }
                 .buttonStyle(.plain).help("Hide the feed-size preview")

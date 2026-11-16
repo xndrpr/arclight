@@ -78,7 +78,8 @@ public final class ProjectStore {
         }
         let knownThumbnails = Set(thumbnails.keys)
         project.thumbnails =
-            project.thumbnails.filter(knownThumbnails.contains) + knownThumbnails.subtracting(project.thumbnails).sorted()
+            project.thumbnails.filter(knownThumbnails.contains)
+            + knownThumbnails.subtracting(project.thumbnails).sorted()
     }
 
     public static func create(at url: URL, name: String) throws -> ProjectStore {

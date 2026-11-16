@@ -50,11 +50,14 @@ extension MCPServer {
         }
         let drafts = s.draftScenes
         if !drafts.isEmpty {
-            lines.append("drafts (direction stages; scene_delete drafts:true when done): " + drafts.map(\.id).joined(separator: ", "))
+            lines.append(
+                "drafts (direction stages; scene_delete drafts:true when done): "
+                    + drafts.map(\.id).joined(separator: ", "))
         }
         for pv in s.orderedThumbnails {
             lines.append(
-                "thumbnail \(pv.id)  " + pv.artboards.map { "\($0.id) \($0.width)x\($0.height)" }.joined(separator: ", ")
+                "thumbnail \(pv.id)  "
+                    + pv.artboards.map { "\($0.id) \($0.width)x\($0.height)" }.joined(separator: ", ")
                     + "  rev \(pv.rev)" + (pv.theme.isDetached ? "  (own theme)" : ""))
         }
         return lines.joined(separator: "\n")

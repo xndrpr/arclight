@@ -47,7 +47,8 @@ public enum FrameExtractor {
 
     /// The `count` best frames: samples the video, scores each by the best face's capture quality (sharp, open eyes,
     /// facing the camera) — or by sharpness when there are no faces — and keeps the top ones at least 1 s apart.
-    public static func best(video url: URL, count: Int, samples: Int = 24, store: ProjectStore) async throws -> [Frame] {
+    public static func best(video url: URL, count: Int, samples: Int = 24, store: ProjectStore) async throws -> [Frame]
+    {
         let d = try await duration(url)
         guard d > 0 else { throw ImageAIError.failed("the video has no duration") }
         let n = max(count, min(samples, 60))
@@ -80,9 +81,10 @@ public enum FrameExtractor {
     /// Mean absolute luminance gradient on a small greyscale copy (0–1).
     static func sharpness(_ img: CGImage) -> Double {
         let w = 160, h = max(1, 160 * img.height / max(img.width, 1))
-        guard let ctx = CGContext(
-            data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
-            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
+        guard
+            let ctx = CGContext(
+                data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue)
         else { return 0 }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         guard let d = ctx.data?.assumingMemoryBound(to: UInt8.self) else { return 0 }

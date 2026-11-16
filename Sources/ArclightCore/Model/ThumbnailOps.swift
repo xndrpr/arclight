@@ -26,7 +26,9 @@ public enum ThumbnailOps {
         var p = thumbnail
         var changed: [String] = [], summary: [String] = []
         for (i, op) in ops.enumerated() {
-            guard let o = op.object, let kind = o["op"]?.string else { throw ModelError.invalid("op \(i): missing 'op'") }
+            guard let o = op.object, let kind = o["op"]?.string else {
+                throw ModelError.invalid("op \(i): missing 'op'")
+            }
             do {
                 if pageOps.contains(kind) {
                     let ids = try page(kind, o, &p)
@@ -34,7 +36,9 @@ public enum ThumbnailOps {
                     summary.append("\(kind) \(ids.joined(separator: ","))")
                 } else {
                     let target = o["artboard"]?.string ?? artboard ?? p.artboards.first?.id
-                    guard let target else { throw ModelError.invalid("the thumbnail has no artboard yet (artboard_add)") }
+                    guard let target else {
+                        throw ModelError.invalid("the thumbnail has no artboard yet (artboard_add)")
+                    }
                     let k = try p.index(of: target)
                     var op = o
                     op["artboard"] = nil
@@ -49,7 +53,8 @@ public enum ThumbnailOps {
         }
         var seen = Set<String>()
         return Result(
-            thumbnail: p, changed: changed.filter { seen.insert($0).inserted }, summary: summary.joined(separator: "; "))
+            thumbnail: p, changed: changed.filter { seen.insert($0).inserted }, summary: summary.joined(separator: "; ")
+        )
     }
 
     static func size(_ v: JSONValue) throws -> [Int] {
