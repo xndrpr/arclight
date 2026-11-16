@@ -22,7 +22,9 @@ struct LeftSidebar: View {
     private var tabs: [Tab] {
         guard doc.isThumbnail else { return Self.tabs }
         var t = Self.tabs
-        t[0] = Tab(id: "scenes", title: "Thumbnails", icon: "photo.on.rectangle.angled", help: "Thumbnail pages and their artboards")
+        t[0] = Tab(
+            id: "scenes", title: "Thumbnails", icon: "photo.on.rectangle.angled",
+            help: "Thumbnail pages and their artboards")
         t[1] = Tab(
             id: "history", title: "History", icon: "clock.arrow.circlepath",
             help: "Saved versions of the current thumbnail page — yours and the AI's.")

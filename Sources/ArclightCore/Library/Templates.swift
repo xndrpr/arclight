@@ -98,7 +98,10 @@ public enum Templates {
         guard !FileManager.default.fileExists(atPath: url.path) else { return }
         guard let ctx = ImageData.context(800, 1000) else { return }
         ctx.setFillColor(CGColor(srgbRed: 0.55, green: 0.57, blue: 0.62, alpha: 1))
-        ctx.addPath(CGPath(roundedRect: CGRect(x: 110, y: 0, width: 580, height: 470), cornerWidth: 220, cornerHeight: 220, transform: nil))
+        ctx.addPath(
+            CGPath(
+                roundedRect: CGRect(x: 110, y: 0, width: 580, height: 470), cornerWidth: 220, cornerHeight: 220,
+                transform: nil))
         ctx.fillPath()
         ctx.setFillColor(CGColor(srgbRed: 0.7, green: 0.72, blue: 0.76, alpha: 1))
         ctx.fillEllipse(in: CGRect(x: 220, y: 430, width: 360, height: 420))

@@ -64,7 +64,9 @@ extension ProjectStore {
     /// Restores a thumbnail snapshot as a new revision.
     @discardableResult
     public func revertThumbnail(_ id: String, to rev: Int, source: ChangeSource = .cli) throws -> Thumbnail {
-        guard let old = thumbnailSnapshot(id, rev: rev) else { throw ModelError.notFound("rev \(rev) of thumbnail '\(id)'") }
+        guard let old = thumbnailSnapshot(id, rev: rev) else {
+            throw ModelError.notFound("rev \(rev) of thumbnail '\(id)'")
+        }
         return try save(thumbnail: old, summary: "revert to \(rev)", source: source)
     }
 

@@ -15,9 +15,12 @@ extension MCPServer {
                         "thumbnail": prop("string", "Thumbnail id"),
                         "artboard": prop("string", "The artboard to vary (default: the first)"),
                         "variants": prop(
-                            "array", "[{\"name\":\"B\",\"ops\":[{\"op\":\"set\",\"id\":\"title\",\"text\":\"I'M DONE\"}]}]",
+                            "array",
+                            "[{\"name\":\"B\",\"ops\":[{\"op\":\"set\",\"id\":\"title\",\"text\":\"I'M DONE\"}]}]",
                             extra: ["items": ["type": "object"]]),
-                        "auto": prop("string", "Automatic: what each copy changes", extra: ["enum": ["color", "zoom", "background"]]),
+                        "auto": prop(
+                            "string", "Automatic: what each copy changes",
+                            extra: ["enum": ["color", "zoom", "background"]]),
                         "count": prop("integer", "With auto: how many copies (default 2)"),
                     ], required: ["thumbnail"])
             ) { [unowned self] a in
@@ -26,7 +29,9 @@ extension MCPServer {
                 guard let base = p.artboard(a["artboard"]?.string) else { throw ToolError("no such artboard") }
                 let made: (Thumbnail, [String])
                 if let axis = a["auto"]?.string {
-                    guard let ax = ThumbnailVariants.Axis(rawValue: axis) else { throw ToolError("auto must be color, zoom or background") }
+                    guard let ax = ThumbnailVariants.Axis(rawValue: axis) else {
+                        throw ToolError("auto must be color, zoom or background")
+                    }
                     let n = try SafeNumber.int(a["count"]?.double ?? 2, "count", in: 1...5)
                     made = try ThumbnailVariants.makeAuto(ax, count: n, of: base.id, in: p)
                 } else {
@@ -40,7 +45,8 @@ extension MCPServer {
                 let saved = try saveValidated(made.0, store: s, expectedRev: p.rev, summary: "variants of \(base.id)")
                 return text(
                     thumbnailReport(saved, changed: made.1, store: s)
-                        + "\nexport the set with export {thumbnail:\"\(p.id)\"}; check them side by side with thumbnail_render")
+                        + "\nexport the set with export {thumbnail:\"\(p.id)\"}; check them side by side with thumbnail_render"
+                )
             },
 
             Tool(
@@ -69,13 +75,17 @@ extension MCPServer {
                 } else {
                     let v = try a.str("video")
                     let url = v.contains("/") ? URL(expandingPath: v) : s.assetsURL.appendingPathComponent(v)
-                    guard FileManager.default.fileExists(atPath: url.path) else { throw ToolError("no video at \(url.path)") }
+                    guard FileManager.default.fileExists(atPath: url.path) else {
+                        throw ToolError("no video at \(url.path)")
+                    }
                     if let n = a["best"]?.double {
                         let count = try SafeNumber.int(n, "best", in: 1...6)
                         frames = try blocking { try await FrameExtractor.best(video: url, count: count, store: s) }
                     } else {
                         let times = a["times"]?.doubles ?? [0]
-                        frames = try blocking { try await FrameExtractor.frames(video: url, times: Array(times.prefix(6)), store: s) }
+                        frames = try blocking {
+                            try await FrameExtractor.frames(video: url, times: Array(times.prefix(6)), store: s)
+                        }
                     }
                 }
                 var lines = frames.map {
@@ -95,7 +105,8 @@ extension MCPServer {
                         ],
                     ]
                     let r = try ThumbnailOps.apply([op], to: p, artboard: ab.id)
-                    let saved = try saveValidated(r.thumbnail, store: s, expectedRev: p.rev, summary: "frame \(f.asset)")
+                    let saved = try saveValidated(
+                        r.thumbnail, store: s, expectedRev: p.rev, summary: "frame \(f.asset)")
                     lines.append(thumbnailReport(saved, changed: r.changed, store: s))
                 }
                 return text(lines.joined(separator: "\n"))
@@ -127,9 +138,11 @@ extension MCPServer {
                     name = src
                 }
                 let refs = (p.references ?? []).filter { $0 != name } + [name]
-                let r = try ThumbnailOps.apply([["op": "thumbnail", "references": .array(refs.map { .string($0) })]], to: p)
+                let r = try ThumbnailOps.apply(
+                    [["op": "thumbnail", "references": .array(refs.map { .string($0) })]], to: p)
                 _ = try saveValidated(r.thumbnail, store: s, expectedRev: p.rev, summary: "reference \(name)")
-                return text("reference \(name) added to \(p.id) (\(refs.count) total) — reference_analyze {asset:\"\(name)\"}")
+                return text(
+                    "reference \(name) added to \(p.id) (\(refs.count) total) — reference_analyze {asset:\"\(name)\"}")
             },
 
             Tool(
@@ -147,7 +160,9 @@ extension MCPServer {
                 if let small = ImageData.resize(img, 480, max(1, 480 * img.height / max(img.width, 1))),
                     let jpg = ContactSheet.jpeg(small)
                 {
-                    blocks.append(["type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg"])
+                    blocks.append([
+                        "type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg",
+                    ])
                 }
                 var lines = [
                     "\(v): \(r.width)x\(r.height), \(r.tone), contrast \(r.contrast):1",

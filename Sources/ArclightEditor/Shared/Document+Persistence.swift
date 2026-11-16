@@ -84,7 +84,8 @@ extension EditorDocument {
             out[f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
         }
         for f in list("thumbnails") {
-            out["thumbnails/" + f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
+            out["thumbnails/" + f.lastPathComponent] =
+                (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
         }
         return out
     }
@@ -186,7 +187,8 @@ extension EditorDocument {
     func snapshotScene(_ rev: Int) -> Scene? {
         switch target {
         case .scene(let id): return store.snapshot(id, rev: rev)
-        case .artboard(let pid, let aid): return store.thumbnailSnapshot(pid, rev: rev)?.artboard(aid)?.asScene(thumbnail: pid)
+        case .artboard(let pid, let aid):
+            return store.thumbnailSnapshot(pid, rev: rev)?.artboard(aid)?.asScene(thumbnail: pid)
         case .none: return nil
         }
     }

@@ -153,7 +153,9 @@ extension MCPServer {
                 to: dir.appendingPathComponent(name), options: o)
             var line = "\(r.url.path)  \(r.width)x\(r.height)  \(Format.bytes(r.bytes))"
             if let q = r.quality { line += "  q\(String(format: "%.2f", q))" }
-            if r.overLimit { line += "  WARNING: over YouTube's 2 MB limit — simplify the image or pass a lower quality" }
+            if r.overLimit {
+                line += "  WARNING: over YouTube's 2 MB limit — simplify the image or pass a lower quality"
+            }
             lines.append(line)
         }
         return text(lines.joined(separator: "\n"))

@@ -107,7 +107,9 @@ public struct ChatChoice: Codable, Equatable, Sendable {
                     "stage": ["type": "string", "enum": .array(Stage.allCases.map { .string($0.rawValue) })],
                     "question": ["type": "string", "description": "One short question"],
                     "body": ["type": "string", "description": "Text shown under it (the brief, at the brief stage)"],
-                    "options": ["type": "array", "items": option, "description": "Empty for the brief: confirm or change"],
+                    "options": [
+                        "type": "array", "items": option, "description": "Empty for the brief: confirm or change",
+                    ],
                     "multiple": ["type": "boolean", "description": "Let the user pick more than one"],
                 ],
                 "required": ["stage", "question"],
@@ -126,7 +128,9 @@ public struct ChatChoice: Codable, Equatable, Sendable {
         }
         var options: [Option] = []
         for (i, o) in (input["options"]?.array ?? []).enumerated() {
-            guard let title = o["title"]?.string, !title.isEmpty else { throw ChatChoiceError("option \(i): title is required") }
+            guard let title = o["title"]?.string, !title.isEmpty else {
+                throw ChatChoiceError("option \(i): title is required")
+            }
             let oid = o["id"]?.string.flatMap { $0.isEmpty ? nil : $0 } ?? String(UnicodeScalar(UInt8(65 + i % 26)))
             if options.contains(where: { $0.id == oid }) { throw ChatChoiceError("option ids must differ ('\(oid)')") }
             var visual: Visual?
@@ -159,7 +163,9 @@ public struct ChatChoice: Codable, Equatable, Sendable {
         if picked.isEmpty {
             s = "\(stage.label): the user picked none of the options."
         } else {
-            s = "\(stage.label): the user picked " + picked.map { "\($0.id) (“\($0.title)”)" }.joined(separator: " and ")
+            s =
+                "\(stage.label): the user picked "
+                + picked.map { "\($0.id) (“\($0.title)”)" }.joined(separator: " and ")
                 + "."
         }
         if !comment.isEmpty { s += " Their comment: \(comment)" }

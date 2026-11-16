@@ -44,13 +44,15 @@ public enum ReferenceAnalyzer {
         }
         if let f = faces.max(by: { $0.box[2] * $0.box[3] < $1.box[2] * $1.box[3] }) {
             layout.append(
-                "\(faces.count) face(s); the largest is on the \(side(f)), \(Int((f.box[3] * 100).rounded()))% of the height")
+                "\(faces.count) face(s); the largest is on the \(side(f)), \(Int((f.box[3] * 100).rounded()))% of the height"
+            )
         }
         let words = text.compactMap(\.text).joined(separator: " ").split(separator: " ").count
         if !text.isEmpty {
             let big = text.max { $0.box[3] < $1.box[3] }!
             layout.append(
-                "\(words) word(s) of text; the biggest line (“\(big.text ?? "")”) is on the \(side(big)), \(Int((big.box[3] * 720).rounded())) px tall at 720p")
+                "\(words) word(s) of text; the biggest line (“\(big.text ?? "")”) is on the \(side(big)), \(Int((big.box[3] * 720).rounded())) px tall at 720p"
+            )
         } else {
             layout.append("no text")
         }
@@ -126,14 +128,17 @@ public enum ReferenceAnalyzer {
         try? VNImageRequestHandler(cgImage: img, options: [:]).perform([req])
         return (req.results ?? []).compactMap { o in
             guard let c = o.topCandidates(1).first else { return nil }
-            return Region(box: box(o.boundingBox), text: c.string, confidence: (Double(c.confidence) * 100).rounded() / 100)
+            return Region(
+                box: box(o.boundingBox), text: c.string, confidence: (Double(c.confidence) * 100).rounded() / 100)
         }
     }
 
     static func detectFaces(_ img: CGImage) -> [Region] {
         let req = VNDetectFaceRectanglesRequest()
         try? VNImageRequestHandler(cgImage: img, options: [:]).perform([req])
-        return (req.results ?? []).map { Region(box: box($0.boundingBox), text: nil, confidence: Double($0.confidence)) }
+        return (req.results ?? []).map {
+            Region(box: box($0.boundingBox), text: nil, confidence: Double($0.confidence))
+        }
     }
 
     static func saliency(_ img: CGImage) -> [Region] {

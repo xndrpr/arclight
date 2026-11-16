@@ -151,7 +151,8 @@ import Testing
         let tp = try TempProject("symlink-import")
         defer { tp.remove() }
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-link-\(UUID().uuidString)")
-        try FileManager.default.createDirectory(at: dir.appendingPathComponent("real"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: dir.appendingPathComponent("real"), withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
         try Data("png".utf8).write(to: dir.appendingPathComponent("real/pic.png"))
         try FileManager.default.createSymbolicLink(

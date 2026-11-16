@@ -23,8 +23,10 @@ struct ViewportView: View {
             let size = CGSize(width: cs.width * s, height: cs.height * s)
             let board = doc.isThumbnail && !doc.cinema
             // The board's extent lets panning reach every artboard (plain var: no view update).
-            let _ = (vp.board = board ? doc.boardRects().map(\.rect).reduce(nil) { $0?.union($1) ?? $1 } : nil)
-            let origin = CGPoint(x: geo.size.width / 2 + pan.width - size.width / 2, y: geo.size.height / 2 + pan.height - size.height / 2)
+            let _ = vp.setBoard(board ? doc.boardRects().map(\.rect).reduce(nil) { $0?.union($1) ?? $1 } : nil)
+            let origin = CGPoint(
+                x: geo.size.width / 2 + pan.width - size.width / 2,
+                y: geo.size.height / 2 + pan.height - size.height / 2)
             ZStack {
                 ViewportAnchor(vp: vp)
                 // Clicking the empty area around the canvas deselects (on press, so tap-to-click always lands).
@@ -42,7 +44,9 @@ struct ViewportView: View {
                         GizmoOverlay(doc: doc, vp: vp, scale: s)
                         FlashOverlay(doc: doc, scale: s)
                         if doc.isThumbnail, let m = doc.marquee { MarqueeOverlay(rect: m, scale: s) }
-                        if doc.isThumbnail && doc.tool.capturesCanvas { ThumbnailToolOverlay(doc: doc, vp: vp, scale: s) }
+                        if doc.isThumbnail && doc.tool.capturesCanvas {
+                            ThumbnailToolOverlay(doc: doc, vp: vp, scale: s)
+                        }
                     }
                 }
                 .frame(width: size.width, height: size.height)
@@ -108,7 +112,8 @@ struct ViewportView: View {
             vp.fit()
         }
         .onReceive(NotificationCenter.default.publisher(for: .boardCommand)) { n in
-            guard (n.object as? EditorDocument) === doc, let c = (n.userInfo?["cmd"] as? String).flatMap(BoardCommand.init)
+            guard (n.object as? EditorDocument) === doc,
+                let c = (n.userInfo?["cmd"] as? String).flatMap(BoardCommand.init)
             else { return }
             switch c {
             case .actualSize: vp.setScale(1)

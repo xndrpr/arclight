@@ -17,6 +17,8 @@ final class ViewportState: ObservableObject {
     /// Thumbnail workspace: every artboard of the page, in the open artboard's pixel coordinates (it sits at 0,0).
     /// Panning may then reach any artboard, and "fit all" frames the whole page. nil for motion scenes.
     var board: CGRect?
+    /// Sets `board` from inside a view body (a plain var: no view update).
+    func setBoard(_ r: CGRect?) { board = r }
 
     var fitScale: CGFloat { ViewZoom.fit(canvas: canvas, view: viewSize, pad: pad) }
     var scale: CGFloat { zoom ?? fitScale }
@@ -50,7 +52,8 @@ final class ViewportState: ObservableObject {
 
     private func clamped(_ p: CGSize, scale s: CGFloat) -> CGSize {
         guard let b = board, b.width > canvas.width || b.height > canvas.height || b.minX < 0 || b.minY < 0 else {
-            return ViewZoom.clampPan(p, canvas: CGSize(width: canvas.width * s, height: canvas.height * s), view: viewSize)
+            return ViewZoom.clampPan(
+                p, canvas: CGSize(width: canvas.width * s, height: canvas.height * s), view: viewSize)
         }
         return ViewZoom.clampPan(p, board: b, canvas: canvas, scale: s, view: viewSize)
     }

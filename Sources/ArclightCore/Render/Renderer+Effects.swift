@@ -186,14 +186,16 @@ extension Renderer {
                 let r = MTLScissorRect(x: rx, y: ry, width: rw, height: rh)
                 let st = SIMD2<Float>(1 / Float(sa.width), 1 / Float(sa.height))
                 var down = SIMD4<Float>(texel.x * Float(f) / 4, texel.y * Float(f) / 4, 0, 0)
-                fullscreen(cb, target: sa, pso: fx.resample, textures: [src], params: &down, loadAction: .clear, scissor: r)
+                fullscreen(
+                    cb, target: sa, pso: fx.resample, textures: [src], params: &down, loadAction: .clear, scissor: r)
                 let ss = sigma / Float(f), stride = max(1, ss * 3 / 48)
                 var h = SIMD4<Float>(st.x, 0, ss, stride)
                 fullscreen(cb, target: sb, pso: fx.blur, textures: [sa], params: &h, loadAction: .clear, scissor: r)
                 var v = SIMD4<Float>(0, st.y, ss, stride)
                 fullscreen(cb, target: sa, pso: fx.blur, textures: [sb], params: &v, loadAction: .clear, scissor: r)
                 var up = SIMD4<Float>(0, 0, 0, 0)
-                fullscreen(cb, target: out, pso: fx.resample, textures: [sa], params: &up, loadAction: .clear, scissor: region)
+                fullscreen(
+                    cb, target: out, pso: fx.resample, textures: [sa], params: &up, loadAction: .clear, scissor: region)
                 return
             }
             let stride = max(1, sigma * 3 / 48)  // at most ~97 taps per pass
@@ -211,7 +213,8 @@ extension Renderer {
                     Float(a["saturation"]?.double ?? 1), Float((a["hue"]?.double ?? 0) * .pi / 180)),
                 p1: SIMD4(Float(a["temperature"]?.double ?? 0), 0, 0, 0))
             let out = other()
-            fullscreen(cb, target: out, pso: fx.adjust, textures: [cur], params: &u, loadAction: .clear, scissor: region)
+            fullscreen(
+                cb, target: out, pso: fx.adjust, textures: [cur], params: &u, loadAction: .clear, scissor: region)
             cur = out
         }
         let e = n.props["effects"]?.object ?? [:]
@@ -235,7 +238,8 @@ extension Renderer {
             let r = Float(d["blur"]?.double ?? 24) * s
             if r > 0.5 { blurred(free, radius: r, into: free, via: x.tmp) }
             var one = SIMD4<Float>(1, 0, 0, 0)
-            fullscreen(cb, target: comp, pso: fx.over, textures: [free], params: &one, loadAction: .load, scissor: region)
+            fullscreen(
+                cb, target: comp, pso: fx.over, textures: [free], params: &one, loadAction: .load, scissor: region)
         }
         if let g = e["glow"]?.object {
             let color = RGBA.parse(g["color"]) ?? foreground
@@ -248,20 +252,25 @@ extension Renderer {
         if let o = e["outline"]?.object, let w = o["width"]?.double, w > 0 {
             let width = Float(w) * s
             var p = SIMD4<Float>(0, 0, 0, 0)
-            fullscreen(cb, target: x.jfaA, pso: fx.jfaInit, textures: [cur], params: &p, loadAction: .clear, scissor: region)
+            fullscreen(
+                cb, target: x.jfaA, pso: fx.jfaInit, textures: [cur], params: &p, loadAction: .clear, scissor: region)
             var src = x.jfaA, dst = x.jfaB
             var k = 1
             while k < Int(width.rounded(.up)) + 1 { k <<= 1 }
             while k >= 1 {
                 var step = SIMD4<Float>(Float(k), 0, 0, 0)
-                fullscreen(cb, target: dst, pso: fx.jfaStep, textures: [src], params: &step, loadAction: .clear, scissor: region)
+                fullscreen(
+                    cb, target: dst, pso: fx.jfaStep, textures: [src], params: &step, loadAction: .clear,
+                    scissor: region)
                 swap(&src, &dst)
                 k >>= 1
             }
             let color = RGBA.parse(o["color"]) ?? RGBA(1, 1, 1)
             struct FxOutline { var c: SIMD4<Float>; var p: SIMD4<Float> }
-            var u = FxOutline(c: color.linearPremultiplied(opacity: o["opacity"]?.double ?? 1), p: SIMD4(width, 0, 0, 0))
-            fullscreen(cb, target: comp, pso: fx.outline, textures: [src], params: &u, loadAction: .load, scissor: region)
+            var u = FxOutline(
+                c: color.linearPremultiplied(opacity: o["opacity"]?.double ?? 1), p: SIMD4(width, 0, 0, 0))
+            fullscreen(
+                cb, target: comp, pso: fx.outline, textures: [src], params: &u, loadAction: .load, scissor: region)
         }
         var one = SIMD4<Float>(1, 0, 0, 0)
         fullscreen(cb, target: comp, pso: fx.over, textures: [cur], params: &one, loadAction: .load, scissor: region)
@@ -270,7 +279,9 @@ extension Renderer {
         var result = comp
         if let base = clipBase {
             var p = SIMD4<Float>(0, 0, 0, 0)
-            fullscreen(cb, target: x.tmp, pso: fx.mask, textures: [result, base], params: &p, loadAction: .clear, scissor: region)
+            fullscreen(
+                cb, target: x.tmp, pso: fx.mask, textures: [result, base], params: &p, loadAction: .clear,
+                scissor: region)
             result = x.tmp
         }
         if let m = maskNode, let spec = n.props["mask"]?.object {
@@ -278,7 +289,9 @@ extension Renderer {
             var p = SIMD4<Float>(
                 spec["mode"]?.string == "luma" ? 1 : 0, spec["invert"]?.bool == true ? 1 : 0, 0, 0)
             let out = result === x.tmp ? x.a : x.tmp
-            fullscreen(cb, target: out, pso: fx.mask, textures: [result, x.maskTex], params: &p, loadAction: .clear, scissor: region)
+            fullscreen(
+                cb, target: out, pso: fx.mask, textures: [result, x.maskTex], params: &p, loadAction: .clear,
+                scissor: region)
             result = out
         }
         if result !== comp { blit(cb, from: result, to: comp, region: region) }
@@ -286,10 +299,13 @@ extension Renderer {
         // Onto the overlay with the blend mode.
         let mode = FxBlend.modes[n.props["blend"]?.string ?? "normal"] ?? 0
         if mode == 0 {
-            fullscreen(cb, target: target, pso: fx.over, textures: [comp], params: &one, loadAction: .load, scissor: region)
+            fullscreen(
+                cb, target: target, pso: fx.over, textures: [comp], params: &one, loadAction: .load, scissor: region)
         } else {
             var p = SIMD4<Float>(mode, 0, 0, 0)
-            fullscreen(cb, target: x.tmp, pso: fx.blend, textures: [target, comp, world], params: &p, loadAction: .clear, scissor: region)
+            fullscreen(
+                cb, target: x.tmp, pso: fx.blend, textures: [target, comp, world], params: &p, loadAction: .clear,
+                scissor: region)
             blit(cb, from: x.tmp, to: target, region: region)
         }
     }

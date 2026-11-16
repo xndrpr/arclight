@@ -45,16 +45,23 @@ final class FalMock: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
     override func startLoading() {
         let u = request.url!.absoluteString
-        FalMock.log.append("\(request.httpMethod ?? "GET") \(u) \(request.value(forHTTPHeaderField: "Authorization") ?? "")")
+        FalMock.log.append(
+            "\(request.httpMethod ?? "GET") \(u) \(request.value(forHTTPHeaderField: "Authorization") ?? "")")
         func reply(_ code: Int, _ body: Data, _ type: String = "application/json") {
             client?.urlProtocol(
-                self, didReceive: HTTPURLResponse(url: request.url!, statusCode: code, httpVersion: nil, headerFields: ["Content-Type": type])!,
+                self,
+                didReceive: HTTPURLResponse(
+                    url: request.url!, statusCode: code, httpVersion: nil, headerFields: ["Content-Type": type])!,
                 cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: body)
             client?.urlProtocolDidFinishLoading(self)
         }
         if request.httpMethod == "POST" {
-            reply(FalMock.submitCode, Data(#"{"request_id":"r1","status_url":"https://queue.test/fal-ai/x/requests/r1/status","response_url":"https://queue.test/fal-ai/x/requests/r1"}"#.utf8))
+            reply(
+                FalMock.submitCode,
+                Data(
+                    #"{"request_id":"r1","status_url":"https://queue.test/fal-ai/x/requests/r1/status","response_url":"https://queue.test/fal-ai/x/requests/r1"}"#
+                        .utf8))
         } else if u.hasSuffix("/status") {
             let s = FalMock.statuses.isEmpty ? "COMPLETED" : FalMock.statuses.removeFirst()
             reply(200, Data(#"{"status":"\#(s)"}"#.utf8))
@@ -78,7 +85,9 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         let p = FakeProvider().solid(400, 200, 0.2, 0.4, 0.8)
         try ImageData.png(p)!.write(to: tp.store.assetsURL.appendingPathComponent("photo.png"))
         var s = ArclightCore.Scene(id: "s", duration: 1)
-        s.nodes = [Node(id: "photo", type: "image", props: ["src": .value("photo.png"), "x": .value(300), "y": .value(200)])]
+        s.nodes = [
+            Node(id: "photo", type: "image", props: ["src": .value("photo.png"), "x": .value(300), "y": .value(200)])
+        ]
         try tp.store.save(scene: s)
         return (tp, s)
     }
@@ -100,26 +109,36 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         FalMock.png = ImageData.png(FakeProvider().solid(64, 32, 1, 0, 0))!
         var fal = FalProvider(key: "k", session: session(), base: URL(string: "https://queue.test")!)
         fal.poll = 0.01
-        _ = try await fal.generating(with: "fal-ai/flux-pro/v1.1").generate(prompt: "x", width: 64, height: 32, seed: nil)
+        _ = try await fal.generating(with: "fal-ai/flux-pro/v1.1").generate(
+            prompt: "x", width: 64, height: 32, seed: nil)
         #expect(FalMock.log.first == "POST https://queue.test/fal-ai/flux-pro/v1.1 Key k")
         #expect(fal.models.generate == "fal-ai/flux/dev")  // the original is unchanged
 
-        let gpt = FalProvider.generateInput(model: "fal-ai/gpt-image-1/text-to-image", prompt: "x", width: 1280, height: 720, seed: 3)
+        let gpt = FalProvider.generateInput(
+            model: "fal-ai/gpt-image-1/text-to-image", prompt: "x", width: 1280, height: 720, seed: 3)
         #expect(gpt["image_size"] == "1536x1024" && gpt["seed"] == nil && gpt["enable_safety_checker"] == nil)
-        #expect(FalProvider.generateInput(model: "fal-ai/gpt-image-1", prompt: "x", width: 720, height: 1280, seed: nil)["image_size"] == "1024x1536")
+        #expect(
+            FalProvider.generateInput(model: "fal-ai/gpt-image-1", prompt: "x", width: 720, height: 1280, seed: nil)[
+                "image_size"] == "1024x1536")
         let flux = FalProvider.generateInput(model: "fal-ai/flux/dev", prompt: "x", width: 1280, height: 720, seed: 3)
         #expect(flux["image_size"]?["width"] == 1280 && flux["seed"] == 3)
 
         #expect(FalProvider.isModelID("fal-ai/flux-pro/v1.1-ultra"))
-        #expect(!FalProvider.isModelID("flux") && !FalProvider.isModelID("fal-ai/../x") && !FalProvider.isModelID("a/b?c=1"))
+        #expect(
+            !FalProvider.isModelID("flux") && !FalProvider.isModelID("fal-ai/../x") && !FalProvider.isModelID("a/b?c=1")
+        )
     }
 
     @Test func falReportsRejectedKeysAndFailures() async throws {
         FalMock.submitCode = 401; FalMock.statuses = []
         let fal = FalProvider(key: "bad", session: session(), base: URL(string: "https://queue.test")!)
-        await #expect(throws: ImageAIError.self) { _ = try await fal.generate(prompt: "x", width: 64, height: 64, seed: nil) }
+        await #expect(throws: ImageAIError.self) {
+            _ = try await fal.generate(prompt: "x", width: 64, height: 64, seed: nil)
+        }
         FalMock.submitCode = 200; FalMock.statuses = ["FAILED"]
-        await #expect(throws: ImageAIError.self) { _ = try await fal.generate(prompt: "x", width: 64, height: 64, seed: nil) }
+        await #expect(throws: ImageAIError.self) {
+            _ = try await fal.generate(prompt: "x", width: 64, height: 64, seed: nil)
+        }
         #expect(FalProvider.imageURL(in: ["image": ["url": "u"]]) == "u")
     }
 
@@ -195,7 +214,9 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         let (tp, _) = try project()
         defer { tp.remove() }
         var pv = ArclightCore.Thumbnail(id: "t", artboards: [Artboard(id: "a")])
-        pv.artboards[0].nodes = [Node(id: "photo", type: "image", props: ["src": .value("photo.png"), "x": .value(640), "y": .value(360)])]
+        pv.artboards[0].nodes = [
+            Node(id: "photo", type: "image", props: ["src": .value("photo.png"), "x": .value(640), "y": .value(360)])
+        ]
         try tp.store.save(thumbnail: pv)
         let server = MCPServer(projectPath: tp.url.path)
         func run(_ n: String, _ a: [String: JSONValue]) throws -> String {
@@ -205,7 +226,9 @@ final class FalMock: URLProtocol, @unchecked Sendable {
         let saved = KeychainStore.backend
         KeychainStore.backend = KeychainStore.MemoryBackend()
         defer { KeychainStore.backend = saved }
-        if ProcessInfo.processInfo.environment["FAL_KEY"] == nil && ProcessInfo.processInfo.environment["ARCLIGHT_FAL_KEY"] == nil {
+        if ProcessInfo.processInfo.environment["FAL_KEY"] == nil
+            && ProcessInfo.processInfo.environment["ARCLIGHT_FAL_KEY"] == nil
+        {
             #expect(throws: (any Error).self) { try run("image_upscale", ["thumbnail": "t", "layer": "photo"]) }
             #expect(try run("image_status", [:]).contains("fal.ai: off"))
         }

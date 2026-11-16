@@ -156,7 +156,9 @@ private struct SceneNameRename: View {
             placeholder: doc.isThumbnail ? "Artboard name" : "Scene name", bold: false, editing: $editing,
             help: doc.isThumbnail ? "Current artboard — click to rename" : "Current scene — click to rename"
         ) { n in
-            if case .artboard(let p, let a) = doc.target { doc.renameArtboard(a, in: p, n) } else {
+            if case .artboard(let p, let a) = doc.target {
+                doc.renameArtboard(a, in: p, n)
+            } else {
                 doc.renameScene(doc.scene.id, n)
             }
         }
@@ -257,7 +259,10 @@ struct WorkspaceSwitch: View {
                         id: "workspace", in: ns)
                 }
                 .buttonStyle(TracedPlainButtonStyle(name: "workspace \(ws.rawValue)")).cursor(.pointingHand)
-                .help(ws == .motion ? "Motion: scenes and the timeline (⌘1)" : "Thumbnails: YouTube thumbnails and Shorts covers (⌘2)")
+                .help(
+                    ws == .motion
+                        ? "Motion: scenes and the timeline (⌘1)"
+                        : "Thumbnails: YouTube thumbnails and Shorts covers (⌘2)")
             }
         }
         .padding(2)

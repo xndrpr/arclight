@@ -149,8 +149,13 @@ extension EditorDocument {
         let aid = p.uniqueArtboardId(preset.id)
         applyPage(
             pid,
-            [["op": "artboard_add", "id": .string(aid), "name": .string(preset.title.components(separatedBy: " · ")[0]),
-              "size": .array(preset.size.map { .number(Double($0)) })]],
+            [
+                [
+                    "op": "artboard_add", "id": .string(aid),
+                    "name": .string(preset.title.components(separatedBy: " · ")[0]),
+                    "size": .array(preset.size.map { .number(Double($0)) }),
+                ]
+            ],
             summary: "add artboard \(aid)", reopen: aid)
     }
 
@@ -168,7 +173,9 @@ extension EditorDocument {
 
     func deleteArtboard(_ aid: String, in pid: String) {
         guard let p = store.thumbnails[pid] else { return }
-        guard p.artboards.count > 1 else { flash("A thumbnail needs at least one artboard — delete the thumbnail instead"); return }
+        guard p.artboards.count > 1 else {
+            flash("A thumbnail needs at least one artboard — delete the thumbnail instead"); return
+        }
         applyPage(pid, [["op": "artboard_remove", "id": .string(aid)]], summary: "remove artboard \(aid)")
     }
 
@@ -224,7 +231,8 @@ extension EditorDocument {
     /// Theme edits while a detached thumbnail is open: saved as that thumbnail's tokens.
     func writeDetachedTheme(_ theme: [String: JSONValue]) -> Bool {
         guard let p = openThumbnail, p.theme.isDetached else { return false }
-        applyPage(p.id, [["op": "thumbnail", "theme": ["detached": true, "tokens": .object(theme)]]], summary: "theme")
+        applyPage(
+            p.id, [["op": "thumbnail", "theme": ["detached": true, "tokens": .object(theme)]]], summary: "theme")
         return true
     }
 
@@ -262,7 +270,8 @@ extension EditorDocument {
         guard let p = openThumbnail, let aid = target.artboardId else { return }
         do {
             let (np, ids) = try ThumbnailVariants.makeAuto(axis, count: count, of: aid, in: p)
-            _ = try store.save(thumbnail: np, expectedRev: p.rev, summary: "variants (\(axis.rawValue)) of \(aid)", source: .editor)
+            _ = try store.save(
+                thumbnail: np, expectedRev: p.rev, summary: "variants (\(axis.rawValue)) of \(aid)", source: .editor)
             refreshProject()
             open(thumbnail: p.id, artboard: aid)
             postBoard(.fitAll)
@@ -274,11 +283,15 @@ extension EditorDocument {
     func placeBackground(asset: String) {
         let w = canvasSize.width, h = canvasSize.height
         let id = SceneOps.uniqueId("frame", in: scene)
-        apply([[
-            "op": "add", "index": 0,
-            "node": ["id": .string(id), "type": "image", "src": .string(asset), "x": .number(w / 2), "y": .number(h / 2),
-                     "width": .number(w), "height": .number(h), "fit": "cover"],
-        ]])
+        apply([
+            [
+                "op": "add", "index": 0,
+                "node": [
+                    "id": .string(id), "type": "image", "src": .string(asset), "x": .number(w / 2), "y": .number(h / 2),
+                    "width": .number(w), "height": .number(h), "fit": "cover",
+                ],
+            ]
+        ])
         selection = id
     }
 
@@ -292,9 +305,15 @@ extension EditorDocument {
                 let f = try await FrameExtractor.best(video: url, count: 1, store: st)
                 await MainActor.run {
                     self.busy = nil
-                    if let first = f.first { self.placeBackground(asset: first.asset); self.flash("Frame at \(fmt(first.time)) s") }
+                    if let first = f.first {
+                        self.placeBackground(asset: first.asset); self.flash("Frame at \(fmt(first.time)) s")
+                    }
                 }
-            } catch { await MainActor.run { self.busy = nil; self.flash("\(error)") } }
+            } catch {
+                await MainActor.run {
+                    self.busy = nil; self.flash("\(error)")
+                }
+            }
         }
     }
 
@@ -325,16 +344,23 @@ extension EditorDocument {
                 await MainActor.run {
                     self.busy = nil
                     let refs = (p.references ?? []).filter { $0 != name } + [name]
-                    self.applyPage(p.id, [["op": "thumbnail", "references": .array(refs.map { .string($0) })]], summary: "reference \(name)")
+                    self.applyPage(
+                        p.id, [["op": "thumbnail", "references": .array(refs.map { .string($0) })]],
+                        summary: "reference \(name)")
                 }
-            } catch { await MainActor.run { self.busy = nil; self.flash("\(error)") } }
+            } catch {
+                await MainActor.run {
+                    self.busy = nil; self.flash("\(error)")
+                }
+            }
         }
     }
 
     func removeReference(_ name: String) {
         guard let p = openThumbnail else { return }
         let refs = (p.references ?? []).filter { $0 != name }
-        applyPage(p.id, [["op": "thumbnail", "references": .array(refs.map { .string($0) })]], summary: "remove reference")
+        applyPage(
+            p.id, [["op": "thumbnail", "references": .array(refs.map { .string($0) })]], summary: "remove reference")
     }
 
     /// Takes a reference's palette into this page's own theme: background, text and accent.

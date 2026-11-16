@@ -66,7 +66,8 @@ import Testing
         #expect(store.thumbnails["ep12"]?.artboard("a")?.nodes.first?.props["text"] == .value("I QUIT"))
 
         // A text layer's font size is a number, not an artboard size preset.
-        let sized = text(try run(s, "thumbnail_apply", ["thumbnail": "ep12", "ops": [["op": "set", "id": "title", "size": 84]]]))
+        let sized = text(
+            try run(s, "thumbnail_apply", ["thumbnail": "ep12", "ops": [["op": "set", "id": "title", "size": 84]]]))
         #expect(sized.contains("size=84"))
         _ = try run(s, "thumbnail_apply", ["thumbnail": "ep12", "ops": [["op": "set", "id": "title", "size": 160]]])
         // Bad layer props are refused and nothing is saved.
@@ -110,7 +111,10 @@ import Testing
 
         _ = try run(
             s, "thumbnail_apply",
-            ["thumbnail": "ep12", "ops": [["op": "thumbnail", "theme": ["detached": true, "tokens": ["accent": "#FF0044"]]]]])
+            [
+                "thumbnail": "ep12",
+                "ops": [["op": "thumbnail", "theme": ["detached": true, "tokens": ["accent": "#FF0044"]]]],
+            ])
         let st = try ProjectStore(url: tp.url)
         #expect(st.project.theme(for: try st.thumbnail("ep12"))["accent"] == "#FF0044")
         #expect(text(try run(s, "project_get", [:])).contains("thumbnail ep12"))

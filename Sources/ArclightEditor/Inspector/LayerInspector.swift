@@ -18,13 +18,17 @@ struct LayerInspector: View {
                 LayerActions(doc: doc, node: node)
             }
             Hairline()
-            if !doc.isThumbnail, query.isEmpty || "timing in out".contains(query) { TimingSection(doc: doc, node: node) }
+            if !doc.isThumbnail, query.isEmpty || "timing in out".contains(query) {
+                TimingSection(doc: doc, node: node)
+            }
             InspectorSection(doc: doc, title: "Transform", host: .node(node.id), fields: Schema.transform)
             ForEach(InspectorLayout.sections(for: node.type), id: \.0) { title, fields in
                 section(title, fields.filter { InspectorLayout.relevant($0, node) })
             }
             // Blend, clip, mask, outline / shadow / glow / blur, colour adjustments (2D layers).
-            if Schema.effectTypes.contains(node.type), query.isEmpty || "effects blend clip mask outline shadow glow blur adjust".contains(query) {
+            if Schema.effectTypes.contains(node.type),
+                query.isEmpty || "effects blend clip mask outline shadow glow blur adjust".contains(query)
+            {
                 InspectorSection(doc: doc, title: "Effects", host: .node(node.id), fields: Schema.layerEffects)
             }
             CustomSection(doc: doc, node: node)

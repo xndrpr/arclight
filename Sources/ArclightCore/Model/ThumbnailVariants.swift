@@ -30,7 +30,9 @@ public enum ThumbnailVariants {
         let a = p.artboards[try p.index(of: base)]
         var ids: [String] = []
         let used = Set(p.artboards.compactMap(\.name))
-        var letters = (66...90).compactMap { UnicodeScalar($0).map { String(Character($0)) } }.filter { !used.contains($0) }.makeIterator()
+        var letters = (66...90).compactMap { UnicodeScalar($0).map { String(Character($0)) } }.filter {
+            !used.contains($0)
+        }.makeIterator()
         for spec in specs {
             let name = spec.name ?? letters.next() ?? "Variant"
             let id = p.uniqueArtboardId(ThumbnailVariants.slug(name))
@@ -73,8 +75,10 @@ public enum ThumbnailVariants {
 
     /// An artboard id from a display name: ASCII letters, digits and dashes ("B · Дверь" → "b"); "variant" if none.
     static func slug(_ name: String) -> String {
-        let words = name.lowercased().components(separatedBy: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789").inverted)
-            .filter { !$0.isEmpty }
+        let words = name.lowercased().components(
+            separatedBy: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789").inverted
+        )
+        .filter { !$0.isEmpty }
         let s = words.joined(separator: "-")
         return s.isEmpty ? "variant" : String(s.prefix(32))
     }
@@ -85,7 +89,9 @@ public enum ThumbnailVariants {
     }
 
     /// Resolves the `__self__` placeholder in page ops to each variant's own id (auto background variants).
-    public static func makeAuto(_ axis: Axis, count: Int, of base: String, in thumbnail: Thumbnail) throws -> (Thumbnail, [String]) {
+    public static func makeAuto(
+        _ axis: Axis, count: Int, of base: String, in thumbnail: Thumbnail
+    ) throws -> (Thumbnail, [String]) {
         let a = thumbnail.artboards[try thumbnail.index(of: base)]
         let specs = auto(axis, count: count, of: a)
         var p = thumbnail

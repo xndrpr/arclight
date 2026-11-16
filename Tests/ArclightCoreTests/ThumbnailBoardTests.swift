@@ -24,7 +24,10 @@ import Testing
     @Test func boardRectsAreRelativeToTheOpenArtboard() throws {
         let (d, tp) = try doc()
         defer { tp.remove() }
-        #expect(d.boardRects().map(\.rect) == [CGRect(x: 0, y: 0, width: 1280, height: 720), CGRect(x: 1400, y: 0, width: 1080, height: 1920)])
+        #expect(
+            d.boardRects().map(\.rect) == [
+                CGRect(x: 0, y: 0, width: 1280, height: 720), CGRect(x: 1400, y: 0, width: 1080, height: 1920),
+            ])
         d.open(thumbnail: "p", artboard: "b")
         #expect(d.boardRects().first?.rect.minX == -1400)
         d.moveArtboard("a", by: CGSize(width: -100, height: 50))

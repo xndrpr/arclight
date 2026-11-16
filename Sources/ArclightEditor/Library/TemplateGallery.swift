@@ -62,7 +62,11 @@ struct TemplateGallery: View {
     private func header(_ all: [Template]) -> some View {
         let cats = all.map { $0.category ?? "Other" }.uniqued { $0 }
         return HStack(spacing: 6) {
-            Text(mode == .newScene ? "New scene from template" : mode == .newArtboard ? "New thumbnail from template" : "Insert template").font(
+            Text(
+                mode == .newScene
+                    ? "New scene from template"
+                    : mode == .newArtboard ? "New thumbnail from template" : "Insert template"
+            ).font(
                 .system(size: 14, weight: .semibold)
             ).foregroundStyle(UI.text)
             Spacer()
@@ -207,7 +211,8 @@ private struct TemplateDetail: View {
             Hairline()
             SheetFooter(
                 cancel: close,
-                confirmTitle: mode == .newScene ? "Create scene" : mode == .newArtboard ? "Add artboard" : "Insert layers",
+                confirmTitle: mode == .newScene
+                    ? "Create scene" : mode == .newArtboard ? "Add artboard" : "Insert layers",
                 confirmDisabled: !parsed.invalid.isEmpty,
                 confirm: {
                     close()

@@ -30,7 +30,8 @@ struct TrackDrawing {
         }
         var rc = ctx
         rc.translateBy(x: 0, y: -top)
-        let first = max(0, Int(floor(top / TL.rowH))), last = min(rows.count, Int(ceil((top + size.height) / TL.rowH)) + 1)
+        let first = max(0, Int(floor(top / TL.rowH))),
+            last = min(rows.count, Int(ceil((top + size.height) / TL.rowH)) + 1)
         if first < last {
             for i in first..<last { drawRow(rc, size, i, rows[i], d, selByNode, selByProp) }
         }

@@ -19,7 +19,9 @@ extension EditorDocument {
     }
 
     /// Runs an AI operation with a busy label, then applies its ops (and selects the result's layer).
-    func runImageAI(_ label: String, _ work: @escaping @Sendable (Scene, Project, ProjectStore) async throws -> ImageAI.Result) {
+    func runImageAI(
+        _ label: String, _ work: @escaping @Sendable (Scene, Project, ProjectStore) async throws -> ImageAI.Result
+    ) {
         guard busy == nil else { flash("Still working on the last one…"); return }
         saveNow()
         let s = scene, p = project, st = store
@@ -37,7 +39,9 @@ extension EditorDocument {
                     self.flash(r.summary.prefix(1).uppercased() + r.summary.dropFirst())
                 }
             } catch {
-                await MainActor.run { self.busy = nil; self.flash("\(error)") }
+                await MainActor.run {
+                    self.busy = nil; self.flash("\(error)")
+                }
             }
         }
     }
@@ -76,7 +80,8 @@ extension EditorDocument {
         let (l, t, r, b) = expandSides(id)
         guard l + t + r + b > 0 else { flash("The picture already has the canvas's shape"); return }
         runImageAI("Expanding…") { s, _, st in
-            try await ImageAI.expand(layer: id, in: s, store: st, left: l, top: t, right: r, bottom: b, prompt: prompt, provider: fal)
+            try await ImageAI.expand(
+                layer: id, in: s, store: st, left: l, top: t, right: r, bottom: b, prompt: prompt, provider: fal)
         }
     }
 
@@ -100,7 +105,8 @@ extension EditorDocument {
         guard let fal = falProvider else { needKey(); return }
         let r = renderer, above = selection
         runImageAI("Generative fill…") { s, p, st in
-            try await ImageAI.fill(rect: rect, prompt: prompt, in: s, project: p, store: st, renderer: r, provider: fal, above: above)
+            try await ImageAI.fill(
+                rect: rect, prompt: prompt, in: s, project: p, store: st, renderer: r, provider: fal, above: above)
         }
         marquee = nil
     }
@@ -135,9 +141,14 @@ struct AIContextBar: View {
                     .onSubmit { submit(kind) }
                     .onAppear { focused = true }
                 Button(kind == .fill ? "Fill" : kind == .expand ? "Expand" : "Generate") { submit(kind) }
-                    .buttonStyle(PillButtonStyle(primary: true)).disabled(kind != .expand && prompt.trimmingCharacters(in: .whitespaces).isEmpty)
-                Button { close() } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
-                    .buttonStyle(.plain).foregroundStyle(UI.dim).help("Close (Esc)")
+                    .buttonStyle(PillButtonStyle(primary: true)).disabled(
+                        kind != .expand && prompt.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button {
+                    close()
+                } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                }
+                .buttonStyle(.plain).foregroundStyle(UI.dim).help("Close (Esc)")
             } else {
                 if doc.selectedImageLayer != nil {
                     action("Remove background", "person.crop.rectangle", "⌥⌘B") { doc.removeBackground() }
@@ -151,7 +162,9 @@ struct AIContextBar: View {
                 }
                 action("Generate image", "photo.badge.plus", "⌘K", fal: true) { doc.aiPrompt = .generate }
             }
-            if let b = doc.busy { ProgressView().controlSize(.small).scaleEffect(0.6); Text(b).font(UI.small).foregroundStyle(UI.dim) }
+            if let b = doc.busy {
+                ProgressView().controlSize(.small).scaleEffect(0.6); Text(b).font(UI.small).foregroundStyle(UI.dim)
+            }
         }
         .padding(.horizontal, 10).frame(height: 36)
         .background(Capsule().fill(UI.panel.opacity(0.97)))
@@ -181,7 +194,9 @@ struct AIContextBar: View {
 
     private func close() { prompt = ""; doc.aiPrompt = nil; focused = false }
 
-    private func action(_ title: String, _ symbol: String, _ key: String?, fal: Bool = false, _ run: @escaping () -> Void) -> some View {
+    private func action(
+        _ title: String, _ symbol: String, _ key: String?, fal: Bool = false, _ run: @escaping () -> Void
+    ) -> some View {
         let locked = fal && !doc.hasFal
         return Button(action: { locked ? doc.needKey() : run() }) {
             HStack(spacing: 4) {
@@ -203,7 +218,8 @@ struct MarqueeOverlay: View {
     @State private var phase: CGFloat = 0
 
     var body: some View {
-        let r = CGRect(x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale)
+        let r = CGRect(
+            x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale)
         ZStack {
             Path(r).stroke(Color.black, style: StrokeStyle(lineWidth: 1))
             Path(r).stroke(Color.white, style: StrokeStyle(lineWidth: 1, dash: [4, 4], dashPhase: phase))

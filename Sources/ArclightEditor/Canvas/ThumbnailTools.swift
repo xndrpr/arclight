@@ -79,8 +79,12 @@ extension EditorDocument {
         guard let pid = target.thumbnailId, let a = store.thumbnails[pid]?.artboard(aid) else { return }
         applyPage(
             pid,
-            [["op": "artboard_set", "id": .string(aid), "x": .number((a.x + d.width).rounded()),
-              "y": .number((a.y + d.height).rounded())]],
+            [
+                [
+                    "op": "artboard_set", "id": .string(aid), "x": .number((a.x + d.width).rounded()),
+                    "y": .number((a.y + d.height).rounded()),
+                ]
+            ],
             summary: "move artboard \(aid)")
     }
 
@@ -98,19 +102,25 @@ extension EditorDocument {
             let cx = clicked ? Double(a.x) : x0 + w / 2, cy = clicked ? Double(a.y) : y0 + h / 2
             addNode(
                 "shape",
-                props: ["shape": tool == .rect ? "rect" : "ellipse", "x": r(cx), "y": r(cy), "width": r(w),
-                        "height": r(h), "fill": "$accent"])
+                props: [
+                    "shape": tool == .rect ? "rect" : "ellipse", "x": r(cx), "y": r(cy), "width": r(w),
+                    "height": r(h), "fill": "$accent",
+                ])
         case .line:
             let to: [JSONValue] = clicked ? [r(m * 0.4), 0] : [r(Double(b.x - a.x)), r(Double(b.y - a.y))]
             addNode(
                 "shape",
-                props: ["shape": "line", "x": r(Double(a.x)), "y": r(Double(a.y)), "to": .array(to),
-                        "strokeWidth": 8, "stroke": "$fg", "cap": "round"])
+                props: [
+                    "shape": "line", "x": r(Double(a.x)), "y": r(Double(a.y)), "to": .array(to),
+                    "strokeWidth": 8, "stroke": "$fg", "cap": "round",
+                ])
         case .text:
             addNode(
                 "text",
-                props: ["text": "TEXT", "font": "$display", "size": r(m / 6), "color": "$fg", "x": r(Double(a.x)),
-                        "y": r(Double(a.y))])
+                props: [
+                    "text": "TEXT", "font": "$display", "size": r(m / 6), "color": "$fg", "x": r(Double(a.x)),
+                    "y": r(Double(a.y)),
+                ])
         default: return
         }
         self.tool = .move  // Figma: back to Move after drawing
@@ -207,7 +217,8 @@ struct ThumbnailToolOverlay: View {
                         switch doc.tool {
                         case .hand: return
                         case .marquee:
-                            let r = CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
+                            let r = CGRect(
+                                x: min(a.x, b.x), y: min(a.y, b.y), width: abs(b.x - a.x), height: abs(b.y - a.y))
                             doc.marquee = r.width >= 4 && r.height >= 4 ? r.integral : nil
                             if doc.marquee != nil { doc.aiPrompt = .fill }
                         case .zoom:

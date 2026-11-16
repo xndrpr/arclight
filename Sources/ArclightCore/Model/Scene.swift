@@ -185,7 +185,8 @@ public struct Project: Codable, Equatable, Sendable {
         scenes = try c.decodeIfPresent([String].self, forKey: .scenes) ?? []
         // Before the rename, thumbnails were "previews" (key, folder and workspace name).
         let legacy = try decoder.container(keyedBy: LegacyKeys.self)
-        thumbnails = try c.decodeIfPresent([String].self, forKey: .thumbnails)
+        thumbnails =
+            try c.decodeIfPresent([String].self, forKey: .thumbnails)
             ?? legacy.decodeIfPresent([String].self, forKey: .previews) ?? []
         workspace = try c.decodeIfPresent(String.self, forKey: .workspace).map { $0 == "preview" ? "thumbnail" : $0 }
     }
