@@ -9,6 +9,10 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     @Published private(set) var transcript: ChatTranscript
     @Published private(set) var running = false
     @Published var draft = ""
+    /// Files waiting to go with the next message.
+    @Published private(set) var pending: [ChatAttachment] = []
+    /// Bumped whenever the transcript grows or a row changes (the view follows the bottom on it).
+    @Published private(set) var revision = 0
 
     let project: URL
     /// What the editor shows right now, put at the start of each message (`EditorDocument.chatNote`).
@@ -20,6 +24,9 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     private var backendConfig = ""
     private var lastKind: ChatBackendKind?
     private var task: Task<Void, Never>?
+    /// Events from the running turn, applied to the transcript a frame at a time rather than one by one (a fast
+    /// stream sends hundreds a second).
+    private let inbox = EventInbox()
 
     init(project: URL) {
         self.project = project
@@ -43,21 +50,61 @@ final class ChatController: ObservableObject, @unchecked Sendable {
 
     // MARK: Intents
 
+    var canSend: Bool {
+        hasCredentials && !running
+            && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty)
+    }
+
     func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !running else { return }
+        guard canSend else { return }
+        let files = pending
         draft = ""
+        pending = []
         noteBackendSwitch()
         // Typed while a question waits: that's the answer, in the user's own words.
         let waiting = transcript.pendingChoice
-        transcript.items.append(ChatItem(kind: .user, text: text))
+        transcript.items.append(ChatItem(kind: .user, text: text, attachments: files.isEmpty ? nil : files))
         if let c = waiting {
             let a = ChatChoice.Answer(comment: text, typed: true)
             transcript.answer(c.id, a)
-            run(c.resultText(a))
+            run(c.resultText(a), attachments: files)
         } else {
-            run(text)
+            run(text, attachments: files)
         }
+    }
+
+    // MARK: Attachments
+
+    /// Most files one message takes.
+    static let maxAttachments = 10
+
+    /// Adds files (picked, dropped or pasted). Ones that can't be attached say why in the chat.
+    func attach(files urls: [URL]) {
+        for u in urls { add { try ChatAttachment.store(file: u, project: project) } }
+    }
+
+    /// Adds a pasted image (PNG bytes).
+    func attach(image png: Data, name: String = "Pasted image.png") {
+        add { try ChatAttachment.store(data: png, name: name, project: project) }
+    }
+
+    func remove(_ a: ChatAttachment) {
+        pending.removeAll { $0.id == a.id }
+        try? FileManager.default.removeItem(at: URL(fileURLWithPath: a.path).deletingLastPathComponent())
+    }
+
+    private func add(_ make: () throws -> ChatAttachment) {
+        guard pending.count < Self.maxAttachments else {
+            say("At most \(Self.maxAttachments) files per message.")
+            return
+        }
+        do { pending.append(try make()) } catch { say("\(error)") }
+    }
+
+    private func say(_ s: String) {
+        transcript.items.append(ChatItem(kind: .error, text: s))
+        revision += 1
     }
 
     /// The user answered a choice card.
@@ -77,8 +124,9 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         lastKind = kind
     }
 
-    private func run(_ text: String) {
+    private func run(_ text: String, attachments: [ChatAttachment] = []) {
         running = true
+        revision += 1
         let context = [note(), ChatPrompt.directionNote(ChatSettings.directionStages)].compactMap { $0 }
             .joined(separator: "\n")
         let setup = Setup(
@@ -92,8 +140,9 @@ final class ChatController: ObservableObject, @unchecked Sendable {
             do {
                 let b: ChatBackend
                 if let reuse { b = reuse } else { b = try await self.make(setup, server: server) }
-                try await b.send(text, context: context) { [weak self] e in
-                    DispatchQueue.main.async { self?.transcript.apply(e) }
+                let inbox = self.inbox
+                try await b.send(text, attachments: attachments, context: context) { [weak self] e in
+                    if inbox.post(e) { DispatchQueue.main.asyncAfter(deadline: .now() + 1 / 30) { self?.drain() } }
                 }
                 self.finish(nil)
             } catch {
@@ -112,12 +161,26 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         transcript = ChatTranscript()
         backend = nil
         transcript.save(project: project)
+        ChatAttachment.prune(project: project, keep: pending)
+        revision += 1
+    }
+
+    /// Applies the events that arrived since the last frame, in one change.
+    private func drain() {
+        let events = inbox.take()
+        guard !events.isEmpty else { return }
+        var t = transcript
+        for e in events { t.apply(e) }
+        transcript = t
+        revision += 1
     }
 
     // MARK: Turn
 
     private func finish(_ error: Error?) {
         DispatchQueue.main.async { [self] in
+            drain()
+            transcript.endThinking()
             if let b = backend {
                 transcript.history = b.history
                 transcript.cliSession = b.cliSession
@@ -141,6 +204,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
             }
             running = false
             task = nil
+            revision += 1
             transcript.save(project: project)
         }
     }
@@ -177,7 +241,8 @@ final class ChatController: ObservableObject, @unchecked Sendable {
                     "couldn't find the command-line agent. Set its path in Settings ▸ AI ▸ Experimental.")
             }
             made = CLIChatBackend(
-                executable: exe, model: setup.model, projectPath: path, serverCommand: MCPSetup.executable,
+                executable: exe, model: setup.model, effort: setup.effort, projectPath: path,
+                serverCommand: MCPSetup.executable,
                 session: setup.session)
         }
         await MainActor.run {
@@ -194,5 +259,26 @@ final class ChatController: ObservableObject, @unchecked Sendable {
                 executable: URL(fileURLWithPath: MCPSetup.executable), arguments: ["mcp", "--project", project.path]))
         try await c.connect(clientName: "arclight-chat", version: ArclightVersion.display)
         return c
+    }
+}
+
+/// Events posted from the turn's task, taken on the main thread.
+private final class EventInbox: @unchecked Sendable {
+    private var events: [ChatEvent] = []
+    private let lock = NSLock()
+
+    /// Adds one; true when it is the first since the last `take` (the caller schedules the drain).
+    func post(_ e: ChatEvent) -> Bool {
+        lock.withLock {
+            events.append(e)
+            return events.count == 1
+        }
+    }
+
+    func take() -> [ChatEvent] {
+        lock.withLock {
+            defer { events = [] }
+            return events
+        }
     }
 }

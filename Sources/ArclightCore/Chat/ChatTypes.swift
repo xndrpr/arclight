@@ -58,16 +58,22 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
     public var image: Data?
     /// Choice rows: the question, its options and (once given) the user's answer.
     public var choice: ChatChoice?
+    /// User rows: the files sent with the message.
+    public var attachments: [ChatAttachment]?
+    /// Thinking rows: when the thinking started, and how long it took once it ended (nil while it runs).
+    public var started: Date?
+    public var duration: Double?
 
     public init(
         id: String = UUID().uuidString, kind: Kind, text: String, tool: String? = nil, input: String? = nil,
-        ok: Bool? = nil, choice: ChatChoice? = nil
+        ok: Bool? = nil, choice: ChatChoice? = nil, attachments: [ChatAttachment]? = nil
     ) {
         self.id = id; self.kind = kind; self.text = text; self.tool = tool; self.input = input; self.ok = ok
         self.choice = choice
+        self.attachments = attachments
     }
 
-    enum CodingKeys: String, CodingKey { case id, kind, text, tool, input, ok, choice }
+    enum CodingKeys: String, CodingKey { case id, kind, text, tool, input, ok, choice, attachments, started, duration }
 }
 
 /// A project's chat, saved at `<project>/.arclight/chat.json` so it survives closing the project.
@@ -95,10 +101,13 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
     }
 
     /// Folds one event into the visible rows: text and thinking deltas extend the last row of their kind.
-    public mutating func apply(_ e: ChatEvent) {
+    public mutating func apply(_ e: ChatEvent, now: Date = Date()) {
+        if case .thinking = e {} else { endThinking(now: now) }
         switch e {
         case .text(let s): extend(.assistant, s)
-        case .thinking(let s): extend(.thinking, s)
+        case .thinking(let s):
+            extend(.thinking, s)
+            if items[items.count - 1].started == nil { items[items.count - 1].started = now }
         case .toolStart(let id, let name, let input):
             items.append(ChatItem(id: id, kind: .tool, text: "", tool: name, input: input))
         case .toolEnd(let id, let ok, let summary, let image):
@@ -121,6 +130,13 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
     /// Records the user's answer on the choice row.
     public mutating func answer(_ id: String, _ a: ChatChoice.Answer) {
         if let i = items.lastIndex(where: { $0.id == id && $0.kind == .choice }) { items[i].choice?.answer = a }
+    }
+
+    /// Closes a thinking row still running: it gets its duration. Called when anything else arrives and when the
+    /// turn ends.
+    public mutating func endThinking(now: Date = Date()) {
+        guard let i = items.indices.last, items[i].kind == .thinking, items[i].duration == nil else { return }
+        items[i].duration = max(0, now.timeIntervalSince(items[i].started ?? now))
     }
 
     private mutating func extend(_ kind: ChatItem.Kind, _ s: String) {

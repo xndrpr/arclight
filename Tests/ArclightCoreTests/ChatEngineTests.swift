@@ -120,6 +120,24 @@ private final class Events: @unchecked Sendable {
         #expect(Array(m2.prefix(m1.count)) == m1)
     }
 
+    @Test func attachmentsGoBeforeTheTextAndAloneNeedNoText() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".arclight")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let a = try ChatAttachment.store(data: Data("%PDF-1.4".utf8), name: "brief.pdf", project: dir)
+        let s = FakeStream([
+            .success(message([["type": "text", "text": "a"]], stop: "end_turn")),
+            .success(message([["type": "text", "text": "b"]], stop: "end_turn")),
+        ])
+        let b = backend(s, FakeTools())
+        try await b.send("use this", attachments: [a], context: "<editor>x</editor>", onEvent: { _ in })
+        let first = try #require(s.bodies[0]["messages"]?.array?.last?["content"]?.array)
+        #expect(first.map { $0["type"]?.string } == ["text", "document", "text", "text"])
+        #expect(first.last?["text"]?.string == "use this")
+        try await b.send("", attachments: [a], context: nil, onEvent: { _ in })
+        let second = try #require(s.bodies[1]["messages"]?.array?.last?["content"]?.array)
+        #expect(second.map { $0["type"]?.string } == ["document", "text"])
+    }
+
     @Test func invalidToolInputIsAnErrorResultAndNotRun() async throws {
         let s = FakeStream([
             .success(message([toolUse("t1", "scene_get")], stop: "tool_use", invalid: ["t1"])),
@@ -264,7 +282,10 @@ private final class Events: @unchecked Sendable {
 
     @Test func aChoiceAloneAddsNoEmptyUserMessage() async throws {
         let s = FakeStream([
-            .success(message([toolUse("c1", "ask_choice", ["stage": "brief", "question": "OK?", "body": "6s, bold"])], stop: "tool_use")),
+            .success(
+                message(
+                    [toolUse("c1", "ask_choice", ["stage": "brief", "question": "OK?", "body": "6s, bold"])],
+                    stop: "tool_use")),
             .success(message([["type": "text", "text": "ok"]], stop: "end_turn")),
         ])
         let b = backend(s, FakeTools())
@@ -295,7 +316,10 @@ private final class Events: @unchecked Sendable {
         let s = FakeStream([
             .success(
                 message(
-                    [toolUse("c1", "ask_choice", ask), toolUse("c2", "ask_choice", ["stage": "motion", "question": "?"])],
+                    [
+                        toolUse("c1", "ask_choice", ask),
+                        toolUse("c2", "ask_choice", ["stage": "motion", "question": "?"]),
+                    ],
                     stop: "tool_use")),
             .success(message([["type": "text", "text": "ok"]], stop: "end_turn")),
         ])
@@ -320,13 +344,22 @@ private final class Events: @unchecked Sendable {
             id: "l", input: ["stage": "look", "question": "Which?", "options": [["title": "One"], ["title": "Two"]]])
         #expect(look.options.map(\.id) == ["A", "B"])
         #expect(look.resultText(.init(picked: ["B"])) == "Look: the user picked B (“Two”).")
-        #expect(look.resultText(.init(comment: "neither")) == "Look: the user picked none of the options. Their comment: neither")
-        #expect(look.resultText(.init(comment: "red", typed: true)) == "Look: the user answered in their own words: red")
+        #expect(
+            look.resultText(.init(comment: "neither"))
+                == "Look: the user picked none of the options. Their comment: neither")
+        #expect(
+            look.resultText(.init(comment: "red", typed: true)) == "Look: the user answered in their own words: red")
         #expect(throws: ChatChoiceError.self) {
-            try ChatChoice.parse(id: "x", input: ["stage": "look", "question": "?", "options": [["id": "a", "title": "1"], ["id": "a", "title": "2"]]])
+            try ChatChoice.parse(
+                id: "x",
+                input: [
+                    "stage": "look", "question": "?",
+                    "options": [["id": "a", "title": "1"], ["id": "a", "title": "2"]],
+                ])
         }
         #expect(throws: ChatChoiceError.self) {
-            try ChatChoice.parse(id: "x", input: ["stage": "look", "question": "?", "options": [["title": "1", "visual": ["time": 1]]]])
+            try ChatChoice.parse(
+                id: "x", input: ["stage": "look", "question": "?", "options": [["title": "1", "visual": ["time": 1]]]])
         }
     }
 

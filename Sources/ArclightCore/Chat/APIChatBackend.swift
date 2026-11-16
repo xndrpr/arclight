@@ -6,9 +6,18 @@ public protocol ChatBackend: AnyObject {
     var history: [JSONValue] { get }
     /// CLI backend: the session to resume.
     var cliSession: String? { get }
-    /// Runs one user turn to the end (all its tool calls). `context` is a short note on what the editor shows now.
-    func send(_ text: String, context: String?, onEvent: @escaping @Sendable (ChatEvent) -> Void) async throws
+    /// Runs one user turn to the end (all its tool calls). `context` is a short note on what the editor shows now;
+    /// `attachments` are files the user sent with the message.
+    func send(
+        _ text: String, attachments: [ChatAttachment], context: String?,
+        onEvent: @escaping @Sendable (ChatEvent) -> Void) async throws
     func close()
+}
+
+extension ChatBackend {
+    public func send(_ text: String, context: String?, onEvent: @escaping @Sendable (ChatEvent) -> Void) async throws {
+        try await send(text, attachments: [], context: context, onEvent: onEvent)
+    }
 }
 
 /// The tools a chat can call. `MCPStdioClient` is the real one.
@@ -50,7 +59,10 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
 
     public func close() {}
 
-    public func send(_ text: String, context: String?, onEvent: @escaping @Sendable (ChatEvent) -> Void) async throws {
+    public func send(
+        _ text: String, attachments: [ChatAttachment], context: String?,
+        onEvent: @escaping @Sendable (ChatEvent) -> Void
+    ) async throws {
         var blocks: [JSONValue] = []
         let waiting = Self.unanswered(history)
         if let first = waiting.first {
@@ -58,9 +70,11 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
             blocks.append(["type": "tool_result", "tool_use_id": .string(first), "content": .string(text)])
             for id in waiting.dropFirst() { blocks.append(Self.errorResult(id, "Not asked: one question at a time.")) }
             if let context, !context.isEmpty { blocks.append(["type": "text", "text": .string(context)]) }
+            blocks += ChatAttachment.contentBlocks(attachments)
         } else {
             if let context, !context.isEmpty { blocks.append(["type": "text", "text": .string(context)]) }
-            blocks.append(["type": "text", "text": .string(text)])
+            blocks += ChatAttachment.contentBlocks(attachments)
+            if !text.isEmpty || blocks.isEmpty { blocks.append(["type": "text", "text": .string(text)]) }
         }
         appendUser(blocks)
 
