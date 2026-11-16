@@ -10,11 +10,15 @@ extension MCPServer {
             Tool(
                 name: "model_generate",
                 description:
-                    "Make a 3D model (.glb) of one object for a model layer (fal.ai, needs the user's key; takes a minute or two). From a prompt: a picture of the object is generated first (kept as <name>-ref.png); or from source, a picture already in assets/. Describe just the object and its material, e.g. \"faceless matte white mannequin hand, fingers relaxed\" or \"worn leather armchair\"; one object per model, no scene around it. With scene it is also placed as a model layer at x,y,z (size px, material). Returns the asset and a turntable sheet (front, right, back, left) to check it.",
+                    "Make a 3D model (.glb) of one object for a model layer (fal.ai, needs the user's key; takes a minute or two). From a prompt: a picture of the object is generated first (kept as <name>-ref.png); or from source, a picture already in assets/. Describe just the object and its material, e.g. \"faceless matte white mannequin hand, fingers relaxed\" or \"worn leather armchair\"; one object per model, no scene around it. With scene it is also placed as a model layer at x,y,z (size px, material). Returns the asset and a turntable sheet (front, right, back, left) to check it. The 3D model is the user's choice in the chat's model menu; with auto, quality draft uses Trellis ($0.02, rough up close) and standard Trellis 2 ($0.30, clean, textured). Use draft for props seen small or far, standard for anything the camera gets close to. Pass model only when the user asked for one (image_status lists ids and prices; ask before anything marked expensive).",
                 schema: schema(
                     [
                         "prompt": prop("string", "What the object is and what it's made of"),
                         "source": prop("string", "Or: a picture in assets/ to make the model from"),
+                        "quality": prop(
+                            "string", "draft or standard (default) — picks the model when it is auto",
+                            extra: ["enum": ["draft", "standard"]]),
+                        "model": prop("string", "fal image-to-3D model id for this call (default: the user's setting)"),
                         "name": prop("string", "File name base (default from the prompt)"),
                         "scene": prop("string", "Scene to place it in as a model layer (optional)"),
                         "id": prop("string", "Layer id (default from the name)"),
@@ -27,7 +31,18 @@ extension MCPServer {
                     ])
             ) { [unowned self] a in
                 let s = try requireStore()
-                let provider = try falProvider()
+                var provider = try falProvider()
+                var chosen3D = ImageSettings.models.model3D
+                if let m = a["model"]?.string?.trimmingCharacters(in: .whitespaces).lowercased(), !m.isEmpty,
+                    m != ModelCatalog.auto
+                {
+                    guard FalProvider.isModelID(m) else { throw ToolError("model '\(m)' isn't a fal model id") }
+                    chosen3D = m
+                }
+                if chosen3D == ModelCatalog.auto { chosen3D = ModelCatalog.pick3D(draft: a["quality"]?.string == "draft") }
+                if let fal = provider as? FalProvider { provider = fal.modelling(with: chosen3D) }
+                let model3DProvider = provider
+                let made3D = ModelCatalog.entry(chosen3D).map { "\($0.label), \($0.priceNote)" } ?? chosen3D
                 let prompt = a["prompt"]?.string, source = a["source"]?.string, name = a["name"]?.string
                 guard prompt?.isEmpty == false || source?.isEmpty == false else {
                     throw ToolError("give a prompt or a source picture")
@@ -36,9 +51,9 @@ extension MCPServer {
                 if let sid = a["scene"]?.string { _ = try s.scene(sid) }
                 let r = try blocking {
                     try await ModelAI.generate(
-                        prompt: prompt, source: source, name: name, store: s, provider: provider)
+                        prompt: prompt, source: source, name: name, store: s, provider: model3DProvider)
                 }
-                var lines = ["asset \(r.asset) (\(r.triangles) triangles), made from \(r.reference)"]
+                var lines = ["asset \(r.asset) (\(r.triangles) triangles) by \(made3D), made from \(r.reference)"]
                 if let sid = a["scene"]?.string {
                     let scene = try s.scene(sid)
                     let (w, h) = s.project.size(for: scene)

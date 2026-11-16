@@ -13,6 +13,8 @@ public enum ImageAI {
         public var summary: String
         /// The layer the result is on (new or existing).
         public var layer: String
+        /// For the caller's report: which model made it and what it cost.
+        public var note: String = ""
     }
 
     /// Which provider removes backgrounds: on-device Vision (default, free) or fal.ai.
@@ -166,17 +168,20 @@ public enum ImageAI {
     /// (default: the canvas centre) at `width`×`height` canvas px.
     public static func generate(
         prompt: String, width: Int, height: Int, in scene: Scene?, project: Project?, store: ProjectStore,
-        provider: ImageProvider, place: Bool, at: CGPoint? = nil, seed: Int? = nil
+        provider: ImageProvider, place: Bool, at: CGPoint? = nil, seed: Int? = nil,
+        options: GenerateOptions = GenerateOptions()
     ) async throws -> Result {
-        // Generators work in multiples of 16 (and want at least 256 px a side).
+        // Generators work in multiples of 16 (and want at least 256 px a side); the provider fits each model's limits.
         func snap(_ v: Int) -> Int { max(256, min(2048, (v + 8) / 16 * 16)) }
-        let img = try await provider.generate(prompt: prompt, width: snap(width), height: snap(height), seed: seed)
-        let name = try write(img, base: "gen-" + slug(prompt), store: store)
-        log(
-            store, op: "generate", model: (provider as? FalProvider)?.models.generate ?? provider.name, prompt: prompt,
-            source: nil, asset: name)
+        let g = try await provider.generate(
+            prompt: prompt, width: snap(width), height: snap(height), seed: seed, options: options)
+        let name = try write(g.image, base: "gen-" + slug(prompt), store: store)
+        log(store, op: "generate", model: g.model, prompt: prompt, source: nil, asset: name)
+        let entry = ModelCatalog.entry(g.model)
+        var note = "made with \(entry?.label ?? g.model)" + (entry.map { " (\($0.priceNote))" } ?? "")
+        if !g.failed.isEmpty { note += "; fell back after " + g.failed.joined(separator: "; ") }
         guard place, let scene, let project else {
-            return Result(asset: name, ops: [], summary: "generated \(name)", layer: "")
+            return Result(asset: name, ops: [], summary: "generated \(name)", layer: "", note: note)
         }
         let (cw, ch) = project.size(for: scene)
         let c = at ?? CGPoint(x: cw / 2, y: ch / 2)
@@ -189,7 +194,7 @@ public enum ImageAI {
                 "height": .number(Double(height)), "fit": "cover",
             ],
         ]
-        return Result(asset: name, ops: [add], summary: "generated “\(prompt.prefix(40))”", layer: id)
+        return Result(asset: name, ops: [add], summary: "generated “\(prompt.prefix(40))”", layer: id, note: note)
     }
 
     /// Bounding box (canvas pixels) of the subject in an image layer, for "select subject".
