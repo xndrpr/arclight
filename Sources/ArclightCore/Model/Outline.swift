@@ -13,18 +13,24 @@ public enum Outline {
         if let ms = s.markers, !ms.isEmpty {
             out += "markers: " + ms.map { "\($0.name)@\(Format.number($0.t))" }.joined(separator: ", ") + "\n"
         }
-        if let a = s.audio {
-            out +=
-                "audio: \(a.src) at \(Format.number(a.offset ?? 0))s"
-                + (a.gain.map { " gain \(Format.number($0))" } ?? "") + (a.mute == true ? " (muted)" : "") + "\n"
+        // Every field that changes what is heard, so an agent sees trims, fades and effects without the full JSON.
+        func extras(_ a: AudioRef) -> String {
+            var e: [String] = []
+            func add(_ k: String, _ v: Double?) { if let v { e.append("\(k) \(Format.number(v))") } }
+            add("gain", a.gain); add("trim", a.trim); add("length", a.length); add("fadeIn", a.fadeIn)
+            add("fadeOut", a.fadeOut); add("pitch", a.pitch); add("rate", a.rate); add("lowpass", a.lowpass)
+            add("highpass", a.highpass); add("reverb", a.reverb); add("pan", a.pan); add("duck", a.duck)
+            if let s = a.space, a.reverb != nil { e.append(s) }
+            if a.reverse == true { e.append("reversed") }
+            if a.mute == true { e.append("muted") }
+            return e.isEmpty ? "" : " (" + e.joined(separator: ", ") + ")"
         }
+        if let a = s.audio {
+            out += "audio: \(a.src) at \(Format.number(a.offset ?? 0))s\(extras(a))\n"
+        }
+        if let l = s.loudness { out += "loudness: export at \(Format.number(l)) LUFS\n" }
         if let ss = s.sounds, !ss.isEmpty {
-            out +=
-                "sounds: "
-                + ss.map { a in
-                    "\(a.id ?? "?")=\(a.src)@\(Format.number(a.offset ?? 0))"
-                        + (a.gain.map { " gain \(Format.number($0))" } ?? "") + (a.mute == true ? " (muted)" : "")
-                }.joined(separator: ", ") + "\n"
+            out += "sounds:\n" + ss.map { a in "  \(a.id ?? "?")=\(a.src)@\(Format.number(a.offset ?? 0))\(extras(a))" }.joined(separator: "\n") + "\n"
         }
         for (k, p) in [("camera", s.camera), ("fog", s.fog), ("post", s.post)] {
             guard let p else { continue }

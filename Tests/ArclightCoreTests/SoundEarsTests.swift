@@ -152,4 +152,111 @@ import Testing
         let anText = an.compactMap { $0.object?["text"]?.string }.joined()
         #expect(anText.contains("character:"))
     }
+
+    // MARK: Effects and master
+
+    @Test func clipEffectsChangeWhatTheySay() throws {
+        let project = try TempProject("fx")
+        defer { project.remove() }
+        let dir = project.url
+        // 300 Hz + 8 kHz for one second, with soft edges.
+        let n = Int(Stereo.rate)
+        let x = (0..<n).map { i -> Float in
+            let t = Double(i) / Stereo.rate
+            let tone: Double = sin(2 * .pi * 300 * t) * 0.3 + sin(2 * .pi * 8000 * t) * 0.3
+            let env: Double = min(1, t / 0.02) * min(1, (1 - t) / 0.02)
+            return Float(tone * env)
+        }
+        try write(Stereo(l: x, r: x), to: dir.appendingPathComponent("two.wav"))
+        func measure(_ edit: (inout AudioRef) -> Void) throws -> (AudioDescriptors, Double) {
+            var ref = AudioRef(src: "two.wav")
+            edit(&ref)
+            let s = try Stereo.read(SceneAudio.url(ref, assets: dir))
+            return (AudioDescriptors.measure(s), s.duration)
+        }
+        let (dry, dryLen) = try measure { _ in }
+        #expect(dry.bands[4] > 0.3 && abs(dryLen - 1) < 0.01)
+
+        let (lp, lpLen) = try measure { $0.lowpass = 2000 }
+        #expect(lp.bands[4] < 0.01 && lp.centroid < 500 && abs(lpLen - 1) < 0.01)
+        let (hp, _) = try measure { $0.highpass = 2000 }
+        #expect(hp.bands[2] < 0.02 && hp.centroid > 6000)
+
+        var wet = AudioRef(src: "two.wav"); wet.reverb = 0.4
+        let ring = try Stereo.read(SceneAudio.url(wet, assets: dir))
+        let tail = Loudness.level(Loudness.kWeighted(ring), Int(1.3 * Stereo.rate)..<Int(2 * Stereo.rate))
+        #expect(ring.duration > 3.5 && tail > -50)  // the hall rings on after the sound has ended
+        #expect(try measure { $0.reverb = 0.4; $0.space = "room" }.1 < 2.2)
+
+        let (slow, slowLen) = try measure { $0.rate = 0.5; $0.lowpass = 2000 }
+        #expect(abs(slowLen - 2) < 0.05 && abs((slow.tone ?? 0) - 300) < 6)
+
+        // Reverse: a decaying hit becomes a swell.
+        let hit = sine(600, amp: 0.6, seconds: 0.8) { exp(-$0 * 8) * min(1, $0 / 0.002) }
+        try write(hit, to: dir.appendingPathComponent("hit.wav"))
+        var rev = AudioRef(src: "hit.wav"); rev.reverse = true
+        let back = AudioDescriptors.measure(try Stereo.read(SceneAudio.url(rev, assets: dir)))
+        #expect((back.attackMs ?? 0) > 300)
+
+        // Ops take the fields and refuse nonsense.
+        var sc = Scene(id: "s", duration: 3)
+        sc = try SceneOps.apply(
+            [["op": "sound", "id": "a", "src": "two.wav", "lowpass": 3000, "reverb": 0.3, "space": "room", "pan": -0.5, "duck": 9]],
+            to: sc
+        ).scene
+        #expect(sc.sound("a")?.lowpass == 3000 && sc.sound("a")?.space == "room" && sc.sound("a")?.duck == 9)
+        #expect(throws: (any Error).self) { try SceneOps.apply([["op": "sound", "id": "a", "space": "bathroom"]], to: sc) }
+        #expect(throws: (any Error).self) { try SceneOps.apply([["op": "sound", "id": "a", "reverb": 3]], to: sc) }
+        #expect(Outline.scene(sc, project: Project(name: "p")).contains("lowpass 3000"))
+    }
+
+    @Test func duckPanAndTheMasterLimiter() throws {
+        let project = try TempProject("duck")
+        defer { project.remove() }
+        let dir = project.url
+        // A "voice" that speaks from 1 s to 2 s, and steady music under it.
+        try write(sine(300, amp: 0.3, seconds: 4) { $0 >= 1 && $0 < 2 ? 1 : 0 }, to: dir.appendingPathComponent("voice.wav"))
+        try write(sine(880, amp: 0.2, seconds: 4), to: dir.appendingPathComponent("music.wav"))
+        var s = Scene(id: "s", duration: 4)
+        s.audio = AudioRef(src: "voice.wav")
+        var m = AudioRef(src: "music.wav"); m.id = "music"; m.duck = 12; m.pan = -1
+        s.sounds = [m]
+        let speech = SceneAudio.speech(s, assets: dir)
+        #expect(speech.count == 1 && abs(speech[0].lowerBound - 1) < 0.05 && abs(speech[0].upperBound - 2) < 0.05)
+        let stem = try #require(SceneMix.render(s, assets: dir).stems.first { $0.id == "music" })
+        func peak(_ t: Double, _ ch: [Float]) -> Float {
+            let i = Int(t * Stereo.rate)
+            return ch[i..<(i + 480)].map { abs($0) }.max() ?? 0
+        }
+        // Hard left: the right channel is silent; ducked by 12 dB (×0.25) while the voice speaks, back after.
+        #expect(peak(0.5, stem.audio.r) < 1e-4)
+        let open = peak(0.5, stem.audio.l), ducked = peak(1.5, stem.audio.l), after = peak(3, stem.audio.l)
+        #expect(abs(ducked / open - 0.251) < 0.02 && abs(after / open - 1) < 0.02)
+        // No duck asked for: nothing is analysed.
+        s.sounds?[0].duck = nil
+        #expect(SceneAudio.speech(s, assets: dir).isEmpty)
+
+        // The limiter holds the ceiling and leaves quiet audio alone.
+        var hot = sine(200, amp: 0.4, seconds: 1)
+        for i in 20000..<21000 { hot.l[i] *= 5; hot.r[i] *= 5 }
+        let out = SceneMix.master(hot)
+        #expect(out.peak <= SceneMix.ceiling + 1e-4)
+        #expect(abs(out.l[40000] - hot.l[40000]) < 0.01)
+        #expect(SceneMix.master(sine(200, amp: 0.4, seconds: 1)) == sine(200, amp: 0.4, seconds: 1))
+        // Loudness target.
+        let quiet = sine(1000, amp: 0.05, seconds: 3)
+        #expect(abs(Loudness.integrated(Loudness.kWeighted(SceneMix.master(quiet, loudness: -16))) - -16) < 0.3)
+    }
+
+    @Test func softSynthAndNewPresets() {
+        let plain = AudioDescriptors.measure(Stereo(l: SoundSynth.render(.whoosh), r: SoundSynth.render(.whoosh)))
+        let soft = SoundSynth.render(.whoosh, soft: 0.8)
+        let s = AudioDescriptors.measure(Stereo(l: soft, r: soft))
+        #expect(s.centroid < plain.centroid * 0.6)
+        let bloop = SoundSynth.render(.bloop)
+        let b = AudioDescriptors.measure(Stereo(l: bloop, r: bloop))
+        #expect(b.centroid < 500 && b.bands[3] < 0.02)
+        let sub = SoundSynth.render(.sub)
+        #expect(AudioDescriptors.measure(Stereo(l: sub, r: sub)).bands[0] > 0.6)
+    }
 }

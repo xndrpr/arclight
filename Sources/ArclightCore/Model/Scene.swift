@@ -82,6 +82,9 @@ public struct Scene: Codable, Equatable, Sendable {
     /// Sound clips (effects, stingers, extra voice lines) mixed over the reference audio, each placed at its own
     /// time: `[{"id":"whoosh-1","src":"whoosh.wav","offset":1.2,"gain":0.8}]`.
     public var sounds: [AudioRef]?
+    /// Loudness the exported mix is brought to (LUFS; −14 suits online video). Unset: levels are left as mixed.
+    /// A limiter keeps peaks under full scale either way.
+    public var loudness: Double?
     public var nodes: [Node]
     /// A throwaway scene for deciding a direction before the real build (look frames, storyboards, motion tests).
     /// Drafts are left out of the scene list, default exports and checks; `scene_delete {drafts:true}` clears them.
@@ -97,7 +100,8 @@ public struct Scene: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, duration, size, fps, background, camera, fog, post, markers, audio, sounds, nodes, draft, theme, rev
+        case id, name, duration, size, fps, background, camera, fog, post, markers, audio, sounds, loudness, nodes, draft, theme,
+            rev
     }
 
     public init(from decoder: Decoder) throws {
@@ -114,6 +118,7 @@ public struct Scene: Codable, Equatable, Sendable {
         markers = try c.decodeIfPresent([Marker].self, forKey: .markers)
         audio = try c.decodeIfPresent(AudioRef.self, forKey: .audio)
         sounds = try c.decodeIfPresent([AudioRef].self, forKey: .sounds)
+        loudness = try c.decodeIfPresent(Double.self, forKey: .loudness)
         nodes = try c.decodeIfPresent([Node].self, forKey: .nodes) ?? []
         draft = try c.decodeIfPresent(Bool.self, forKey: .draft)
         theme = try c.decodeIfPresent([String: JSONValue].self, forKey: .theme)
@@ -165,6 +170,22 @@ public struct AudioRef: Codable, Equatable, Sendable {
     public var length: Double?
     /// Pitch shift in semitones (−24…24; −12 = an octave lower). Keeps the length: trims and fades stay put.
     public var pitch: Double?
+    /// Speed without changing pitch (0.25…4; 0.5 = twice as long). `trim` and `length` count in the stretched sound.
+    public var rate: Double?
+    /// Filters (Hz): `lowpass` removes what is above it (softer, darker, further away), `highpass` what is below
+    /// (thinner, makes room for a voice or bass).
+    public var lowpass: Double?
+    public var highpass: Double?
+    /// Reverb amount 0…1 (0.15–0.35 is plenty) in a `space`: room, hall (default), plate or cathedral. The tail
+    /// rings on after the file ends.
+    public var reverb: Double?
+    public var space: String?
+    /// Play the file backwards.
+    public var reverse: Bool?
+    /// Stereo position −1 (left) … 1 (right).
+    public var pan: Double?
+    /// Lower this clip by so many dB while the scene audio (the voice) is speaking, and bring it back in the pauses.
+    public var duck: Double?
     /// Silence the audio: left out of exports and muted in editor playback.
     public var mute: Bool?
     public init(src: String) { self.src = src }

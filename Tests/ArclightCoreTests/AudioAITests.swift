@@ -74,7 +74,7 @@ func offPool<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async thro
         let pop = try #require(s.sound("pop"))
         #expect(pop.gain == 0.5 && pop.mute == true && pop.offset == nil && pop.src == "pop.wav")
         #expect(s.audibleClips.map(\.id) == ["whoosh-2", "whoosh"])
-        #expect(Outline.scene(s, project: Project(name: "p")).contains("sounds: pop=pop.wav@0 gain 0.5 (muted)"))
+        #expect(Outline.scene(s, project: Project(name: "p")).contains("  pop=pop.wav@0 (gain 0.5, muted)"))
         #expect(throws: (any Error).self) { try SceneOps.apply([["op": "sound", "id": "nope", "gain": 1]], to: s) }
         #expect(throws: (any Error).self) { try SceneOps.apply([["op": "sound", "id": "pop", "gain": 9]], to: s) }
         s = try SceneOps.apply([["op": "sound", "id": "pop", "remove": true]], to: s).scene

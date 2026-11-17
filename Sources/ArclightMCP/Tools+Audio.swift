@@ -30,6 +30,11 @@ extension MCPServer {
         "gain": prop("number", "Volume 0…4 (1 = as is; effects under music often sit at 0.5–0.8)"),
         "fadeIn": prop("number", "Fade-in (s)"), "fadeOut": prop("number", "Fade-out (s), ends where it stops"),
         "pitch": prop("number", "Pitch shift in semitones, −24…24 (−12 = an octave lower; length unchanged)"),
+        "lowpass": prop("number", "Cut everything above this many Hz (softer, darker: 2000–5000 for a velvety sound)"),
+        "highpass": prop("number", "Cut everything below this many Hz"),
+        "reverb": prop("number", "Reverb 0…1 (0.15–0.35 is plenty)"),
+        "space": prop("string", "Reverb space", extra: ["enum": .array(ClipFX.spaces.map { .string($0) })]),
+        "pan": prop("number", "Stereo position −1 (left) … 1 (right)"),
         "level": prop(
             "number",
             "Instead of gain: how loud the clip should be against the scene audio, in dB (−9 = 9 dB under the voice or music; without scene audio, against −16 LUFS). The gain is worked out from the file's measured loudness. Effects under a voice: −6…−12; subtle: −15…−20."),
@@ -50,7 +55,7 @@ extension MCPServer {
         let at = a["at"]?.double ?? 0
         var fields: [String: JSONValue] = ["src": .string(asset)]
         if at != 0 { fields["offset"] = .number(at) }
-        for k in ["gain", "fadeIn", "fadeOut", "length", "trim", "pitch"] { if let v = a[k], v != .null { fields[k] = v } }
+        for k in ["gain", "fadeIn", "fadeOut", "length", "trim", "pitch", "lowpass", "highpass", "reverb", "space", "pan"] { if let v = a[k], v != .null { fields[k] = v } }
         let mode = a["as"]?.string ?? defaultAs
         // Loudness of the scene audio as placed, to set and report the clip's level against it.
         let refLufs: Double? = mode == "audio" ? nil : scene.audio.flatMap { r in
@@ -186,13 +191,16 @@ extension MCPServer {
                 description:
                     "Make a motion-graphics sound effect on the device: free, instant, no key, no credit. Presets: "
                     + SoundSynth.Preset.allCases.map { "\($0.rawValue) — \($0.about)" }.joined(separator: "; ")
-                    + ". pitch shifts it in semitones (−12…12: lower = bigger, higher = smaller/lighter); seed gives a different take of noisy ones. Use it for the hits that sell motion: a whoosh on each fast move, a pop when things appear, clicks for UI, a riser into a reveal with an impact on the hit. With scene it is placed as a sound clip at 'at' — line it up with the keyframe it accompanies (a whoosh centred on the move, an impact exactly on the landing frame).",
+                    + ". pitch shifts it in semitones (−24…24: lower = bigger and darker, higher = smaller/lighter); soft 0…1 rounds it off (use it when the user wants gentle, warm, velvety, not harsh); seed gives a different take of noisy ones. Use it for the hits that sell motion: a whoosh on each fast move, a pop when things appear, clicks for UI, a riser into a reveal with an impact on the hit. With scene it is placed as a sound clip at 'at' — line it up with the keyframe it accompanies (a whoosh centred on the move, an impact exactly on the landing frame).",
                 schema: schema(
                     MCPServer.with(place: [
                         "preset": prop(
                             "string", "Which sound", extra: ["enum": .array(SoundSynth.Preset.allCases.map { .string($0.rawValue) })]),
                         "duration": prop("number", "Seconds (default per preset)"),
-                        "pitch": prop("number", "Semitones, default 0"),
+                        "pitch": prop("number", "Semitones −24…24, default 0 (lower = bigger, darker)"),
+                        "soft": prop(
+                            "number",
+                            "0…1: round the sound off — slower attack, highs rolled away. 0.4 takes the edge off, 0.8 is muffled and velvety."),
                         "seed": prop("integer", "Variation, default 1"),
                         "name": prop("string", "File name base (default the preset)"),
                     ]), required: ["preset"])
@@ -206,7 +214,9 @@ extension MCPServer {
                 let d = try a["duration"]?.double.map { try SafeNumber.positive($0, "duration", max: 30) }
                 let pitch = min(24, max(-24, a["pitch"]?.double ?? 0))
                 let seed = UInt64(max(0, a["seed"]?.double ?? 1))
-                let asset = try SoundSynth.write(p, duration: d, pitch: pitch, seed: seed, name: a["name"]?.string, store: s)
+                let soft = min(1, max(0, a["soft"]?.double ?? 0))
+                let asset = try SoundSynth.write(
+                    p, duration: d, pitch: pitch, seed: seed, soft: soft, name: a["name"]?.string, store: s)
                 var lines = ["asset \(info(asset, store: s)) — synthesised \(p.rawValue) (free)"]
                 var placeArgs = a
                 placeArgs["pitch"] = nil  // already baked into the synthesised file

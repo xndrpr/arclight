@@ -32,6 +32,13 @@ final class AudioPlayback {
 
     private weak var doc: EditorDocument?
     private let engine = AVAudioEngine()
+    /// Master limiter, like the export's: overlapping clips never leave louder than full scale.
+    private let limiter = AVAudioUnitEffect(
+        audioComponentDescription: AudioComponentDescription(
+            componentType: kAudioUnitType_Effect, componentSubType: kAudioUnitSubType_PeakLimiter,
+            componentManufacturer: kAudioUnitManufacturer_Apple, componentFlags: 0, componentFlagsMask: 0))
+    /// When the scene audio speaks (for clips that duck), worked out when playback starts.
+    private var speech: [ClosedRange<Double>] = []
     private var voices: [Voice] = []
     private var subs: Set<AnyCancellable> = []
     private var timer: Timer?
@@ -41,6 +48,12 @@ final class AudioPlayback {
 
     private init(doc: EditorDocument) {
         self.doc = doc
+        engine.attach(limiter)
+        let out = engine.outputNode.inputFormat(forBus: 0)
+        if out.sampleRate > 0, out.channelCount > 0 {
+            engine.connect(engine.mainMixerNode, to: limiter, format: out)
+            engine.connect(limiter, to: engine.outputNode, format: out)
+        }
         // Publishers fire in willSet: re-evaluate on the next runloop turn, when the new values are in place.
         doc.$playing.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: false) }
         }.store(in: &subs)
@@ -94,8 +107,10 @@ final class AudioPlayback {
 
     private func clip(_ v: Voice) -> AudioClip? {
         guard let doc, let f = v.file, let ref = v.ref else { return nil }
+        let isReference = ref == doc.scene.audio
         return AudioClip(
-            ref, fileDuration: Double(f.length) / f.processingFormat.sampleRate, sceneDuration: doc.scene.duration)
+            ref, fileDuration: Double(f.length) / f.processingFormat.sampleRate, sceneDuration: doc.scene.duration,
+            speech: isReference ? [] : speech)
     }
 
     private func start() {
@@ -114,6 +129,7 @@ final class AudioPlayback {
             engine.detach(v.player)
         }
         for (v, ref) in zip(voices, clips) { _ = load(v, ref) }
+        speech = SceneAudio.speech(doc.scene, assets: doc.assets)
         guard voices.contains(where: { $0.file != nil }) else { stop(); return }
         if !engine.isRunning {
             engine.prepare()
@@ -130,6 +146,7 @@ final class AudioPlayback {
                 let fr = AudioClip.frames(seg, sampleRate: f.processingFormat.sampleRate, fileFrames: f.length)
             else { continue }
             v.player.volume = Float(c.envelope(at: t + seg.delay))
+            v.player.pan = Float(c.pan)
             v.player.scheduleSegment(f, startingFrame: fr.start, frameCount: AVAudioFrameCount(fr.count), at: nil)
             let when = now + AVAudioTime.hostTime(forSeconds: seg.delay)
             v.player.play(at: seg.delay > 0.001 ? AVAudioTime(hostTime: when) : nil)

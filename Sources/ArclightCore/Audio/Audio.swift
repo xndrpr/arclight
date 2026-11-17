@@ -4,11 +4,11 @@ import Foundation
 /// Reference audio: file info, waveform peaks for the timeline, and muxing into exported video.
 public enum SceneAudio {
     /// Resolves `audio.src` against the project's assets folder (absolute paths allowed).
-    /// With `pitch` set this is the pitch-shifted copy (rendered on first use; the original if that fails).
+    /// With effects set (`pitch`, `rate`, filters, `reverb`, `reverse`) this is the processed copy (rendered on first use; the original if that fails).
     public static func url(_ a: AudioRef, assets: URL?) -> URL {
         let src = AssetPath.url(a.src, assets: assets)
-        guard let st = PitchShift.semitones(a), FileManager.default.fileExists(atPath: src.path) else { return src }
-        return PitchShift.shifted(src, semitones: st) ?? src
+        guard let fx = ClipFX(a), FileManager.default.fileExists(atPath: src.path) else { return src }
+        return fx.processed(src) ?? src
     }
 
     public struct Info: Equatable, Sendable {
@@ -22,6 +22,35 @@ public enum SceneAudio {
         let fmt = f.processingFormat
         return Info(
             duration: Double(f.length) / fmt.sampleRate, sampleRate: fmt.sampleRate, channels: Int(fmt.channelCount))
+    }
+
+    private static var speechCache: [String: [ClosedRange<Double>]] = [:]
+
+    /// When the scene audio is speaking (its phrases between pauses, in scene time) — what `duck` follows.
+    /// Empty unless some clip ducks.
+    public static func speech(_ scene: Scene, assets: URL?) -> [ClosedRange<Double>] {
+        guard let a = scene.audio, a.mute != true, (scene.sounds ?? []).contains(where: { ($0.duck ?? 0) > 0 && $0.mute != true })
+        else { return [] }
+        let u = url(a, assets: assets)
+        let stamp =
+            ((try? FileManager.default.attributesOfItem(atPath: u.path)[.modificationDate]) as? Date)?
+            .timeIntervalSince1970 ?? 0
+        let key = "\(u.path)|\(stamp)"
+        lock.lock()
+        var phrases = speechCache[key]
+        lock.unlock()
+        if phrases == nil {
+            guard let r = try? AudioAnalysis.analyze(u) else { return [] }
+            phrases = r.phrases
+            lock.lock(); speechCache[key] = r.phrases; lock.unlock()
+        }
+        guard let dur = info(u)?.duration else { return [] }
+        let clip = AudioClip(a, fileDuration: dur, sceneDuration: scene.duration)
+        let shift = clip.offset - clip.trim
+        return (phrases ?? []).compactMap { p in
+            let lo = max(clip.audibleStart, p.lowerBound + shift), hi = min(clip.audibleEnd, p.upperBound + shift)
+            return hi > lo ? lo...hi : nil
+        }
     }
 
     private static var peakCache: [String: [Float]] = [:]

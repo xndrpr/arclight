@@ -15,8 +15,19 @@ public struct AudioClip: Equatable, Sendable {
     public var fadeOut: Double
     /// Seconds played from `trim` (nil: to the end of the file).
     public var length: Double?
+    /// Stereo position −1…1.
+    public var pan: Double
+    /// dB the clip drops by inside `speech` (the scene audio's phrases, scene times), with a short ramp down
+    /// before each phrase and a slower one back up after it.
+    public var duck: Double
+    public var speech: [ClosedRange<Double>]
 
-    public init(_ a: AudioRef, fileDuration: Double, sceneDuration: Double) {
+    public static let duckAttack = 0.08, duckRelease = 0.4
+
+    public init(_ a: AudioRef, fileDuration: Double, sceneDuration: Double, speech: [ClosedRange<Double>] = []) {
+        pan = min(1, max(-1, a.pan ?? 0))
+        duck = max(0, min(40, a.duck ?? 0))
+        self.speech = duck > 0 ? speech : []
         offset = a.offset ?? 0
         trim = max(0, a.trim ?? 0)
         self.fileDuration = fileDuration
@@ -46,7 +57,27 @@ public struct AudioClip: Equatable, Sendable {
         var g = gain
         if fadeIn > 0 { g *= min(1, (t - audibleStart) / fadeIn) }
         if fadeOut > 0 { g *= min(1, max(0, (audibleEnd - t) / fadeOut)) }
+        if duck > 0, !speech.isEmpty { g *= pow(10, -duck * ducked(at: t) / 20) }
         return g
+    }
+
+    /// How far the clip is ducked at a scene time: 0 (not at all) … 1 (fully, inside a phrase).
+    public func ducked(at t: Double) -> Double {
+        var d = 0.0
+        for p in speech {
+            if t < p.lowerBound - Self.duckAttack || t > p.upperBound + Self.duckRelease { continue }
+            if t < p.lowerBound { d = max(d, 1 - (p.lowerBound - t) / Self.duckAttack) }
+            else if t <= p.upperBound { return 1 }
+            else { d = max(d, 1 - (t - p.upperBound) / Self.duckRelease) }
+        }
+        return d
+    }
+
+    /// Left and right gains for `pan` (equal power; centre is 1, 1).
+    public var panGains: (l: Double, r: Double) {
+        guard pan != 0 else { return (1, 1) }
+        let a = (pan + 1) * .pi / 4
+        return (cos(a) * 2.0.squareRoot(), sin(a) * 2.0.squareRoot())
     }
 
     /// What to play when playback starts at scene time `t` and runs until `until` (scene end or loop end):

@@ -10,9 +10,9 @@ struct SceneInspector: View {
         let (w, h) = doc.project.size(for: Scene(id: "_"))
         return Schema.sceneFields.compactMap { f in
             // Artboards are stills of a fixed size: no duration, frame rate or audio; size via presets.
-            if doc.isThumbnail, ["duration", "fps", "audio", "markers"].contains(f.name) { return nil }
+            if doc.isThumbnail, ["duration", "fps", "audio", "sounds", "loudness", "markers"].contains(f.name) { return nil }
             switch f.name {
-            case "camera", "fog", "post", "sounds": return nil
+            case "camera", "fog", "post": return nil
             case "size" where doc.isThumbnail:
                 return Field(
                     f.name, f.kind, "Artboard size in pixels (YouTube thumbnails: 1280×720).", label: "Size",

@@ -6,7 +6,7 @@ import Foundation
 public enum SoundSynth {
     public enum Preset: String, CaseIterable, Sendable {
         case whoosh, swipe, riser, reverse, impact, boom, hit, pop, click, tick, blip, beep, ding, chime, success,
-            error, glitch, typing, sparkle, drop
+            error, glitch, typing, sparkle, drop, bloop, sub, pad, bell
 
         public var about: String {
             switch self {
@@ -30,6 +30,10 @@ public enum SoundSynth {
             case .typing: return "keyboard clatter for typing text on (as long as the text types)"
             case .sparkle: return "high twinkles, magic / shine (0.8–1.5 s)"
             case .drop: return "falling pitch sweep, e.g. something leaving (0.4–0.8 s)"
+            case .bloop: return "round low water-drop 'bloop', a pure tone falling from ~420 to ~150 Hz, the pleasant bubble of product ads (0.12–0.25 s)"
+            case .sub: return "soft sub thump felt more than heard, ~55 Hz, no click (0.5–1 s)"
+            case .pad: return "warm dark sustained chord that swells in and out, a bed under a moment (2–8 s)"
+            case .bell: return "soft low felt-mallet bell, warm, slow ring (1.5–3 s)"
             }
         }
 
@@ -55,6 +59,10 @@ public enum SoundSynth {
             case .typing: return 1.5
             case .sparkle: return 1.2
             case .drop: return 0.6
+            case .bloop: return 0.18
+            case .sub: return 0.7
+            case .pad: return 4
+            case .bell: return 2.2
             }
         }
     }
@@ -62,7 +70,27 @@ public enum SoundSynth {
     public static let sampleRate = 48000.0
 
     /// Samples (mono, peak about −1 dBFS). `pitch` in semitones shifts every tone and filter.
-    public static func render(_ p: Preset, duration: Double? = nil, pitch: Double = 0, seed: UInt64 = 1) -> [Float] {
+    /// `soft` 0…1 rounds the sound off: a slower attack and the highs rolled away (1 = very muffled and gentle).
+    public static func render(
+        _ p: Preset, duration: Double? = nil, pitch: Double = 0, seed: UInt64 = 1, soft: Double = 0
+    ) -> [Float] {
+        let raw = renderRaw(p, duration: duration, pitch: pitch, seed: seed)
+        let s = min(1, max(0, soft))
+        guard s > 0.001 else { return raw }
+        // One-pole low-pass twice (12 dB/oct) from 12 kHz down to 500 Hz, plus an attack of up to 40 ms.
+        let cutoff = 12000 * pow(500.0 / 12000, s)
+        let a = Float(1 - exp(-2 * .pi * cutoff / sampleRate))
+        var out = raw
+        var z1: Float = 0, z2: Float = 0
+        let attack = max(1, Int(s * 0.04 * sampleRate))
+        for i in out.indices {
+            z1 += a * (out[i] - z1); z2 += a * (z1 - z2)
+            out[i] = z2 * (i < attack ? Float(i) / Float(attack) : 1)
+        }
+        return normalized(declick(out))
+    }
+
+    static func renderRaw(_ p: Preset, duration: Double? = nil, pitch: Double = 0, seed: UInt64 = 1) -> [Float] {
         let d = min(30, max(0.01, duration ?? p.defaultDuration))
         let sr = sampleRate
         let n = Int(d * sr)
@@ -230,16 +258,59 @@ public enum SoundSynth {
                 ph += (1400 * pow(0.06, x)) * k / sr
                 out[i] = Float(sin(2 * .pi * ph) * (1 - x) * min(1, t(i) / 0.01))
             }
+        case .bloop:
+            // A pure tone that falls fast then settles, with a rounded attack: the "water drop" of motion ads.
+            var ph = 0.0
+            for i in 0..<n {
+                let x = u(i)
+                ph += (150 + 270 * exp(-x * 7)) * k / sr
+                let env = min(1, t(i) / 0.006) * pow(1 - x, 1.6)
+                out[i] = Float((sin(2 * .pi * ph) + 0.12 * sin(4 * .pi * ph)) * env)
+            }
+        case .sub:
+            var ph = 0.0
+            for i in 0..<n {
+                let x = u(i)
+                ph += (48 + 22 * exp(-x * 10)) * k / sr
+                out[i] = Float(tanh(sin(2 * .pi * ph) * 1.4) * min(1, t(i) / 0.012) * pow(1 - x, 2))
+            }
+        case .pad:
+            // A minor-ninth chord of slightly detuned sines, low-passed, swelling in and out.
+            let notes = [110.0, 164.81, 220, 261.63, 329.63].map { $0 * k }
+            var phases = [Double](repeating: 0, count: notes.count * 2)
+            var f = SVF()
+            f.cutoff(900 * k, sr: sr, q: 0.6)
+            let edge = min(d * 0.4, 1.5)
+            for i in 0..<n {
+                var v = 0.0
+                for (j, note) in notes.enumerated() {
+                    phases[j * 2] += note / sr; phases[j * 2 + 1] += note * 1.004 / sr
+                    v += (sin(2 * .pi * phases[j * 2]) + sin(2 * .pi * phases[j * 2 + 1])) / Double(j + 2)
+                }
+                let tt = t(i)
+                let env = min(1, tt / edge) * min(1, (d - tt) / edge)
+                out[i] = Float(f.low(v) * env * env)
+            }
+        case .bell:
+            let base = 261.63 * k
+            for i in 0..<n {
+                let tt = t(i)
+                var v = 0.0
+                for (ratio, a, dec) in [(1.0, 1.0, 1.6), (2.0, 0.35, 2.6), (2.76, 0.18, 4.0), (4.07, 0.06, 7.0)] {
+                    v += sin(2 * .pi * base * ratio * tt) * a * exp(-tt * dec)
+                }
+                out[i] = Float(v * min(1, tt / 0.012))
+            }
         }
         return normalized(declick(out))
     }
 
     /// Renders a preset into assets/ as a WAV. Returns the file name.
     public static func write(
-        _ p: Preset, duration: Double?, pitch: Double, seed: UInt64, name: String?, store: ProjectStore
+        _ p: Preset, duration: Double?, pitch: Double, seed: UInt64, soft: Double = 0, name: String?, store: ProjectStore
     ) throws -> String {
         let url = try AudioFiles.freeName(AudioFiles.slug(name ?? p.rawValue), store: store)
-        try AudioFiles.writeWAV(render(p, duration: duration, pitch: pitch, seed: seed), sampleRate: sampleRate, to: url)
+        try AudioFiles.writeWAV(render(p, duration: duration, pitch: pitch, seed: seed, soft: soft), sampleRate: sampleRate, to: url)
         ImageAI.log(store, op: "synth", model: "arclight", prompt: p.rawValue, source: nil, asset: url.lastPathComponent)
         return url.lastPathComponent
     }

@@ -4,7 +4,7 @@ import Testing
 
 @testable import ArclightCore
 
-@Suite(.serialized) struct PitchShiftTests {
+@Suite(.serialized) struct ClipFXTests {
     /// Zero crossings per second / 2 over the middle of the file (skips the edges).
     private func frequency(_ url: URL) throws -> (Double, Int) {
         let f = try AVAudioFile(forReading: url)

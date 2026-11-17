@@ -17,10 +17,17 @@ project format; older projects keep loading.
 - `audio_analyze` reports loudness in LUFS and true peak, the character of a sound (brightness, energy per band,
   attack, tail, strongest tone) and its faults, and with `image:true` a spectrogram. Every tool that makes or imports
   a sound reports the same measurements, and `sound_search {measure:true}` measures the first results.
+- Sound clip effects: `lowpass` and `highpass` filters, `reverb` in a `space` (room, hall, plate, cathedral) with its
+  tail, `rate` (stretch without changing pitch), `reverse` and `pan`. `duck` lowers a clip by so many dB while the
+  scene audio is speaking. All of it is heard in the editor and in exports.
+- A master limiter on playback and export keeps overlapping clips from distorting; a scene's `loudness` (LUFS) brings
+  the exported mix to a target such as −14.
+- Synthesised sounds: `bloop`, `sub`, `pad` and `bell`, a `soft` amount that rounds any preset off, and pitch ±24.
+- The scene inspector edits the audio track and every sound clip (all fields), and `scene_get` lists them in full.
 - Sounds can be placed by `level` (dB against the scene audio) instead of a bare gain.
 - Sound clips and the scene audio take `pitch`: a shift in semitones (−24…24, −12 = an octave lower) that keeps the
   length, so trims, fades and timing stay put. It is heard in editor playback, drawn in the waveform and mixed into
-  exports; the shifted copy is rendered once into `~/Library/Caches/Arclight/pitch`. In the inspector, `scene_apply`
+  exports; processed copies are rendered once into `~/Library/Caches/Arclight/fx`. In the inspector, `scene_apply`
   (`{"op":"sound","id":"x","pitch":-3}`) and the place options of the sound tools.
 
 ## [0.1.3] - 2026-11-16

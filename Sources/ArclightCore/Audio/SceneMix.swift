@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 
 /// The scene's sound rendered to samples: every clip placed, trimmed and faded exactly as the editor plays it and
@@ -28,6 +29,7 @@ public enum SceneMix {
         var missing: [String] = []
         let total = Int((scene.duration * Stereo.rate).rounded())
         var mix = Stereo(count: total)
+        let speech = SceneAudio.speech(scene, assets: assets)
         var clips: [(AudioRef, Bool)] = []
         if let a = scene.audio { clips.append((a, true)) }
         clips += (scene.sounds ?? []).map { ($0, false) }
@@ -35,7 +37,9 @@ public enum SceneMix {
             let url = SceneAudio.url(ref, assets: assets)
             if files[url] == nil { files[url] = try? Stereo.read(url) }
             guard let file = files[url], file.count > 0 else { missing.append(ref.src); continue }
-            let clip = AudioClip(ref, fileDuration: file.duration, sceneDuration: scene.duration)
+            let clip = AudioClip(
+                ref, fileDuration: file.duration, sceneDuration: scene.duration, speech: isRef ? [] : speech)
+            let pan = clip.panGains
             let a = Int((clip.audibleStart * Stereo.rate).rounded())
             let b = min(total, Int((clip.audibleEnd * Stereo.rate).rounded()))
             guard b > a else { continue }
@@ -45,8 +49,8 @@ public enum SceneMix {
                 let j = filePos + i
                 guard j >= 0, j < file.count else { continue }
                 let g = Float(clip.envelope(at: Double(a + i) / Stereo.rate))
-                out.l[i] = file.l[j] * g
-                out.r[i] = file.r[j] * g
+                out.l[i] = file.l[j] * g * Float(pan.l)
+                out.r[i] = file.r[j] * g * Float(pan.r)
                 mix.l[a + i] += out.l[i]
                 mix.r[a + i] += out.r[i]
             }
@@ -54,6 +58,81 @@ public enum SceneMix {
                 Stem(id: isRef ? "audio" : (ref.id ?? ref.src), ref: ref, clip: clip, start: a, audio: out, isReference: isRef))
         }
         return Rendered(stems: stems, mix: mix, missing: missing)
+    }
+}
+
+extension SceneMix {
+    /// Sample-peak ceiling of the master limiter (leaves room for peaks between samples: about −1 dBTP).
+    public static let ceiling = Float(pow(10, -1.5 / 20))
+
+    /// The master bus: an optional gain to reach `loudness` (LUFS, at most +12 dB), then a look-ahead limiter
+    /// so nothing leaves louder than the ceiling. Quiet mixes pass through untouched.
+    public static func master(_ mix: Stereo, loudness: Double? = nil) -> Stereo {
+        var out = mix
+        if let target = loudness {
+            let now = Loudness.integrated(Loudness.kWeighted(mix))
+            if now > -70 {
+                let g = Float(pow(10, min(12, target - now) / 20))
+                out.l = vDSPScale(out.l, g); out.r = vDSPScale(out.r, g)
+            }
+        }
+        let n = out.count
+        guard n > 0, out.peak > ceiling else { return out }
+        // Gain each sample needs, held over a 5 ms window either side and smoothed, so the limiter moves before
+        // the peak arrives; then a slower recovery (about 80 ms) so it doesn't pump.
+        let look = 240
+        var need = [Float](repeating: 1, count: n)
+        for i in 0..<n {
+            let p = max(abs(out.l[i]), abs(out.r[i]))
+            if p > ceiling { need[i] = ceiling / p }
+        }
+        var held = [Float](repeating: 1, count: n)
+        var deque: [Int] = []
+        var head = 0
+        for i in 0..<(n + look) {
+            if i < n {
+                while deque.count > head, need[deque[deque.count - 1]] >= need[i] { deque.removeLast() }
+                deque.append(i)
+            }
+            let centre = i - look
+            guard centre >= 0 else { continue }
+            while deque.count > head, deque[head] < centre - look { head += 1 }
+            if deque.count > head { held[centre] = need[deque[head]] }
+        }
+        var gain = [Float](repeating: 1, count: n)
+        var acc = 0.0
+        for i in 0..<n {
+            acc += Double(held[min(n - 1, i + look / 2)])
+            if i >= look { acc -= Double(held[min(n - 1, i - look + look / 2)]) }
+            gain[i] = i >= look - 1 ? Float(acc / Double(look)) : held[i]
+            gain[i] = min(gain[i], need[i])
+        }
+        let release = Float(1 - exp(-1 / (0.08 * Stereo.rate)))
+        var g: Float = 1
+        for i in 0..<n {
+            g = min(gain[i], g + (1 - g) * release)
+            out.l[i] *= g; out.r[i] *= g
+        }
+        return out
+    }
+
+    private static func vDSPScale(_ x: [Float], _ g: Float) -> [Float] { x.map { $0 * g } }
+
+    /// Writes samples as a 48 kHz stereo 24-bit WAV.
+    public static func write(_ s: Stereo, to url: URL) throws {
+        let fmt = AVAudioFormat(standardFormatWithSampleRate: Stereo.rate, channels: 2)!
+        let settings: [String: Any] = [
+            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: Stereo.rate, AVNumberOfChannelsKey: 2,
+            AVLinearPCMBitDepthKey: 24, AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false,
+        ]
+        let file = try AVAudioFile(forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+        guard let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: AVAudioFrameCount(max(1, s.count))) else {
+            throw RenderError.setup("audio buffer")
+        }
+        buf.frameLength = AVAudioFrameCount(s.count)
+        s.l.withUnsafeBufferPointer { buf.floatChannelData![0].update(from: $0.baseAddress!, count: s.count) }
+        s.r.withUnsafeBufferPointer { buf.floatChannelData![1].update(from: $0.baseAddress!, count: s.count) }
+        try file.write(from: buf)
     }
 }
 

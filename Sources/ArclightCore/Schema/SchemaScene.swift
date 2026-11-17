@@ -115,6 +115,22 @@ extension Schema {
             Field(
                 "pitch", .number(min: -24, max: 24, step: 1, unit: "st"),
                 "Pitch shift in semitones (−12 = an octave lower); the length stays the same.", default: 0),
+            Field(
+                "rate", .number(min: 0.25, max: 4, step: 0.05),
+                "Speed without changing pitch (0.5 = twice as long). trim and length count in the stretched sound.", default: 1),
+            Field(
+                "lowpass", .number(min: 20, max: 20000, step: 100, unit: "Hz"),
+                "Remove everything above this: softer, darker, further away."),
+            Field(
+                "highpass", .number(min: 20, max: 20000, step: 10, unit: "Hz"),
+                "Remove everything below this: thinner, leaves room for voice and bass."),
+            Field("reverb", .number(min: 0, max: 1, step: 0.05), "Reverb amount (0.15–0.35 is plenty); the tail rings past the end.", default: 0),
+            Field("space", .string(), "Reverb space: room, hall, plate or cathedral.", default: "hall"),
+            Field("reverse", .bool, "Play backwards.", default: false),
+            Field("pan", .number(min: -1, max: 1, step: 0.05), "Stereo position: −1 left, 1 right.", default: 0),
+            Field(
+                "duck", .number(min: 0, max: 40, step: 1, unit: "dB"),
+                "Lower this clip by so much while the scene audio is speaking (music under a voice: 6–12).", default: 0),
             Field("mute", .bool, "Leave out of exports.", default: false),
         ])
 
@@ -138,6 +154,10 @@ extension Schema {
             "markers", .list(marker), "Named times (scene_apply {\"op\":\"marker\",\"name\":\"lock\",\"t\":3.4}).",
             animatable: false),
         Field("audio", .object(audio), "Reference audio track.", animatable: false),
+        Field(
+            "loudness", .number(min: -40, max: -6, step: 1, unit: "LUFS"),
+            "Bring the exported mix to this loudness (−14 suits online video). Unset: levels stay as mixed.",
+            animatable: false),
         Field(
             "sounds", .list(sound),
             "Sound clips over the audio (scene_apply {\"op\":\"sound\",\"id\":\"pop-1\",\"src\":\"pop.wav\",\"offset\":1.2}).",

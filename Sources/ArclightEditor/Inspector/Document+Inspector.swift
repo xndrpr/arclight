@@ -25,6 +25,10 @@ extension Scene {
             case "duration": return .value(.number(duration))
             case "fps": return fps.map { .value(.number($0)) }
             case "size": return size.map { .value(.array($0.map { .number(Double($0)) })) }
+            case "loudness": return loudness.map { .value(.number($0)) }
+            // Audio and sound clips are plain values: shown and edited as their JSON.
+            case "audio": return audio.flatMap(Self.json).map { .value($0) }
+            case "sounds": return sounds.flatMap(Self.json).map { .value($0) }
             default: return nil
             }
         }
@@ -50,9 +54,25 @@ extension Scene {
                 } else if p == nil {
                     size = nil
                 }
+            case "loudness": loudness = v?.double.map { min(-6, max(-40, $0)) }
+            case "audio":
+                if let v, let a = try? v.decoded(as: AudioRef.self), !a.src.isEmpty { audio = a } else if p == nil { audio = nil }
+            case "sounds":
+                if let v, let list = try? v.decoded(as: [AudioRef].self) {
+                    let kept = list.filter { !$0.src.isEmpty }
+                    sounds = kept.isEmpty ? nil : kept
+                } else if p == nil {
+                    sounds = nil
+                }
             default: break
             }
         }
+    }
+}
+
+extension Scene {
+    fileprivate static func json<T: Encodable>(_ v: T) -> JSONValue? {
+        (try? JSONEncoder().encode(v)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
     }
 }
 

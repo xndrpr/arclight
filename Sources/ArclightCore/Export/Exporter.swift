@@ -165,12 +165,22 @@ public final class Exporter {
         if !clips.isEmpty {
             let tmp = url.deletingLastPathComponent().appendingPathComponent(
                 ".\(url.lastPathComponent).audio.\(o.format.ext)")
-            if try SceneAudio.mux(
-                video: url, clips: clips, assets: assets, sceneDuration: Double(frames) / fps, output: tmp,
-                fileType: o.format.fileType)
-            {
-                try FileManager.default.removeItem(at: url)
-                try FileManager.default.moveItem(at: tmp, to: url)
+            // The same mix the editor plays and mix_check measures, through the master limiter.
+            let rendered = SceneMix.render(scene, assets: assets)
+            if !rendered.stems.isEmpty {
+                var mix = SceneMix.master(rendered.mix, loudness: scene.loudness)
+                let n = min(mix.count, Int((Double(frames) / fps * Stereo.rate).rounded()))
+                mix = Stereo(l: Array(mix.l[..<n]), r: Array(mix.r[..<n]))
+                let wav = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).mix.wav")
+                defer { try? FileManager.default.removeItem(at: wav) }
+                try SceneMix.write(mix, to: wav)
+                if try SceneAudio.mux(
+                    video: url, clips: [AudioRef(src: wav.path)], assets: assets, sceneDuration: Double(frames) / fps,
+                    output: tmp, fileType: o.format.fileType)
+                {
+                    try FileManager.default.removeItem(at: url)
+                    try FileManager.default.moveItem(at: tmp, to: url)
+                }
             }
         }
         return ExportResult(

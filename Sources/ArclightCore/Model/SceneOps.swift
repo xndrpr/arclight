@@ -107,7 +107,7 @@ public enum SceneOps {
     /// `r` with the op's clip fields merged in (`null` clears one).
     static func mergeSound(_ r: AudioRef, _ o: [String: JSONValue]) throws -> AudioRef {
         guard var obj = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(r)).object else { return r }
-        for k in ["src", "offset", "trim", "length", "gain", "fadeIn", "fadeOut", "mute", "pitch"] {
+        for k in ["src", "offset", "trim", "length", "gain", "fadeIn", "fadeOut", "mute", "pitch", "rate", "lowpass", "highpass", "reverb", "space", "reverse", "pan", "duck"] {
             guard let v = o[k] else { continue }
             if k == "src", v == .null { continue }
             obj[k] = v == .null ? nil : v
@@ -115,6 +115,16 @@ public enum SceneOps {
         if let g = obj["gain"]?.double, !(0...4).contains(g) { throw ModelError.invalid("gain must be 0…4") }
         if let p = obj["pitch"]?.double, !(-24...24).contains(p) {
             throw ModelError.invalid("pitch must be −24…24 semitones")
+        }
+        if let v = obj["rate"]?.double, !(0.25...4).contains(v) { throw ModelError.invalid("rate must be 0.25…4") }
+        if let v = obj["reverb"]?.double, !(0...1).contains(v) { throw ModelError.invalid("reverb must be 0…1") }
+        if let v = obj["pan"]?.double, !(-1...1).contains(v) { throw ModelError.invalid("pan must be −1…1") }
+        if let v = obj["duck"]?.double, !(0...40).contains(v) { throw ModelError.invalid("duck must be 0…40 dB") }
+        for k in ["lowpass", "highpass"] {
+            if let v = obj[k]?.double, !(20...20000).contains(v) { throw ModelError.invalid("\(k) must be 20…20000 Hz") }
+        }
+        if let v = obj["space"]?.string, !ClipFX.spaces.contains(v) {
+            throw ModelError.invalid("space must be one of \(ClipFX.spaces.joined(separator: ", "))")
         }
         return try JSONValue.object(obj).decoded(as: AudioRef.self)
     }
@@ -269,6 +279,10 @@ public enum SceneOps {
             if let f = o["fog"] { s.fog = f == .null ? nil : try Prop(json: f) }
             if let p = o["post"] { s.post = p == .null ? nil : try Prop(json: p) }
             if let a = o["audio"] { s.audio = a == .null ? nil : try a.decoded(as: AudioRef.self) }
+            if let l = o["loudness"] {
+                if let v = l.double, !(-40 ... -6).contains(v) { throw ModelError.invalid("loudness must be −40…−6 LUFS") }
+                s.loudness = l.double
+            }
             if let list = o["sounds"] {
                 var out: [AudioRef] = []
                 for v in list.array ?? [] {
