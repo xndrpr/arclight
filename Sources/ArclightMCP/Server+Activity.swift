@@ -85,6 +85,7 @@ extension MCPServer {
                 + (a["markers"]?.string.map { " (\($0) markers)" } ?? "")
         case "audio_transcribe":
             return "get the words of \(a["sound"]?.string ?? a["src"]?.string ?? "the scene audio")"
+        case "sound_notes": return a["add"] != nil || a["write"] != nil ? "note what the sound should be" : "read the sound notes"
         case "mix_check": return "check the mix of \(a["scene"]?.string ?? "")"
         default: return tool
         }

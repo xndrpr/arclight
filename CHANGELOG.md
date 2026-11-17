@@ -26,11 +26,23 @@ project format; older projects keep loading.
 - The scene inspector edits the audio track and every sound clip (all fields), and `scene_get` lists them in full.
 - `audio_transcribe`: the words of a voiceover with the time each is spoken (ElevenLabs Scribe on fal.ai, saved per
   file in the project), with `find` for one phrase and `mark` to write markers on words.
+- The chat asks about sound by ear: `ask_choice` has a `sound` stage whose options play on the card, on their own and
+  in the scene's mix, so a matter of taste is picked by listening instead of guessed.
+- Sound notes per project (`sound_notes`, `.arclight/sound.md`): what the user liked and rejected is kept across
+  chats and shown to the AI with every message.
+- The AI's instructions for sound were rewritten: it is told it cannot hear and must measure, to run `mix_check` after
+  every sound edit, to ask when a word can be read two ways, and `guide("sound")` now covers levels against the
+  voice, what words like "velvety" or "bloop" mean in parameters, restraint and timing. The first sound tool of a
+  session carries the short version.
 - Sounds can be placed by `level` (dB against the scene audio) instead of a bare gain.
 - Sound clips and the scene audio take `pitch`: a shift in semitones (−24…24, −12 = an octave lower) that keeps the
   length, so trims, fades and timing stay put. It is heard in editor playback, drawn in the waveform and mixed into
   exports; processed copies are rendered once into `~/Library/Caches/Arclight/fx`. In the inspector, `scene_apply`
   (`{"op":"sound","id":"x","pitch":-3}`) and the place options of the sound tools.
+
+### Fixed
+
+- The release build with warnings as errors failed on a deprecated FFT call in the audio analysis.
 
 ## [0.1.3] - 2026-11-16
 

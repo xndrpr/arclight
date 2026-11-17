@@ -18,8 +18,9 @@ enum Guide {
         When the story happens in a place (a room, a street, a void), build it as one 3D space and move the camera through it: \
         a box room, generated models and relief plates, lit and fogged. See guide("space").
         Sound: music or voiceover as the scene's audio, effects as sound clips at their times — sound_synth (free, on-device), \
-        sound_search/sound_import (free CC sounds and music), voice_generate, sound_generate (AI, paid), audio_analyze (beats → markers). \
-        See guide("sound").
+        sound_search/sound_import (free CC sounds and music), voice_generate, sound_generate (AI, paid). You cannot hear: every sound \
+        tool reports what it measured, audio_transcribe gives the time of each spoken word, and mix_check measures the whole mix — \
+        run it after every sound edit and fix what it flags before answering. Read guide("sound") before the first sound edit.
         """
 
     /// Topics in reading order. Layer-type topics and "scene"/"common"/"symbols" are generated.
@@ -127,29 +128,88 @@ enum Guide {
 
     static let sound = """
         # Sound
-        A scene has one reference track, audio (music or voiceover), and any number of sound clips, sounds, each at its \
-        own time. All of them play in the editor and are mixed into mp4/hevc/prores exports.
-          {"op":"scene","audio":{"src":"music.mp3","offset":0,"gain":0.8,"fadeOut":1.5}}
+        You cannot hear. Work from measurements, check the mix after every edit, and let the user's ears decide taste.
+
+        ## How a scene holds sound
+        One reference track, audio (the voiceover, or music when there is no voice), and any number of sound clips, sounds, \
+        each at its own time. All play in the editor and are mixed into mp4/hevc/prores exports through a limiter.
+          {"op":"scene","audio":{"src":"voice.mp3","offset":0.7}}
           {"op":"sound","id":"whoosh-1","src":"whoosh.wav","offset":1.15,"gain":0.7}   adds or updates a clip
           {"op":"sound","id":"whoosh-1","remove":true}
-          Clip fields: src, offset (scene s), trim (file s skipped), length (s played), gain 0…4, fadeIn, fadeOut (ends where \
-        the clip stops), pitch (semitones −24…24, length kept: −3 = darker, +12 = an octave up), mute.
-        Getting sounds (each can place its result: scene + at, as "sound" or "audio"):
-          sound_synth {preset, duration, pitch, scene, at} — free, instant, no credit: whoosh, swipe, riser, reverse, impact, \
-        boom, hit, pop, click, tick, blip, beep, ding, chime, success, error, glitch, typing, sparkle, drop.
-          sound_search {query, kind:"sfx"|"music", max_seconds} → sound_import {sound, scene, at} — free Creative Commons \
-        sounds (Freesound) and music (Jamendo…). Credits go to assets/CREDITS.md; tell the user when one is CC BY.
-          voice_generate {text, engine:"local"|"fal", voice} — voiceover; local system voices are free (drafts, timing), \
-        fal (ElevenLabs) sounds natural and costs money.
+          {"op":"scene","loudness":-14}   bring the exported mix to −14 LUFS (online video); unset = as mixed
+        Clip fields: src, offset (scene s), trim (file s skipped), length (s played), gain 0…4, fadeIn, fadeOut, mute, and effects:
+          pitch −24…24 semitones (length kept) · rate 0.25…4 (stretch, pitch kept) · lowpass / highpass (Hz) ·
+          reverb 0…1 + space room|hall|plate|cathedral (the tail rings past the file end; length cuts it) · reverse · pan −1…1 ·
+          duck N (dB the clip drops while the scene audio is speaking — music or ambience under a voice: 6–12).
+        These are real effects: never fake reverb with delayed copies or stretch by looping.
+
+        ## The loop (every sound edit)
+        1. Read the project's sound notes (shown in <sound>, or sound_notes) — what the user already liked and rejected.
+        2. Know the voice: audio_transcribe {scene} for the time of every word; audio_analyze {scene} for its loudness.
+        3. Get the sound; read what the tool measured (loudness, character, tone, faults) before placing it.
+        4. Place it by level, not by a guessed gain: {level:-9} = 9 dB under the scene audio.
+        5. mix_check {scene}: fix every problem it lists, run it again. Look at the picture too.
+        6. Tell the user what you measured and which timestamps to listen to. Record their reaction with sound_notes.
+
+        ## Levels (loudest 0.4 s of each clip, against the voice's own level)
+          voice: the reference. Aim the whole mix at about −14 LUFS for online video.
+          effects that should be noticed: 6–12 dB under the voice. Subtle touches (ticks, small UI): 15–20 under.
+          music under a voice: 12–20 dB under it (or duck 8–12). Music alone: at the voice's level.
+          room tone / ambience: 20–30 under. If mix_check says "buried" or "practically silent", it adds nothing: raise or remove.
+          one big moment (impact, drop) may reach the voice's level when the voice has stopped — never over it mid-sentence.
+          A file's own loudness varies by 40 dB between sources: gain 0.5 means nothing until you have measured the file.
+
+        ## Words → what to change (measure before and after)
+          velvety, soft, warm, gentle, not harsh: lowpass 2000–4000, attack ≥ 20 ms (fadeIn 0.02–0.05, synth soft 0.5–0.8),
+            pitch −3…−7, a little reverb (0.15–0.25 room/hall). In the report: centroid under ~1200 Hz, presence 2–5k near 0%.
+          harsh, sharp, piercing, "резкий": too much 2–5 kHz or an attack under 5 ms → lowpass, soften the attack, pitch down.
+          "бульк" / bloop / plop / bubble (the pleasant pop of product ads): sound_synth bloop (pure tone falling ~420→150 Hz,
+            0.12–0.25 s, no noise); pitch −3…−12 for a bigger drop. Not pop (too bright and clicky), not ding.
+          lower / deeper: ask — pitch or volume? Deeper = pitch −5…−12 or a tone under ~200 Hz. Under 80 Hz is felt on
+            headphones and absent on phone speakers: keep some 150–400 Hz in it.
+          bigger, cinematic: longer tail (reverb 0.25–0.4 hall), sub layer (synth sub), a riser or reverse before it.
+          airy, light, magical: bell/chime/sparkle with highpass 300–600, long reverb, level 12–15 under.
+          closer / further away: further = lowpass + more reverb + lower level; closer = dry and full range.
+          too loud: lower level by 6 dB steps (3 dB is barely heard). Still "too loud" when the numbers are low → it is
+            harsh, not loud: fix 2–5 kHz and the attack.
+
+        ## Choosing and restraint
+          One sound world per film: recorded with recorded, tonal sounds in the music's key (audio_analyze reports each
+            file's strongest tone; use pitch to move a chime onto the key). Don't mix cartoon pops into a moody piece.
+          Recorded sounds (sound_search {measure:true}, sound_generate) for anything in the foreground or realistic;
+            sound_synth for motion and UI sounds and for drafts. If the user supplied a sound, use theirs.
+          Sound the accents, not everything: continuous motion (drift, rotation, a slow camera) stays silent or sits on
+            the bed. One riser and one big impact per film. Silence before a hit makes it; a full stop of music on the
+            last word is stronger than a bang over it.
+          Mood first: in a quiet, sad or tense piece effects are few, low, dark and long; in an upbeat ad they are short,
+            bright and on every beat.
+
+        ## Timing
+          audio_transcribe {scene, find:"one step away"} → when a phrase is said; mark:[…] writes say-<word> markers.
+          audio_analyze {scene, markers:"beats"|"bars"|"onsets"|"phrases"} → beat-N, bar-N, hit-N, line-N markers.
+          A sound belongs to something seen: never before its event is on screen (not in the black before a fade-in).
+          Impact, pop, bloop: start exactly on the landing frame (trim away any silence the report shows at the file start).
+          Whoosh: its loudest point (about 40% in) on the fastest frame: offset = move middle − 0.4 × length.
+          Riser / reverse: ends on the hit (offset = hit − length). A sound for a word starts with the word or just
+            before it, not after; keep the loud part of an effect out of the middle of a sentence.
+
+        ## Getting sounds (each can place its result: scene + at, as "sound" or "audio", with level and effects)
+          sound_synth {preset, duration, pitch, soft, scene, at} — free, instant: whoosh, swipe, riser, reverse, impact, boom,
+            hit, pop, bloop, click, tick, blip, beep, ding, chime, bell, success, error, glitch, typing, sparkle, drop, sub, pad.
+          sound_search {query, kind:"sfx"|"music", max_seconds, measure:true} → sound_import {sound, scene, at} — free Creative
+            Commons sounds and music. Credits go to assets/CREDITS.md; tell the user when one is CC BY.
+          voice_generate {text, engine:"local"|"fal", voice} — voiceover; local voices are free, fal (ElevenLabs) is natural, paid.
           sound_generate {kind:"sfx"|"music", prompt, duration} — anything else, with AI (fal.ai, paid).
-        Timing:
-          audio_analyze {scene, markers:"beats"|"bars"|"onsets"|"phrases"} — tempo, beats, hits, sentences, loudest moment; \
-        writes markers (beat-1…, bar-1…, hit-1…, line-1…) that keys snap to and expressions read: marker("bar-2").
-          Put a whoosh so its loudest point (about 40% in) meets the fastest frame of the move: offset = move middle − 0.4 × \
-        length. An impact or pop starts exactly on the landing frame; a riser or reverse ends on it (offset = hit − length).
-          Cut on beats or bars; land the title on the loudest moment; start each caption at its phrase.
-        Mix: voice 1, music 0.3–0.6 under voice (0.8–1 alone), effects 0.5–0.8; fade music out over the last 1–2 s. \
-        A few well-placed sounds beat one on every move.
+          asset_import {path} — a file the user gave you; it reports the same measurements.
+
+        ## Asking
+          Taste is theirs: for "which sound", "softer", "more velvety" make 2–4 candidates that differ in ways you measured
+            (don't place them) and, in the editor's chat, ask with ask_choice {stage:"sound", options:[{id, title, note:"dark,
+            soft attack, 9 dB under", sound:{src, scene, at, level-derived gain, replace:[ids it stands in for]}}]}.
+            Elsewhere, describe the candidates and ask which.
+          A word with two readings (lower, noise, longer, heavier): one line to ask before you change anything.
+          sound_notes {add:"…"} after each reaction: "bloop on the food moment: wants it very low and velvety; rejected chime
+            (too loud, harsh) and pop". Read them before the next sound job.
         """
 
     static var symbols: String {

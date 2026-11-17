@@ -88,7 +88,8 @@ public struct AudioDescriptors: Equatable, Sendable {
         var padded = x
         if padded.count < frame { padded += [Float](repeating: 0, count: frame - padded.count) }
         guard
-            let dft = vDSP.DFT(count: frame, direction: .forward, transformType: .complexComplex, ofType: Float.self)
+            let dft = try? vDSP.DiscreteFourierTransform(
+                previous: nil, count: frame, direction: .forward, transformType: .complexComplex, ofType: Float.self)
         else { return (0, bands, nil) }
         let window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: frame, isHalfWindow: false)
         let zeros = [Float](repeating: 0, count: frame)

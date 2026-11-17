@@ -268,8 +268,8 @@ public enum ChatSettings {
 
     /// The direction stages the AI asks about before building a new scene (Settings ▸ AI ▸ Chat). All by default.
     public static var directionStages: [ChatChoice.Stage] {
-        get { read().direction ?? ChatChoice.Stage.allCases }
-        set { update { $0.direction = ChatChoice.Stage.allCases.filter(newValue.contains) } }
+        get { (read().direction ?? ChatChoice.Stage.direction).filter(ChatChoice.Stage.direction.contains) }
+        set { update { $0.direction = ChatChoice.Stage.direction.filter(newValue.contains) } }
     }
 
     /// Web search and page reading in the chat (Anthropic's server tools, about 1 cent a search). On by default.

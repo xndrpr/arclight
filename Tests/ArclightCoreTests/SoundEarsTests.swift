@@ -5,7 +5,8 @@ import Testing
 @testable import ArclightCore
 @testable import ArclightMCP
 
-@Suite(.serialized) struct SoundEarsTests {
+/// Every test runs off the cooperative pool (`offPool`): they are CPU-heavy and wait on blocking audio work.
+@Suite(.serialized) struct SoundEarsTests: Sendable {
     /// A sine in both channels at 48 kHz.
     private func sine(_ hz: Double, amp: Double, seconds: Double, env: (Double) -> Double = { _ in 1 }) -> Stereo {
         let n = Int(seconds * Stereo.rate)
@@ -25,7 +26,8 @@ import Testing
         try f.write(from: buf)
     }
 
-    @Test func loudnessMatchesTheBroadcastMeter() {
+    @Test func loudnessMatchesTheBroadcastMeter() async throws { try await offPool { try self.loudnessMatchesTheBroadcastMeterBody() } }
+    private func loudnessMatchesTheBroadcastMeterBody() throws {
         // BS.1770: a 1 kHz sine at −20 dBFS in both channels reads −20 LUFS.
         let s = sine(1000, amp: 0.1, seconds: 3)
         let k = Loudness.kWeighted(s)
@@ -42,7 +44,8 @@ import Testing
         #expect(abs(tp.db - -6.02) < 0.3)
     }
 
-    @Test func descriptorsTellDarkFromBrightAndSharpFromSoft() {
+    @Test func descriptorsTellDarkFromBrightAndSharpFromSoft() async throws { try await offPool { try self.descriptorsTellDarkFromBrightAndSharpFromSoftBody() } }
+    private func descriptorsTellDarkFromBrightAndSharpFromSoftBody() throws {
         let low = AudioDescriptors.measure(sine(100, amp: 0.5, seconds: 1))
         let high = AudioDescriptors.measure(sine(4000, amp: 0.5, seconds: 1))
         #expect(low.centroid < 200 && high.centroid > 3500)
@@ -69,7 +72,8 @@ import Testing
         #expect(abs(ld.lead - 0.2) < 0.01 && ld.faults.contains { $0.contains("silence before") })
     }
 
-    @Test func mixIsTheSumOfClipsAndTheReportFindsProblems() throws {
+    @Test func mixIsTheSumOfClipsAndTheReportFindsProblems() async throws { try await offPool { try self.mixIsTheSumOfClipsAndTheReportFindsProblemsBody() } }
+    private func mixIsTheSumOfClipsAndTheReportFindsProblemsBody() throws {
         let project = try TempProject("mix")
         defer { project.remove() }
         let dir = project.url
@@ -120,7 +124,8 @@ import Testing
         #expect(img.width == 1400 && img.height > 300)
     }
 
-    @Test func toolsMeasureAndSetLevels() throws {
+    @Test func toolsMeasureAndSetLevels() async throws { try await offPool { try self.toolsMeasureAndSetLevelsBody() } }
+    private func toolsMeasureAndSetLevelsBody() throws {
         let project = try TempProject("eartools", scenes: [Scene(id: "s", duration: 4)])
         defer { project.remove() }
         let assets = project.store.assetsURL
@@ -155,7 +160,8 @@ import Testing
 
     // MARK: Effects and master
 
-    @Test func clipEffectsChangeWhatTheySay() throws {
+    @Test func clipEffectsChangeWhatTheySay() async throws { try await offPool { try self.clipEffectsChangeWhatTheySayBody() } }
+    private func clipEffectsChangeWhatTheySayBody() throws {
         let project = try TempProject("fx")
         defer { project.remove() }
         let dir = project.url
@@ -210,7 +216,8 @@ import Testing
         #expect(Outline.scene(sc, project: Project(name: "p")).contains("lowpass 3000"))
     }
 
-    @Test func duckPanAndTheMasterLimiter() throws {
+    @Test func duckPanAndTheMasterLimiter() async throws { try await offPool { try self.duckPanAndTheMasterLimiterBody() } }
+    private func duckPanAndTheMasterLimiterBody() throws {
         let project = try TempProject("duck")
         defer { project.remove() }
         let dir = project.url
@@ -248,7 +255,8 @@ import Testing
         #expect(abs(Loudness.integrated(Loudness.kWeighted(SceneMix.master(quiet, loudness: -16))) - -16) < 0.3)
     }
 
-    @Test func softSynthAndNewPresets() {
+    @Test func softSynthAndNewPresets() async throws { try await offPool { try self.softSynthAndNewPresetsBody() } }
+    private func softSynthAndNewPresetsBody() throws {
         let plain = AudioDescriptors.measure(Stereo(l: SoundSynth.render(.whoosh), r: SoundSynth.render(.whoosh)))
         let soft = SoundSynth.render(.whoosh, soft: 0.8)
         let s = AudioDescriptors.measure(Stereo(l: soft, r: soft))
@@ -281,7 +289,8 @@ import Testing
         }
     }
 
-    @Test func transcriptGivesWordTimesInSceneTime() throws {
+    @Test func transcriptGivesWordTimesInSceneTime() async throws { try await offPool { try self.transcriptGivesWordTimesInSceneTimeBody() } }
+    private func transcriptGivesWordTimesInSceneTimeBody() throws {
         let project = try TempProject("words", scenes: [Scene(id: "s", duration: 8)])
         defer { project.remove() }
         let assets = project.store.assetsURL
@@ -304,5 +313,73 @@ import Testing
         #expect(found.contains("say-ned") && found.contains("@5 in s") && found.contains("not marked: “нет такого”"))
         let outline = try run("scene_get", ["scene": "s"])
         #expect(outline.contains("say-ned"))
+    }
+
+    // MARK: Asking and remembering
+
+    @Test func soundChoiceCardsNotesAndPreviews() async throws { try await offPool { try self.soundChoiceCardsNotesAndPreviewsBody() } }
+    private func soundChoiceCardsNotesAndPreviewsBody() throws {
+        let project = try TempProject("ask", scenes: [Scene(id: "s", duration: 6)])
+        defer { project.remove() }
+        let assets = project.store.assetsURL
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        try write(sine(300, amp: 0.1, seconds: 6), to: assets.appendingPathComponent("voice.wav"))
+        try write(sine(700, amp: 0.4, seconds: 0.5) { exp(-$0 * 9) }, to: assets.appendingPathComponent("a.wav"))
+
+        // The card: a sound per option, with the scene and what it replaces.
+        let input: [String: JSONValue] = [
+            "stage": "sound", "question": "Which one?",
+            "options": [
+                ["id": "a", "title": "Low bloop", "note": "dark, 9 dB under",
+                    "sound": ["src": "a.wav", "scene": "s", "at": 3, "gain": 0.5, "lowpass": 2000, "replace": ["old"]]],
+                ["id": "b", "title": "Bell", "sound": ["src": "a.wav", "pitch": -5]],
+            ],
+        ]
+        let choice = try ChatChoice.parse(id: "c", input: input)
+        let so = try #require(choice.options[0].sound)
+        #expect(so.clip.offset == 3 && so.clip.lowpass == 2000 && so.scene == "s" && so.replace == ["old"])
+        #expect(choice.options[1].sound?.clip.pitch == -5 && choice.stage.label == "Sound")
+        #expect(throws: (any Error).self) {
+            try ChatChoice.parse(id: "c", input: ["stage": "sound", "question": "?", "options": [["id": "a", "title": "x"]]])
+        }
+        #expect(!ChatChoice.Stage.direction.contains(.sound))
+        #expect(choice.resultText(.init(picked: ["a"])).contains("the user picked a"))
+
+        // Previews: alone is as long as the clip; in the scene it is the stretch around it, without what it replaces.
+        var scene = Scene(id: "s", duration: 6)
+        scene.audio = AudioRef(src: "voice.wav")
+        var old = AudioRef(src: "a.wav"); old.id = "old"; old.offset = 3; old.gain = 2
+        scene.sounds = [old]
+        let alone = try SceneMix.preview(so.clip, in: nil, assets: assets)
+        let inScene = try SceneMix.preview(so.clip, in: scene, replace: ["old"], assets: assets)
+        defer { try? FileManager.default.removeItem(at: alone); try? FileManager.default.removeItem(at: inScene) }
+        #expect(abs((SceneAudio.info(alone)?.duration ?? 0) - 0.5) < 0.05)
+        #expect(abs((SceneAudio.info(inScene)?.duration ?? 0) - 4) < 0.05)  // 1…5 s
+        let heard = try Stereo.read(inScene)
+        #expect(heard.peak < 0.5)  // the loud clip it replaces is not in it
+
+        // Notes: added lines persist, show in the brief and in the chat context.
+        let server = MCPServer(projectPath: project.url.path)
+        func run(_ name: String, _ args: [String: JSONValue]) throws -> String {
+            try server.tools.first { $0.name == name }!.run(args).compactMap { $0.object?["text"]?.string }.joined(separator: "\n")
+        }
+        #expect(try run("sound_notes", [:]).contains("no sound notes yet"))
+        _ = try run("sound_notes", ["add": "food moment: very low, velvety bloop; rejected chime (harsh)"])
+        _ = try run("sound_notes", ["add": "ticks: start after the lamp is on"])
+        let notes = try #require(SoundNotes.read(project.url))
+        #expect(notes.contains("- food moment") && notes.contains("- ticks"))
+        #expect(server.soundBrief().contains("rejected chime") && server.soundBrief().contains("mix_check"))
+        #expect(ChatPrompt.soundNote(notes)?.hasPrefix("<sound>") == true && ChatPrompt.soundNote(nil) == nil)
+        _ = try run("sound_notes", ["write": "- only this"])
+        #expect(SoundNotes.read(project.url) == "- only this")
+
+        // The instructions say the things that were missing.
+        let prompt = ChatPrompt.system(instructions: Guide.instructions, projectPath: project.url.path)
+        for must in ["You cannot hear", "mix_check", "ask_choice stage \"sound\"", "sound_notes", "guide(\"sound\")"] {
+            #expect(prompt.contains(must), "prompt lacks \(must)")
+        }
+        for must in ["bloop", "velvety", "level", "duck", "audio_transcribe", "never before its event"] {
+            #expect(Guide.sound.contains(must), "guide lacks \(must)")
+        }
     }
 }

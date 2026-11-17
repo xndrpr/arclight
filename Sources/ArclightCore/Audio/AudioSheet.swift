@@ -54,7 +54,8 @@ public enum AudioSheet {
         let frame = 2048
         let mono = s.mono
         let fLo = 40.0, fHi = 18000.0
-        if let dft = vDSP.DFT(count: frame, direction: .forward, transformType: .complexComplex, ofType: Float.self) {
+        if let dft = try? vDSP.DiscreteFourierTransform(
+                previous: nil, count: frame, direction: .forward, transformType: .complexComplex, ofType: Float.self) {
             let window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: frame, isHalfWindow: false)
             let zeros = [Float](repeating: 0, count: frame)
             let hz = Stereo.rate / Double(frame)

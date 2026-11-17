@@ -178,6 +178,7 @@ A 3D model (.glb, .gltf, .obj, .usdz, …) from assets/, centred on x,y,z and sc
 | `post` | {post} |  | Final grade, bloom, grain, motion blur, fades. |
 | `markers` | [{marker}] |  | Named times (scene_apply {"op":"marker","name":"lock","t":3.4}). Not animatable. |
 | `audio` | {audio} |  | Reference audio track. Not animatable. |
+| `loudness` | number (LUFS) |  | Bring the exported mix to this loudness (−14 suits online video). Unset: levels stay as mixed. Not animatable. |
 | `sounds` | [{sound}] |  | Sound clips over the audio (scene_apply {"op":"sound","id":"pop-1","src":"pop.wav","offset":1.2}). Not animatable. |
 
 ### `camera` object
@@ -306,6 +307,15 @@ Reference audio (voiceover, music): plays with the scene and is mixed into expor
 | `fadeIn` | number (s) | `0` | Fade-in length. |
 | `fadeOut` | number (s) | `0` | Fade-out where the audio stops (its end or the scene end). |
 | `length` | number (s) |  | Seconds played from trim (default: the rest of the file). |
+| `pitch` | number (st) | `0` | Pitch shift in semitones (−12 = an octave lower); the length stays the same. |
+| `rate` | number | `1` | Speed without changing pitch (0.5 = twice as long). trim and length count in the stretched sound. |
+| `lowpass` | number (Hz) |  | Remove everything above this: softer, darker, further away. |
+| `highpass` | number (Hz) |  | Remove everything below this: thinner, leaves room for voice and bass. |
+| `reverb` | number | `0` | Reverb amount (0.15–0.35 is plenty); the tail rings past the end. |
+| `space` | string | `"hall"` | Reverb space: room, hall, plate or cathedral. |
+| `reverse` | bool | `false` | Play backwards. |
+| `pan` | number | `0` | Stereo position: −1 left, 1 right. |
+| `duck` | number (dB) | `0` | Lower this clip by so much while the scene audio is speaking (music under a voice: 6–12). |
 | `mute` | bool | `false` | Leave out of exports. |
 
 ### `sound` object
@@ -322,6 +332,15 @@ A sound clip (whoosh, pop, stinger, extra voice line) mixed over the reference a
 | `fadeIn` | number (s) | `0` | Fade-in length. |
 | `fadeOut` | number (s) | `0` | Fade-out where the audio stops (its end or the scene end). |
 | `length` | number (s) |  | Seconds played from trim (default: the rest of the file). |
+| `pitch` | number (st) | `0` | Pitch shift in semitones (−12 = an octave lower); the length stays the same. |
+| `rate` | number | `1` | Speed without changing pitch (0.5 = twice as long). trim and length count in the stretched sound. |
+| `lowpass` | number (Hz) |  | Remove everything above this: softer, darker, further away. |
+| `highpass` | number (Hz) |  | Remove everything below this: thinner, leaves room for voice and bass. |
+| `reverb` | number | `0` | Reverb amount (0.15–0.35 is plenty); the tail rings past the end. |
+| `space` | string | `"hall"` | Reverb space: room, hall, plate or cathedral. |
+| `reverse` | bool | `false` | Play backwards. |
+| `pan` | number | `0` | Stereo position: −1 left, 1 right. |
+| `duck` | number (dB) | `0` | Lower this clip by so much while the scene audio is speaking (music under a voice: 6–12). |
 | `mute` | bool | `false` | Leave out of exports. |
 
 ### `reveal` object

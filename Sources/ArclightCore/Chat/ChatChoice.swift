@@ -5,7 +5,11 @@ import Foundation
 /// `ask_choice` tool: the turn stops there, and the answer goes back as that call's result on the next turn.
 public struct ChatChoice: Codable, Equatable, Sendable {
     public enum Stage: String, Codable, CaseIterable, Sendable {
-        case brief, look, storyboard, motion
+        case brief, look, storyboard, motion, sound
+
+        /// The stages asked before a new scene is built (Settings ▸ AI ▸ Chat). `sound` isn't one: it is asked
+        /// whenever a sound is a matter of taste.
+        public static let direction: [Stage] = [.brief, .look, .storyboard, .motion]
 
         public var label: String {
             switch self {
@@ -13,6 +17,7 @@ public struct ChatChoice: Codable, Equatable, Sendable {
             case .look: return "Look"
             case .storyboard: return "Storyboard"
             case .motion: return "Motion feel"
+            case .sound: return "Sound"
             }
         }
     }
@@ -28,14 +33,27 @@ public struct ChatChoice: Codable, Equatable, Sendable {
         }
     }
 
+    /// A sound the tile plays: a clip as it would be placed (file, gain, effects), on its own and, with `scene`,
+    /// in the scene's mix at the clip's `offset` — with the clips named in `replace` left out, so a candidate is
+    /// heard instead of what it would replace.
+    public struct Sound: Codable, Equatable, Sendable {
+        public var clip: AudioRef
+        public var scene: String?
+        public var replace: [String]?
+        public init(clip: AudioRef, scene: String? = nil, replace: [String]? = nil) {
+            self.clip = clip; self.scene = scene; self.replace = replace
+        }
+    }
+
     public struct Option: Codable, Equatable, Identifiable, Sendable {
         public var id: String
         public var title: String
         public var note: String?
         public var visual: Visual?
+        public var sound: Sound?
 
-        public init(id: String, title: String, note: String? = nil, visual: Visual? = nil) {
-            self.id = id; self.title = title; self.note = note; self.visual = visual
+        public init(id: String, title: String, note: String? = nil, visual: Visual? = nil, sound: Sound? = nil) {
+            self.id = id; self.title = title; self.note = note; self.visual = visual; self.sound = sound
         }
     }
 
@@ -92,6 +110,22 @@ public struct ChatChoice: Codable, Equatable, Sendable {
                 "title": ["type": "string", "description": "2–4 words"],
                 "note": ["type": "string", "description": "One line on the idea"],
                 "visual": visual,
+                "sound": [
+                    "type": "object",
+                    "description":
+                        "A sound the user can play on the tile (stage sound): the clip as you would place it. With scene and at they also hear it in the scene's mix; replace lists the clip ids it would stand in for.",
+                    "properties": [
+                        "src": ["type": "string", "description": "Sound file in assets/"],
+                        "scene": ["type": "string", "description": "Scene to hear it in"],
+                        "at": ["type": "number", "description": "Scene time it would start at"],
+                        "replace": ["type": "array", "items": ["type": "string"], "description": "Clip ids left out of the preview"],
+                        "gain": ["type": "number"], "trim": ["type": "number"], "length": ["type": "number"],
+                        "fadeIn": ["type": "number"], "fadeOut": ["type": "number"], "pitch": ["type": "number"],
+                        "lowpass": ["type": "number"], "highpass": ["type": "number"], "reverb": ["type": "number"],
+                        "space": ["type": "string"], "rate": ["type": "number"], "pan": ["type": "number"],
+                    ],
+                    "required": ["src"],
+                ],
             ],
             "required": ["id", "title"],
         ]
@@ -99,7 +133,8 @@ public struct ChatChoice: Codable, Equatable, Sendable {
             "name": .string(toolName),
             "description": .string(
                 "Ask the user to decide one direction stage (see guide direction) with a card in the chat: they click an option and may add a comment. "
-                    + "Your turn ends here; their answer arrives as this call's result. Use it only at the stages, one question at a time, after checking the drafts yourself."
+                    + "Your turn ends here; their answer arrives as this call's result. Use it only at the stages, one question at a time, after checking the drafts yourself. "
+                    + "Stage sound is for any sound that is a matter of taste (which effect, how soft, how low): give 2–4 options, each with a sound the user plays on the tile, alone and in the scene, and a note with what you measured. You cannot hear; their ears decide. Don't place a candidate before they pick."
             ),
             "input_schema": [
                 "type": "object",
@@ -121,7 +156,7 @@ public struct ChatChoice: Codable, Equatable, Sendable {
     /// Reads an `ask_choice` call. Throws a message for the model when the input can't be shown.
     public static func parse(id: String, input: [String: JSONValue]) throws -> ChatChoice {
         guard let s = input["stage"]?.string, let stage = Stage(rawValue: s) else {
-            throw ChatChoiceError("stage must be one of brief, look, storyboard, motion")
+            throw ChatChoiceError("stage must be one of brief, look, storyboard, motion, sound")
         }
         guard let q = input["question"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines), !q.isEmpty else {
             throw ChatChoiceError("question is required")
@@ -141,7 +176,24 @@ public struct ChatChoice: Codable, Equatable, Sendable {
                 let times = v["times"]?.array?.compactMap(\.double) ?? v["time"]?.double.map { [$0] } ?? [0]
                 visual = Visual(scene: scene, times: Array(times.prefix(8)), loop: v["loop"]?.bool ?? false)
             }
-            options.append(Option(id: oid, title: title, note: o["note"]?.string, visual: visual))
+            var sound: Sound?
+            if var so = o["sound"]?.object {
+                guard let src = so["src"]?.string, !src.isEmpty else {
+                    throw ChatChoiceError("option \(oid): sound needs src (a file in assets/)")
+                }
+                let scene = so["scene"]?.string
+                let replace = so["replace"]?.array?.compactMap(\.string)
+                if let at = so["at"] { so["offset"] = at }
+                for k in ["scene", "replace", "at"] { so[k] = nil }
+                guard let clip = try? JSONValue.object(so).decoded(as: AudioRef.self) else {
+                    throw ChatChoiceError("option \(oid): sound fields must be numbers (gain, pitch, lowpass…)")
+                }
+                sound = Sound(clip: clip, scene: scene, replace: replace)
+            }
+            options.append(Option(id: oid, title: title, note: o["note"]?.string, visual: visual, sound: sound))
+        }
+        if stage == .sound, !options.isEmpty, options.contains(where: { $0.sound == nil }) {
+            throw ChatChoiceError("at the sound stage every option needs a sound to play")
         }
         if options.count > 6 { throw ChatChoiceError("at most 6 options") }
         return ChatChoice(

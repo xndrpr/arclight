@@ -22,6 +22,8 @@ public final class MCPServer {
     var soundLibraryOverride: SoundLibrary?
     var audioProviderOverride: AudioProvider?
     var transcriptProviderOverride: TranscriptProvider?
+    /// The sound rules have been shown in this session (they ride on the first sound tool's result).
+    var soundBriefed = false
     var tools: [Tool] = []
     let out = FileHandle.standardOutput
     /// This session as shown in the editor's top bar and AI panel. Only written to disk while `run()` serves stdio.
@@ -112,7 +114,11 @@ public final class MCPServer {
             publishPresence()
             var wrote = false
             do {
-                let content = try tool.run(args)
+                var content = try tool.run(args)
+                if !soundBriefed, MCPServer.soundTools.contains(name) {
+                    soundBriefed = true
+                    content.append(["type": "text", "text": .string(soundBrief())])
+                }
                 wrote = log(name, args, sceneId: sceneId, before: before, error: nil)
                 reply(["content": .array(content)])
             } catch let e {

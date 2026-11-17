@@ -136,6 +136,49 @@ extension SceneMix {
     }
 }
 
+extension SceneMix {
+    /// A sound candidate rendered for listening, through the master like an export: on its own (`scene` nil),
+    /// or in the scene's mix from 2 s before it to 1.5 s after, with the clips in `replace` left out. Returns a
+    /// temporary WAV.
+    public static func preview(_ clip: AudioRef, in scene: Scene?, replace: [String] = [], assets: URL?) throws -> URL {
+        var c = clip
+        var s: Scene
+        var window: Range<Int>?
+        if let scene {
+            s = scene
+            s.sounds = (s.sounds ?? []).filter { r in !replace.contains(r.id ?? "") }
+            if replace.contains("audio") { s.audio = nil }
+            c.id = "candidate"
+            s.sounds?.append(c)
+            let len = info(c, assets: assets)
+            let from = max(0, (c.offset ?? 0) - 2), to = min(s.duration, (c.offset ?? 0) + len + 1.5)
+            window = Int(from * Stereo.rate)..<Int(max(from + 0.1, to) * Stereo.rate)
+        } else {
+            c.offset = 0
+            c.id = "candidate"
+            s = Scene(id: "preview", duration: max(0.1, info(c, assets: assets)))
+            s.sounds = [c]
+        }
+        let rendered = render(s, assets: assets)
+        guard rendered.missing.isEmpty || !rendered.missing.contains(clip.src) else {
+            throw RenderError.setup("'\(clip.src)' not found in assets/")
+        }
+        var mix = master(rendered.mix, loudness: nil)
+        if let w = window?.clamped(to: 0..<mix.count), !w.isEmpty {
+            mix = Stereo(l: Array(mix.l[w]), r: Array(mix.r[w]))
+        }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-preview-\(UUID().uuidString).wav")
+        try write(mix, to: url)
+        return url
+    }
+
+    /// Seconds a clip plays for (its file after effects, trimmed and cut by `length`).
+    static func info(_ c: AudioRef, assets: URL?) -> Double {
+        let d = SceneAudio.info(SceneAudio.url(c, assets: assets))?.duration ?? 0
+        return max(0, min(d - max(0, c.trim ?? 0), c.length ?? .infinity))
+    }
+}
+
 /// How the scene's sound sits together, measured: overall loudness and peaks, then each clip against everything
 /// else playing at that moment — the sound equivalent of rendering frames to look at them.
 public struct MixReport: Sendable {

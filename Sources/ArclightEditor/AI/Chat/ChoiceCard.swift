@@ -8,6 +8,7 @@ struct ChoiceCard: View {
     @ObservedObject var chat: ChatController
     let choice: ChatChoice
     @StateObject private var frames = ChoiceFrames()
+    @StateObject private var sounds = ChoiceSoundPlayer()
     @State private var picked: [String] = []
     @State private var comment = ""
     /// The option open in the large viewer.
@@ -53,12 +54,14 @@ struct ChoiceCard: View {
                     ForEach(choice.options) { tile($0) }
                 }
             }
+            if let f = sounds.failed { Text(f).font(UI.small).foregroundStyle(UI.danger) }
             if let answered { summary(answered) } else if waiting { controls }
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10).fill(UI.raised))
         .overlay(RoundedRectangle(cornerRadius: 10).stroke(waiting ? UI.ai.opacity(0.45) : UI.border))
         .onAppear { picked = answered?.picked ?? [] }
+        .onDisappear { sounds.stop() }
         .sheet(
             isPresented: Binding(get: { viewing != nil }, set: { if !$0 { viewing = nil } })
         ) {
@@ -113,6 +116,9 @@ struct ChoiceCard: View {
                 if let n = o.note, !n.isEmpty {
                     Text(n).font(UI.small).foregroundStyle(UI.dim).lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if let so = o.sound {
+                    ChoiceSoundButtons(doc: doc, player: sounds, option: o, sound: so) { frames.scene(doc, $0) }
                 }
             }
             .padding(6)
@@ -190,6 +196,7 @@ struct ChoiceCard: View {
         case .look: return "paintpalette"
         case .storyboard: return "rectangle.split.3x1"
         case .motion: return "wind"
+        case .sound: return "speaker.wave.2"
         }
     }
 }

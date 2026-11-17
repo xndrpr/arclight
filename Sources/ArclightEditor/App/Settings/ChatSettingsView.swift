@@ -60,7 +60,7 @@ struct ChatSettingsView: View {
                 .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("Ask first").font(UI.small).foregroundStyle(UI.label2).frame(width: 50, alignment: .leading)
-                ForEach(ChatChoice.Stage.allCases, id: \.self) { st in
+                ForEach(ChatChoice.Stage.direction, id: \.self) { st in
                     Toggle(st.label, isOn: binding(st)).toggleStyle(.checkbox).font(UI.small)
                 }
             }

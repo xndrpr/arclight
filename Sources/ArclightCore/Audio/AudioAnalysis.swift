@@ -82,7 +82,8 @@ public struct AudioAnalysis: Equatable, Sendable {
 
     /// Spectral flux: how much new energy appears in each hop (log magnitudes, positive changes only).
     static func onsetStrength(_ x: [Float], sr: Double) -> [Double] {
-        guard x.count > frame, let dft = vDSP.DFT(count: frame, direction: .forward, transformType: .complexComplex, ofType: Float.self)
+        guard x.count > frame, let dft = try? vDSP.DiscreteFourierTransform(
+                previous: nil, count: frame, direction: .forward, transformType: .complexComplex, ofType: Float.self)
         else { return [] }
         let window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: frame, isHalfWindow: false)
         var prev = [Float](repeating: 0, count: frame / 2)

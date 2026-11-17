@@ -18,6 +18,25 @@ extension MCPServer {
         return p
     }
 
+    /// Tools that make or place sound: the first one called in a session carries the rules below.
+    static let soundTools: Set<String> = ["sound_synth", "sound_search", "sound_import", "sound_generate", "voice_generate"]
+
+    /// The working rules for sound, in short, with the project's sound notes: appended once per session so an
+    /// agent that never opened guide("sound") still works by them.
+    func soundBrief() -> String {
+        var s = """
+            — Sound rules (shown once; guide("sound") has the rest) —
+            You cannot hear: use the measurements each tool prints. Place by level (dB against the voice: effects −6…−12, \
+            subtle −15…−20, music −12…−20 or duck 8–12), not by a guessed gain. Real effects exist on clips: lowpass, highpass, \
+            reverb + space, pitch, rate, reverse, pan, duck. After every sound edit run mix_check and fix what it lists before \
+            answering. A sound that is a matter of taste: make 2–4 candidates and let the user pick by ear (ask_choice stage \
+            "sound" in the editor's chat) instead of placing a guess. A word with two readings (lower, noise, longer): ask. \
+            Record the user's reactions with sound_notes.
+            """
+        if let url = store?.url, let notes = SoundNotes.read(url) { s += "\nThis project's sound notes:\n" + notes }
+        return s
+    }
+
     func transcriptProvider() throws -> TranscriptProvider {
         if let p = transcriptProviderOverride { return p }
         guard ImageSettings.enabled, let p = KeychainStore.falProvider() else {
@@ -502,6 +521,29 @@ extension MCPServer {
                     }
                 }
                 return text(out.joined(separator: "\n"))
+            },
+
+            Tool(
+                name: "sound_notes",
+                description:
+                    "The project's sound notes: what the user wants it to sound like, kept across chats (.arclight/sound.md). No arguments: read them — do it before any sound job. add: one line after each reaction of the user to a sound — what they liked, rejected and why, levels they settled on, the palette (\"food moment: wants a very low velvety bloop; rejected chime (harsh) and pop (too bright)\"). write: replace all the notes with a tidied version when they get long or contradict each other.",
+                schema: schema(
+                    [
+                        "add": prop("string", "One line to add"),
+                        "write": prop("string", "The whole notes, replacing what is there (max 4000 characters)"),
+                    ])
+            ) { [unowned self] a in
+                let s = try requireStore()
+                if let w = a["write"]?.string {
+                    try SoundNotes.write(w, project: s.url)
+                    return text("sound notes replaced:\n" + (SoundNotes.read(s.url) ?? "(empty)"))
+                }
+                if let line = a["add"]?.string, !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return text("sound notes:\n" + (try SoundNotes.add(line, project: s.url)))
+                }
+                return text(
+                    SoundNotes.read(s.url).map { "sound notes:\n" + $0 }
+                        ?? "no sound notes yet — add one after the user reacts to a sound (sound_notes {add:\"…\"})")
             },
 
             Tool(

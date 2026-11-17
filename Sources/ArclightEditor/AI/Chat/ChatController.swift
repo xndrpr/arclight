@@ -137,7 +137,10 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     private func run(_ text: String, attachments: [ChatAttachment] = []) {
         running = true
         revision += 1
-        let context = [note(), ChatPrompt.directionNote(ChatSettings.directionStages)].compactMap { $0 }
+        let context = [
+            note(), ChatPrompt.directionNote(ChatSettings.directionStages),
+            ChatPrompt.soundNote(SoundNotes.read(project)),
+        ].compactMap { $0 }
             .joined(separator: "\n")
         let setup = Setup(
             kind: kind, model: ChatSettings.model, effort: ChatSettings.effort, cliPath: ChatSettings.cliPath,
