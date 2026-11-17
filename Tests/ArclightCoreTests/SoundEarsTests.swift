@@ -26,7 +26,9 @@ import Testing
         try f.write(from: buf)
     }
 
-    @Test func loudnessMatchesTheBroadcastMeter() async throws { try await offPool { try self.loudnessMatchesTheBroadcastMeterBody() } }
+    @Test func loudnessMatchesTheBroadcastMeter() async throws {
+        try await offPool { try self.loudnessMatchesTheBroadcastMeterBody() }
+    }
     private func loudnessMatchesTheBroadcastMeterBody() throws {
         // BS.1770: a 1 kHz sine at −20 dBFS in both channels reads −20 LUFS.
         let s = sine(1000, amp: 0.1, seconds: 3)
@@ -44,7 +46,9 @@ import Testing
         #expect(abs(tp.db - -6.02) < 0.3)
     }
 
-    @Test func descriptorsTellDarkFromBrightAndSharpFromSoft() async throws { try await offPool { try self.descriptorsTellDarkFromBrightAndSharpFromSoftBody() } }
+    @Test func descriptorsTellDarkFromBrightAndSharpFromSoft() async throws {
+        try await offPool { try self.descriptorsTellDarkFromBrightAndSharpFromSoftBody() }
+    }
     private func descriptorsTellDarkFromBrightAndSharpFromSoftBody() throws {
         let low = AudioDescriptors.measure(sine(100, amp: 0.5, seconds: 1))
         let high = AudioDescriptors.measure(sine(4000, amp: 0.5, seconds: 1))
@@ -55,7 +59,8 @@ import Testing
         #expect(low.words.contains("dark") && high.words.contains("bright"))
 
         let click = AudioDescriptors.measure(sine(800, amp: 0.8, seconds: 0.6) { exp(-$0 * 30) })
-        let swell = AudioDescriptors.measure(sine(800, amp: 0.8, seconds: 0.6) { min(1, $0 / 0.3) * min(1, (0.6 - $0) / 0.05) })
+        let swell = AudioDescriptors.measure(
+            sine(800, amp: 0.8, seconds: 0.6) { min(1, $0 / 0.3) * min(1, (0.6 - $0) / 0.05) })
         #expect((click.attackMs ?? 99) < 6 && (swell.attackMs ?? 0) > 150)
         #expect(click.words.contains("sharp attack") && swell.words.contains("slow swell"))
         #expect((click.decayMs ?? 999) < 120)
@@ -72,7 +77,9 @@ import Testing
         #expect(abs(ld.lead - 0.2) < 0.01 && ld.faults.contains { $0.contains("silence before") })
     }
 
-    @Test func mixIsTheSumOfClipsAndTheReportFindsProblems() async throws { try await offPool { try self.mixIsTheSumOfClipsAndTheReportFindsProblemsBody() } }
+    @Test func mixIsTheSumOfClipsAndTheReportFindsProblems() async throws {
+        try await offPool { try self.mixIsTheSumOfClipsAndTheReportFindsProblemsBody() }
+    }
     private func mixIsTheSumOfClipsAndTheReportFindsProblemsBody() throws {
         let project = try TempProject("mix")
         defer { project.remove() }
@@ -86,7 +93,8 @@ import Testing
         s.audio = AudioRef(src: "voice.wav")
         var loud = AudioRef(src: "hit.wav"); loud.id = "loud"; loud.offset = 1.6
         var quiet = AudioRef(src: "hit.wav"); quiet.id = "quiet"; quiet.offset = 2.5; quiet.gain = 0.002
-        var cut = AudioRef(src: "drone.wav"); cut.id = "cut"; cut.offset = 0.5; cut.trim = 0.0003; cut.length = 1; cut.gain = 0.2
+        var cut = AudioRef(src: "drone.wav"); cut.id = "cut"; cut.offset = 0.5; cut.trim = 0.0003; cut.length = 1;
+        cut.gain = 0.2
         s.sounds = [loud, quiet, cut]
         s.markers = [Marker(name: "beat", t: 1.5)]
 
@@ -117,7 +125,8 @@ import Testing
 
         // Over full scale: flagged.
         s.sounds?[0].gain = 2.5
-        #expect(MixReport.make(s, rendered: SceneMix.render(s, assets: dir)).warnings.first?.contains("distort") == true)
+        #expect(
+            MixReport.make(s, rendered: SceneMix.render(s, assets: dir)).warnings.first?.contains("distort") == true)
 
         // The picture renders.
         let img = try AudioSheet.render(r.mix, lanes: [.init(label: "loud", from: 1, to: 1.5)], marks: [("beat", 0.9)])
@@ -130,7 +139,9 @@ import Testing
         defer { project.remove() }
         let assets = project.store.assetsURL
         try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
-        try write(sine(300, amp: 0.1, seconds: 4) { min(1, $0 / 0.02) * min(1, (4 - $0) / 0.02) }, to: assets.appendingPathComponent("voice.wav"))
+        try write(
+            sine(300, amp: 0.1, seconds: 4) { min(1, $0 / 0.02) * min(1, (4 - $0) / 0.02) },
+            to: assets.appendingPathComponent("voice.wav"))
         let server = MCPServer(projectPath: project.url.path)
         func call(_ name: String, _ args: [String: JSONValue]) throws -> [JSONValue] {
             guard let tool = server.tools.first(where: { $0.name == name }) else { throw ToolError("no tool \(name)") }
@@ -160,7 +171,9 @@ import Testing
 
     // MARK: Effects and master
 
-    @Test func clipEffectsChangeWhatTheySay() async throws { try await offPool { try self.clipEffectsChangeWhatTheySayBody() } }
+    @Test func clipEffectsChangeWhatTheySay() async throws {
+        try await offPool { try self.clipEffectsChangeWhatTheySayBody() }
+    }
     private func clipEffectsChangeWhatTheySayBody() throws {
         let project = try TempProject("fx")
         defer { project.remove() }
@@ -192,9 +205,14 @@ import Testing
         let ring = try Stereo.read(SceneAudio.url(wet, assets: dir))
         let tail = Loudness.level(Loudness.kWeighted(ring), Int(1.3 * Stereo.rate)..<Int(2 * Stereo.rate))
         #expect(ring.duration > 3.5 && tail > -50)  // the hall rings on after the sound has ended
-        #expect(try measure { $0.reverb = 0.4; $0.space = "room" }.1 < 2.2)
+        #expect(
+            try measure {
+                $0.reverb = 0.4; $0.space = "room"
+            }.1 < 2.2)
 
-        let (slow, slowLen) = try measure { $0.rate = 0.5; $0.lowpass = 2000 }
+        let (slow, slowLen) = try measure {
+            $0.rate = 0.5; $0.lowpass = 2000
+        }
         #expect(abs(slowLen - 2) < 0.05 && abs((slow.tone ?? 0) - 300) < 6)
 
         // Reverse: a decaying hit becomes a swell.
@@ -204,25 +222,43 @@ import Testing
         let back = AudioDescriptors.measure(try Stereo.read(SceneAudio.url(rev, assets: dir)))
         #expect((back.attackMs ?? 0) > 300)
 
+        // A mono file goes through every effect too (the reverb unit only takes stereo).
+        try AudioFiles.writeWAV(
+            SoundSynth.render(.bloop), sampleRate: 48000, to: dir.appendingPathComponent("mono.wav"))
+        var all = AudioRef(src: "mono.wav")
+        all.reverb = 0.3; all.lowpass = 3000; all.highpass = 80; all.pitch = -5; all.rate = 0.8; all.reverse = true
+        let processed = SceneAudio.url(all, assets: dir)
+        #expect(processed.lastPathComponent != "mono.wav" && (SceneAudio.info(processed)?.channels ?? 0) == 2)
+
         // Ops take the fields and refuse nonsense.
         var sc = Scene(id: "s", duration: 3)
         sc = try SceneOps.apply(
-            [["op": "sound", "id": "a", "src": "two.wav", "lowpass": 3000, "reverb": 0.3, "space": "room", "pan": -0.5, "duck": 9]],
+            [
+                [
+                    "op": "sound", "id": "a", "src": "two.wav", "lowpass": 3000, "reverb": 0.3, "space": "room",
+                    "pan": -0.5, "duck": 9,
+                ]
+            ],
             to: sc
         ).scene
         #expect(sc.sound("a")?.lowpass == 3000 && sc.sound("a")?.space == "room" && sc.sound("a")?.duck == 9)
-        #expect(throws: (any Error).self) { try SceneOps.apply([["op": "sound", "id": "a", "space": "bathroom"]], to: sc) }
+        #expect(throws: (any Error).self) {
+            try SceneOps.apply([["op": "sound", "id": "a", "space": "bathroom"]], to: sc)
+        }
         #expect(throws: (any Error).self) { try SceneOps.apply([["op": "sound", "id": "a", "reverb": 3]], to: sc) }
         #expect(Outline.scene(sc, project: Project(name: "p")).contains("lowpass 3000"))
     }
 
-    @Test func duckPanAndTheMasterLimiter() async throws { try await offPool { try self.duckPanAndTheMasterLimiterBody() } }
+    @Test func duckPanAndTheMasterLimiter() async throws {
+        try await offPool { try self.duckPanAndTheMasterLimiterBody() }
+    }
     private func duckPanAndTheMasterLimiterBody() throws {
         let project = try TempProject("duck")
         defer { project.remove() }
         let dir = project.url
         // A "voice" that speaks from 1 s to 2 s, and steady music under it.
-        try write(sine(300, amp: 0.3, seconds: 4) { $0 >= 1 && $0 < 2 ? 1 : 0 }, to: dir.appendingPathComponent("voice.wav"))
+        try write(
+            sine(300, amp: 0.3, seconds: 4) { $0 >= 1 && $0 < 2 ? 1 : 0 }, to: dir.appendingPathComponent("voice.wav"))
         try write(sine(880, amp: 0.2, seconds: 4), to: dir.appendingPathComponent("music.wav"))
         var s = Scene(id: "s", duration: 4)
         s.audio = AudioRef(src: "voice.wav")
@@ -278,18 +314,25 @@ import Testing
             let v: JSONValue = [
                 "text": "Еда была в одном шаге. У них ушла неделя.", "language_code": "rus",
                 "words": [
-                    ["text": "Еда", "start": 0.5, "end": 0.8, "type": "word"], ["text": " ", "start": 0.8, "end": 0.85, "type": "spacing"],
-                    ["text": "была", "start": 0.85, "end": 1.1, "type": "word"], ["text": "в", "start": 1.15, "end": 1.2, "type": "word"],
-                    ["text": "одном", "start": 1.2, "end": 1.5, "type": "word"], ["text": "шаге.", "start": 1.5, "end": 1.9, "type": "word"],
-                    ["text": "У", "start": 2.6, "end": 2.65, "type": "word"], ["text": "них", "start": 2.65, "end": 2.8, "type": "word"],
-                    ["text": "ушла", "start": 2.8, "end": 3.0, "type": "word"], ["text": "неделя.", "start": 3.0, "end": 3.4, "type": "word"],
+                    ["text": "Еда", "start": 0.5, "end": 0.8, "type": "word"],
+                    ["text": " ", "start": 0.8, "end": 0.85, "type": "spacing"],
+                    ["text": "была", "start": 0.85, "end": 1.1, "type": "word"],
+                    ["text": "в", "start": 1.15, "end": 1.2, "type": "word"],
+                    ["text": "одном", "start": 1.2, "end": 1.5, "type": "word"],
+                    ["text": "шаге.", "start": 1.5, "end": 1.9, "type": "word"],
+                    ["text": "У", "start": 2.6, "end": 2.65, "type": "word"],
+                    ["text": "них", "start": 2.65, "end": 2.8, "type": "word"],
+                    ["text": "ушла", "start": 2.8, "end": 3.0, "type": "word"],
+                    ["text": "неделя.", "start": 3.0, "end": 3.4, "type": "word"],
                 ],
             ]
             return Transcript.parse(v)!
         }
     }
 
-    @Test func transcriptGivesWordTimesInSceneTime() async throws { try await offPool { try self.transcriptGivesWordTimesInSceneTimeBody() } }
+    @Test func transcriptGivesWordTimesInSceneTime() async throws {
+        try await offPool { try self.transcriptGivesWordTimesInSceneTimeBody() }
+    }
     private func transcriptGivesWordTimesInSceneTimeBody() throws {
         let project = try TempProject("words", scenes: [Scene(id: "s", duration: 8)])
         defer { project.remove() }
@@ -300,14 +343,17 @@ import Testing
         let fake = FakeScribe()
         server.transcriptProviderOverride = fake
         func run(_ name: String, _ args: [String: JSONValue]) throws -> String {
-            try server.tools.first { $0.name == name }!.run(args).compactMap { $0.object?["text"]?.string }.joined(separator: "\n")
+            try server.tools.first { $0.name == name }!.run(args).compactMap { $0.object?["text"]?.string }.joined(
+                separator: "\n")
         }
-        _ = try run("scene_apply", ["scene": "s", "ops": [["op": "scene", "audio": ["src": "voice.wav", "offset": 2]]]])
+        _ = try run(
+            "scene_apply", ["scene": "s", "ops": [["op": "scene", "audio": ["src": "voice.wav", "offset": 2]]]])
         let all = try run("audio_transcribe", ["scene": "s"])
         #expect(all.contains("9 words") && all.contains("transcribed now"))
         #expect(all.contains("2.5–3.9s  Еда была в одном шаге.") && all.contains("неделя.@5"))
         // Second time: from the saved transcript, no new call; find and mark work on it.
-        let found = try run("audio_transcribe", ["scene": "s", "find": "ушла НЕДЕЛЯ", "mark": ["неделя", "нет такого"]])
+        let found = try run(
+            "audio_transcribe", ["scene": "s", "find": "ушла НЕДЕЛЯ", "mark": ["неделя", "нет такого"]])
         #expect(fake.calls.n == 1 && found.contains("saved transcript"))
         #expect(found.contains("“ушла НЕДЕЛЯ”: 4.8–5.4s"))
         #expect(found.contains("say-ned") && found.contains("@5 in s") && found.contains("not marked: “нет такого”"))
@@ -317,7 +363,9 @@ import Testing
 
     // MARK: Asking and remembering
 
-    @Test func soundChoiceCardsNotesAndPreviews() async throws { try await offPool { try self.soundChoiceCardsNotesAndPreviewsBody() } }
+    @Test func soundChoiceCardsNotesAndPreviews() async throws {
+        try await offPool { try self.soundChoiceCardsNotesAndPreviewsBody() }
+    }
     private func soundChoiceCardsNotesAndPreviewsBody() throws {
         let project = try TempProject("ask", scenes: [Scene(id: "s", duration: 6)])
         defer { project.remove() }
@@ -330,8 +378,10 @@ import Testing
         let input: [String: JSONValue] = [
             "stage": "sound", "question": "Which one?",
             "options": [
-                ["id": "a", "title": "Low bloop", "note": "dark, 9 dB under",
-                    "sound": ["src": "a.wav", "scene": "s", "at": 3, "gain": 0.5, "lowpass": 2000, "replace": ["old"]]],
+                [
+                    "id": "a", "title": "Low bloop", "note": "dark, 9 dB under",
+                    "sound": ["src": "a.wav", "scene": "s", "at": 3, "gain": 0.5, "lowpass": 2000, "replace": ["old"]],
+                ],
                 ["id": "b", "title": "Bell", "sound": ["src": "a.wav", "pitch": -5]],
             ],
         ]
@@ -340,7 +390,8 @@ import Testing
         #expect(so.clip.offset == 3 && so.clip.lowpass == 2000 && so.scene == "s" && so.replace == ["old"])
         #expect(choice.options[1].sound?.clip.pitch == -5 && choice.stage.label == "Sound")
         #expect(throws: (any Error).self) {
-            try ChatChoice.parse(id: "c", input: ["stage": "sound", "question": "?", "options": [["id": "a", "title": "x"]]])
+            try ChatChoice.parse(
+                id: "c", input: ["stage": "sound", "question": "?", "options": [["id": "a", "title": "x"]]])
         }
         #expect(!ChatChoice.Stage.direction.contains(.sound))
         #expect(choice.resultText(.init(picked: ["a"])).contains("the user picked a"))
@@ -361,7 +412,8 @@ import Testing
         // Notes: added lines persist, show in the brief and in the chat context.
         let server = MCPServer(projectPath: project.url.path)
         func run(_ name: String, _ args: [String: JSONValue]) throws -> String {
-            try server.tools.first { $0.name == name }!.run(args).compactMap { $0.object?["text"]?.string }.joined(separator: "\n")
+            try server.tools.first { $0.name == name }!.run(args).compactMap { $0.object?["text"]?.string }.joined(
+                separator: "\n")
         }
         #expect(try run("sound_notes", [:]).contains("no sound notes yet"))
         _ = try run("sound_notes", ["add": "food moment: very low, velvety bloop; rejected chime (harsh)"])

@@ -79,18 +79,24 @@ public struct ClipFX: Equatable, Sendable {
     /// Renders `source` through the effect chain offline.
     public func render(_ source: URL, to out: URL) throws {
         let file = try AVAudioFile(forReading: source)
-        let fmt = file.processingFormat
-        let total = AVAudioFrameCount(file.length)
-        guard total > 0, let input = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: total) else {
+        let src = file.processingFormat
+        guard let read = try AudioFiles.readAll(file) else {
             throw RenderError.setup("empty audio: \(source.lastPathComponent)")
         }
-        try file.read(into: input)
-        if reverse, let d = input.floatChannelData {
-            let n = Int(input.frameLength)
-            for c in 0..<Int(fmt.channelCount) {
-                var a = 0, b = n - 1
-                while a < b { let t = d[c][a]; d[c][a] = d[c][b]; d[c][b] = t; a += 1; b -= 1 }
-            }
+        let total = read.frameLength
+        // Always process in stereo: the reverb unit refuses mono (and raises an exception Swift can't catch).
+        guard let fmt = AVAudioFormat(standardFormatWithSampleRate: src.sampleRate, channels: 2),
+            let input = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: total), let from = read.floatChannelData,
+            let to = input.floatChannelData
+        else { throw RenderError.setup("fx buffer") }
+        let n = Int(read.frameLength)
+        input.frameLength = read.frameLength
+        let right = src.channelCount > 1 ? 1 : 0
+        if reverse {
+            for i in 0..<n { to[0][i] = from[0][n - 1 - i]; to[1][i] = from[right][n - 1 - i] }
+        } else {
+            to[0].update(from: from[0], count: n)
+            to[1].update(from: from[right], count: n)
         }
 
         let engine = AVAudioEngine()
@@ -119,7 +125,8 @@ public struct ClipFX: Equatable, Sendable {
         if reverb > 0 {
             let u = AVAudioUnitReverb()
             u.loadFactoryPreset(
-                space == "room" ? .mediumRoom : space == "plate" ? .plate : space == "cathedral" ? .cathedral : .largeHall)
+                space == "room"
+                    ? .mediumRoom : space == "plate" ? .plate : space == "cathedral" ? .cathedral : .largeHall)
             u.wetDryMix = Float(reverb * 100)
             chain.append(u)
         }

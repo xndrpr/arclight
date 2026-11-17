@@ -48,9 +48,11 @@ final class AudioPlayback {
 
     private init(doc: EditorDocument) {
         self.doc = doc
-        engine.attach(limiter)
+        // Only on a plain stereo output: the limiter unit refuses other layouts, and a refused connection
+        // raises an exception that can't be caught.
         let out = engine.outputNode.inputFormat(forBus: 0)
-        if out.sampleRate > 0, out.channelCount > 0 {
+        if out.sampleRate > 0, out.channelCount == 2 {
+            engine.attach(limiter)
             engine.connect(engine.mainMixerNode, to: limiter, format: out)
             engine.connect(limiter, to: engine.outputNode, format: out)
         }

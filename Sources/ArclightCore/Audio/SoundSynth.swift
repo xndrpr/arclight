@@ -264,7 +264,7 @@ public enum SoundSynth {
             for i in 0..<n {
                 let x = u(i)
                 ph += (150 + 270 * exp(-x * 7)) * k / sr
-                let env = min(1, t(i) / 0.006) * pow(1 - x, 1.6)
+                let env = min(1, t(i) / 0.014) * pow(1 - x, 1.6)
                 out[i] = Float((sin(2 * .pi * ph) + 0.12 * sin(4 * .pi * ph)) * env)
             }
         case .sub:

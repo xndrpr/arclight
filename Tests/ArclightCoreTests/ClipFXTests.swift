@@ -8,8 +8,7 @@ import Testing
     /// Zero crossings per second / 2 over the middle of the file (skips the edges).
     private func frequency(_ url: URL) throws -> (Double, Int) {
         let f = try AVAudioFile(forReading: url)
-        let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(f.length))!
-        try f.read(into: buf)
+        let buf = try #require(try AudioFiles.readAll(f))
         let x = buf.floatChannelData![0]
         let n = Int(buf.frameLength), a = n / 4, b = 3 * n / 4
         var crossings = 0
@@ -20,8 +19,7 @@ import Testing
     /// Time (s) of the first sample louder than `level`.
     private func onset(_ url: URL, level: Float) throws -> Double {
         let f = try AVAudioFile(forReading: url)
-        let buf = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(f.length))!
-        try f.read(into: buf)
+        let buf = try #require(try AudioFiles.readAll(f))
         let x = buf.floatChannelData![0]
         for i in 0..<Int(buf.frameLength) where abs(x[i]) > level { return Double(i) / f.processingFormat.sampleRate }
         return .infinity

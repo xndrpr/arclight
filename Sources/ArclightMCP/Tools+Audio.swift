@@ -19,7 +19,9 @@ extension MCPServer {
     }
 
     /// Tools that make or place sound: the first one called in a session carries the rules below.
-    static let soundTools: Set<String> = ["sound_synth", "sound_search", "sound_import", "sound_generate", "voice_generate"]
+    static let soundTools: Set<String> = [
+        "sound_synth", "sound_search", "sound_import", "sound_generate", "voice_generate",
+    ]
 
     /// The working rules for sound, in short, with the project's sound notes: appended once per session so an
     /// agent that never opened guide("sound") still works by them.
@@ -66,7 +68,8 @@ extension MCPServer {
         "pan": prop("number", "Stereo position −1 (left) … 1 (right)"),
         "level": prop(
             "number",
-            "Instead of gain: how loud the clip should be against the scene audio, in dB (−9 = 9 dB under the voice or music; without scene audio, against −16 LUFS). The gain is worked out from the file's measured loudness. Effects under a voice: −6…−12; subtle: −15…−20."),
+            "Instead of gain: how loud the clip should be against the scene audio, in dB (−9 = 9 dB under the voice or music; without scene audio, against −16 LUFS). The gain is worked out from the file's measured loudness. Effects under a voice: −6…−12; subtle: −15…−20."
+        ),
     ]
 
     static func with(place extra: [String: JSONValue]) -> [String: JSONValue] {
@@ -78,20 +81,28 @@ extension MCPServer {
         let measured = try? AudioDescriptors.measure(s.assetsURL.appendingPathComponent(asset))
         let head = measured.map { ["measured: " + $0.line] } ?? []
         guard let sid = a["scene"]?.string else {
-            return head + ["not placed: add it with scene_apply {\"op\":\"sound\",\"src\":\"\(asset)\",\"offset\":t} or {\"op\":\"scene\",\"audio\":{\"src\":\"\(asset)\"}}"]
+            return head + [
+                "not placed: add it with scene_apply {\"op\":\"sound\",\"src\":\"\(asset)\",\"offset\":t} or {\"op\":\"scene\",\"audio\":{\"src\":\"\(asset)\"}}"
+            ]
         }
         let scene = try s.scene(sid)
         let at = a["at"]?.double ?? 0
         var fields: [String: JSONValue] = ["src": .string(asset)]
         if at != 0 { fields["offset"] = .number(at) }
-        for k in ["gain", "fadeIn", "fadeOut", "length", "trim", "pitch", "lowpass", "highpass", "reverb", "space", "pan"] { if let v = a[k], v != .null { fields[k] = v } }
+        for k in [
+            "gain", "fadeIn", "fadeOut", "length", "trim", "pitch", "lowpass", "highpass", "reverb", "space", "pan",
+        ] { if let v = a[k], v != .null { fields[k] = v } }
         let mode = a["as"]?.string ?? defaultAs
         // Loudness of the scene audio as placed, to set and report the clip's level against it.
-        let refLufs: Double? = mode == "audio" ? nil : scene.audio.flatMap { r in
-            guard r.mute != true, let l = Loudness.integrated(file: SceneAudio.url(r, assets: s.assetsURL)), l > -100
-            else { return nil }
-            return l + 20 * log10(max(r.gain ?? 1, 1e-6))
-        }
+        let refLufs: Double? =
+            mode == "audio"
+            ? nil
+            : scene.audio.flatMap { r in
+                guard r.mute != true, let l = Loudness.integrated(file: SceneAudio.url(r, assets: s.assetsURL)),
+                    l > -100
+                else { return nil }
+                return l + 20 * log10(max(r.gain ?? 1, 1e-6))
+            }
         if let lv = a["level"]?.double, let m = measured, mode != "audio" {
             let g = pow(10, ((refLufs ?? -16) + lv - m.momentaryMax) / 20)
             fields["gain"] = .number((min(4, max(0, g)) * 1000).rounded() / 1000)
@@ -117,18 +128,21 @@ extension MCPServer {
             var l = "level in the mix \(Format.number(lvl)) LUFS at gain \(Format.number(g))"
             if let r = refLufs {
                 let d = ((lvl - r) * 10).rounded() / 10
-                l += d >= 0
+                l +=
+                    d >= 0
                     ? ": \(Format.number(d)) dB OVER the scene audio (\(Format.number((r * 10).rounded() / 10)) LUFS) — too loud for an effect under a voice"
                     : ": \(Format.number(-d)) dB under the scene audio (\(Format.number((r * 10).rounded() / 10)) LUFS)"
             }
             if g >= 3.99 { l += " (gain is at its limit of 4)" }
             lines.append(l + ". Run mix_check when the sound edits are done.")
         }
-        if let info = SceneAudio.info(s.assetsURL.appendingPathComponent(asset)), at + info.duration > saved.duration + 0.05,
+        if let info = SceneAudio.info(s.assetsURL.appendingPathComponent(asset)),
+            at + info.duration > saved.duration + 0.05,
             mode == "audio"
         {
             lines.append(
-                "note: the audio runs \(Format.number((info.duration * 10).rounded() / 10))s, the scene \(Format.number(saved.duration))s — it is cut at the scene end (fadeOut softens it), or lengthen the scene")
+                "note: the audio runs \(Format.number((info.duration * 10).rounded() / 10))s, the scene \(Format.number(saved.duration))s — it is cut at the scene end (fadeOut softens it), or lengthen the scene"
+            )
         }
         return lines
     }
@@ -147,7 +161,8 @@ extension MCPServer {
                 schema: schema(
                     [
                         "query": prop("string", "What to find, in English"),
-                        "kind": prop("string", "sfx, music or any (default)", extra: ["enum": ["sfx", "music", "any"]]),
+                        "kind": prop(
+                            "string", "sfx, music or any (default)", extra: ["enum": ["sfx", "music", "any"]]),
                         "max_seconds": prop("number", "Longest length to accept (s)"),
                         "min_seconds": prop("number", "Shortest length to accept (s)"),
                         "limit": prop("integer", "Results, default 8 (max 20)"),
@@ -155,7 +170,8 @@ extension MCPServer {
                             "boolean", "Also show non-commercial / no-derivatives licences (only for private projects)"),
                         "measure": prop(
                             "boolean",
-                            "Download the first 5 results and measure each (loudness, brightness, attack, tail, tone), so you choose by what they sound like, not by their titles. Slower; use it whenever the character matters."),
+                            "Download the first 5 results and measure each (loudness, brightness, attack, tail, tone), so you choose by what they sound like, not by their titles. Slower; use it whenever the character matters."
+                        ),
                     ], required: ["query"]),
                 readOnly: true
             ) { [unowned self] a in
@@ -181,7 +197,8 @@ extension MCPServer {
                     }
                 }
                 return text(
-                    items.map { $0.line + (measures[$0.id].map { "\n    measured: " + $0 } ?? "") }.joined(separator: "\n")
+                    items.map { $0.line + (measures[$0.id].map { "\n    measured: " + $0 } ?? "") }.joined(
+                        separator: "\n")
                         + "\nsound_import {sound: id, scene, at} to use one (free; credits go to assets/CREDITS.md).")
             },
 
@@ -208,7 +225,8 @@ extension MCPServer {
                 let r = try blocking { try await lib.importSound(id, name: name, store: s) }
                 var lines = [
                     "asset \(info(r.asset, store: s)) — “\(r.item.title)” from \(r.item.source), \(r.item.licenseName)"
-                        + (r.item.needsCredit ? "; credit needed: \(r.item.credit) (saved in assets/CREDITS.md)" : "; no credit needed")
+                        + (r.item.needsCredit
+                            ? "; credit needed: \(r.item.credit) (saved in assets/CREDITS.md)" : "; no credit needed")
                 ]
                 let music = (r.item.duration ?? 0) > 30
                 lines += try place(r.asset, a, store: s, defaultAs: music ? "audio" : "sound")
@@ -224,12 +242,14 @@ extension MCPServer {
                 schema: schema(
                     MCPServer.with(place: [
                         "preset": prop(
-                            "string", "Which sound", extra: ["enum": .array(SoundSynth.Preset.allCases.map { .string($0.rawValue) })]),
+                            "string", "Which sound",
+                            extra: ["enum": .array(SoundSynth.Preset.allCases.map { .string($0.rawValue) })]),
                         "duration": prop("number", "Seconds (default per preset)"),
                         "pitch": prop("number", "Semitones −24…24, default 0 (lower = bigger, darker)"),
                         "soft": prop(
                             "number",
-                            "0…1: round the sound off — slower attack, highs rolled away. 0.4 takes the edge off, 0.8 is muffled and velvety."),
+                            "0…1: round the sound off — slower attack, highs rolled away. 0.4 takes the edge off, 0.8 is muffled and velvety."
+                        ),
                         "seed": prop("integer", "Variation, default 1"),
                         "name": prop("string", "File name base (default the preset)"),
                     ]), required: ["preset"])
@@ -261,7 +281,8 @@ extension MCPServer {
                     MCPServer.with(place: [
                         "kind": prop("string", "sfx (default) or music", extra: ["enum": ["sfx", "music"]]),
                         "prompt": prop("string", "What it should sound like"),
-                        "duration": prop("number", "Seconds (default: the model decides; music: the scene length when placing)"),
+                        "duration": prop(
+                            "number", "Seconds (default: the model decides; music: the scene length when placing)"),
                         "loop": prop("boolean", "Sfx that loops seamlessly"),
                         "instrumental": prop("boolean", "Music without vocals (default true)"),
                         "model": prop("string", "fal audio model id (default: the catalog's; see image_status)"),
@@ -273,7 +294,8 @@ extension MCPServer {
                 var r = AudioAI.Request(kind: kind, prompt: try a.str("prompt"))
                 var scene: Scene?
                 if let sid = a["scene"]?.string { scene = try s.scene(sid) }
-                r.duration = a["duration"]?.double ?? (kind == .music ? scene.map { $0.duration - (a["at"]?.double ?? 0) } : nil)
+                r.duration =
+                    a["duration"]?.double ?? (kind == .music ? scene.map { $0.duration - (a["at"]?.double ?? 0) } : nil)
                 if let d = r.duration { r.duration = try SafeNumber.positive(d, "duration", max: 600) }
                 r.loop = a["loop"]?.bool == true
                 r.instrumental = a["instrumental"]?.bool ?? true
@@ -284,7 +306,9 @@ extension MCPServer {
                 let provider = try audioProvider()
                 let req = r, name = a["name"]?.string
                 let res = try blocking { try await AudioAI.generate(req, name: name, store: s, provider: provider) }
-                var lines = ["asset \(info(res.asset, store: s)) by \(AudioCatalog.entry(res.model)?.label ?? res.model) (fal.ai, paid)"]
+                var lines = [
+                    "asset \(info(res.asset, store: s)) by \(AudioCatalog.entry(res.model)?.label ?? res.model) (fal.ai, paid)"
+                ]
                 if !res.failed.isEmpty { lines.append("tried first: " + res.failed.joined(separator: "; ")) }
                 lines += try place(res.asset, a, store: s, defaultAs: kind == .music ? "audio" : "sound")
                 return text(lines.joined(separator: "\n"))
@@ -299,7 +323,8 @@ extension MCPServer {
                         "text": prop("string", "What to say"),
                         "engine": prop("string", "local (default) or fal", extra: ["enum": ["local", "fal"]]),
                         "voice": prop("string", "Voice name (default: picked for the text's language)"),
-                        "speed": prop("number", "fal: 0.7–1.2 (default 1). local: words per minute 80–400 (default ~175)"),
+                        "speed": prop(
+                            "number", "fal: 0.7–1.2 (default 1). local: words per minute 80–400 (default ~175)"),
                         "language": prop("string", "fal: ISO 639-1 code, e.g. ru, en"),
                         "list": prop("boolean", "Only list the local system voices"),
                         "name": prop("string", "File name base"),
@@ -326,14 +351,21 @@ extension MCPServer {
                     let req = r, name = a["name"]?.string
                     let res = try blocking { try await AudioAI.generate(req, name: name, store: s, provider: provider) }
                     asset = res.asset
-                    lines = ["asset \(info(asset, store: s)) — voice by \(AudioCatalog.entry(res.model)?.label ?? res.model) (fal.ai, paid)"]
+                    lines = [
+                        "asset \(info(asset, store: s)) — voice by \(AudioCatalog.entry(res.model)?.label ?? res.model) (fal.ai, paid)"
+                    ]
                 } else {
-                    let r = try Speech.write(words, voice: a["voice"]?.string, rate: a["speed"]?.double, name: a["name"]?.string, store: s)
+                    let r = try Speech.write(
+                        words, voice: a["voice"]?.string, rate: a["speed"]?.double, name: a["name"]?.string, store: s)
                     asset = r.asset
-                    lines = ["asset \(info(asset, store: s)) — system voice \(r.voice) (free; engine fal for a natural read)"]
+                    lines = [
+                        "asset \(info(asset, store: s)) — system voice \(r.voice) (free; engine fal for a natural read)"
+                    ]
                 }
                 lines += try place(asset, a, store: s, defaultAs: "audio")
-                lines.append("To time pictures and sounds to its words: audio_transcribe (the time of every word) or audio_analyze {markers:\"phrases\"} (free: sentence starts).")
+                lines.append(
+                    "To time pictures and sounds to its words: audio_transcribe (the time of every word) or audio_analyze {markers:\"phrases\"} (free: sentence starts)."
+                )
                 return text(lines.joined(separator: "\n"))
             },
 
@@ -352,7 +384,8 @@ extension MCPServer {
                         "max_markers": prop("integer", "At most this many markers (default 48)"),
                         "image": prop(
                             "boolean",
-                            "Also return a picture: spectrogram (frequency over time) with a loudness curve under it. Look at it to see where a sound's energy is and when."),
+                            "Also return a picture: spectrogram (frequency over time) with a loudness curve under it. Look at it to see where a sound's energy is and when."
+                        ),
                     ])
             ) { [unowned self] a in
                 let s = try requireStore()
@@ -406,7 +439,9 @@ extension MCPServer {
                         stereo, start: shift, marks: (scene?.markers ?? []).map { ($0.name, $0.t) },
                         phrases: r.phrases)
                     if let jpg = ContactSheet.jpeg(img) {
-                        blocks.append(["type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg"])
+                        blocks.append([
+                            "type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg",
+                        ])
                     }
                 }
                 if let kind = a["markers"]?.string, let sc = scene {
@@ -430,7 +465,8 @@ extension MCPServer {
                         ["op": "marker", "name": .string("\(prefix)-\(k + 1)"), "t": .number(t)]
                     }
                     let applied = try SceneOps.apply(ops, to: sc)
-                    let saved = try saveValidated(applied.scene, store: s, expectedRev: sc.rev, summary: "\(kind) markers")
+                    let saved = try saveValidated(
+                        applied.scene, store: s, expectedRev: sc.rev, summary: "\(kind) markers")
                     out +=
                         "\nwrote \(picked.count) markers \(prefix)-1…\(prefix)-\(picked.count)\(times.count > picked.count ? " (of \(times.count))" : "") in \(sc.id) (rev \(saved.rev)); use marker(\"\(prefix)-1\") in expressions or snap keys to them"
                 } else if a["markers"] != nil {
@@ -448,7 +484,8 @@ extension MCPServer {
                         "src": prop("string", "A sound file in assets/ (or use scene)"),
                         "scene": prop("string", "Scene whose audio to transcribe"),
                         "sound": prop("string", "With scene: a sound clip id instead of the scene audio"),
-                        "language": prop("string", "Language code when you know it (\"ru\", \"en\"); default: detected"),
+                        "language": prop(
+                            "string", "Language code when you know it (\"ru\", \"en\"); default: detected"),
                         "find": prop("string", "Only report when this word or phrase is said"),
                         "mark": prop(
                             "array", "Words or phrases to write as markers at the moment they start",
@@ -465,7 +502,9 @@ extension MCPServer {
                         guard let r = sc.sound(id) else { throw ToolError("no sound '\(id)' in \(sid)") }
                         ref = r
                     } else {
-                        guard let r = sc.audio else { throw ToolError("\(sid) has no audio — pass sound (a clip id) or src (a file)") }
+                        guard let r = sc.audio else {
+                            throw ToolError("\(sid) has no audio — pass sound (a clip id) or src (a file)")
+                        }
                         ref = r
                     }
                 } else {
@@ -473,14 +512,18 @@ extension MCPServer {
                 }
                 // The original file: effects don't change the words, and stretching is undone below.
                 let file = AssetPath.url(ref.src, assets: s.assetsURL)
-                guard FileManager.default.fileExists(atPath: file.path) else { throw ToolError("'\(ref.src)' not found in assets/") }
+                guard FileManager.default.fileExists(atPath: file.path) else {
+                    throw ToolError("'\(ref.src)' not found in assets/")
+                }
                 let language = a["language"]?.string
                 let (t, fresh): (Transcript, Bool)
                 if let c = Transcript.cached(file, store: s) {
                     (t, fresh) = (c, false)
                 } else {
                     let provider = try transcriptProvider()
-                    (t, fresh) = try blocking { try await Transcript.of(file, language: language, store: s, provider: provider) }
+                    (t, fresh) = try blocking {
+                        try await Transcript.of(file, language: language, store: s, provider: provider)
+                    }
                 }
                 // File time → scene time (a stretched clip plays its words 1/rate apart).
                 let rate = ref.rate ?? 1
@@ -496,12 +539,25 @@ extension MCPServer {
                     out.append(
                         hits.isEmpty
                             ? "“\(q)” is not said. The text: \(t.text)"
-                            : "“\(q)”: " + hits.map { "\(Format.number(at($0.lowerBound)))–\(Format.number(at($0.upperBound)))s" }.joined(separator: ", "))
+                            : "“\(q)”: "
+                                + hits.map {
+                                    "\(Format.number(at($0.lowerBound)))–\(Format.number(at($0.upperBound)))s"
+                                }.joined(separator: ", "))
                 } else {
+                    // In a scene, only what is said while the scene runs (a long voiceover covers many scenes).
+                    let end = scene?.duration ?? .infinity
+                    var skipped = 0
                     for line in t.lines {
                         guard let f = line.first, let l = line.last else { continue }
-                        out.append("\(Format.number(at(f.start)))–\(Format.number(at(l.end)))s  " + line.map(\.text).joined(separator: " "))
-                        out.append("    " + line.map { "\($0.text)@\(Format.number(at($0.start)))" }.joined(separator: " "))
+                        if scene != nil, at(l.end) < 0 || at(f.start) > end { skipped += line.count; continue }
+                        out.append(
+                            "\(Format.number(at(f.start)))–\(Format.number(at(l.end)))s  "
+                                + line.map(\.text).joined(separator: " "))
+                        out.append(
+                            "    " + line.map { "\($0.text)@\(Format.number(at($0.start)))" }.joined(separator: " "))
+                    }
+                    if skipped > 0 {
+                        out.append("(\(skipped) more words are said outside this scene; use src for the whole file)")
                     }
                 }
                 if let marks = a["mark"]?.array?.compactMap(\.string), !marks.isEmpty {
@@ -516,7 +572,8 @@ extension MCPServer {
                     }
                     if !ops.isEmpty {
                         let applied = try SceneOps.apply(ops, to: sc)
-                        let saved = try saveValidated(applied.scene, store: s, expectedRev: sc.rev, summary: "word markers")
+                        let saved = try saveValidated(
+                            applied.scene, store: s, expectedRev: sc.rev, summary: "word markers")
                         out.append("wrote markers \(names.joined(separator: ", ")) in \(sc.id) (rev \(saved.rev))")
                     }
                 }
@@ -568,7 +625,8 @@ extension MCPServer {
                 guard !rendered.stems.isEmpty else {
                     return text(
                         "\(scene.id) has no sound"
-                            + (rendered.missing.isEmpty ? "" : " (files not found: \(rendered.missing.joined(separator: ", ")))"))
+                            + (rendered.missing.isEmpty
+                                ? "" : " (files not found: \(rendered.missing.joined(separator: ", ")))"))
                 }
                 let whole = from <= 0 && to >= scene.duration
                 let report = MixReport.make(scene, rendered: rendered, from: whole ? nil : from, to: whole ? nil : to)
@@ -583,20 +641,25 @@ extension MCPServer {
                             ($0.lowerBound + t0)...($0.upperBound + t0)
                         }
                     }
-                    let lanes = rendered.stems.filter { Double($0.range.upperBound) / Stereo.rate >= from && Double($0.start) / Stereo.rate <= to }
-                        .map {
-                            AudioSheet.Lane(
-                                label: $0.id, from: Double($0.start) / Stereo.rate,
-                                to: Double($0.range.upperBound) / Stereo.rate, highlight: $0.isReference)
-                        }
+                    let lanes = rendered.stems.filter {
+                        Double($0.range.upperBound) / Stereo.rate >= from && Double($0.start) / Stereo.rate <= to
+                    }
+                    .map {
+                        AudioSheet.Lane(
+                            label: $0.id, from: Double($0.start) / Stereo.rate,
+                            to: Double($0.range.upperBound) / Stereo.rate, highlight: $0.isReference)
+                    }
                     let img = try AudioSheet.render(
                         part, start: from, lanes: lanes, marks: (scene.markers ?? []).map { ($0.name, $0.t) },
                         phrases: phrases)
                     if let jpg = ContactSheet.jpeg(img) {
-                        blocks.append(["type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg"])
+                        blocks.append([
+                            "type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg",
+                        ])
                     }
                 }
-                return blocks + text("\(scene.id) rev \(scene.rev), \(Format.number(from))–\(Format.number(to))s\n" + report.text)
+                return blocks
+                    + text("\(scene.id) rev \(scene.rev), \(Format.number(from))–\(Format.number(to))s\n" + report.text)
             },
         ]
     }

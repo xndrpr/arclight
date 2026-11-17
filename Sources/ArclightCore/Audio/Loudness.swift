@@ -16,9 +16,8 @@ public struct Stereo: Equatable, Sendable {
     public static func read(_ url: URL) throws -> Stereo {
         let f = try AVAudioFile(forReading: url)
         let src = f.processingFormat
-        let n = AVAudioFrameCount(f.length)
-        guard n > 0, let buf = AVAudioPCMBuffer(pcmFormat: src, frameCapacity: n) else { return Stereo(count: 0) }
-        try f.read(into: buf)
+        guard let buf = try AudioFiles.readAll(f) else { return Stereo(count: 0) }
+        let n = buf.frameLength
         var out = buf
         if src.sampleRate != rate {
             guard let dst = AVAudioFormat(standardFormatWithSampleRate: rate, channels: src.channelCount),
@@ -54,7 +53,8 @@ public enum Loudness {
 
     static func k(_ x: [Float]) -> [Float] {
         biquad(
-            biquad(x, b: (1.53512485958697, -2.69169618940638, 1.19839281085285), a: (-1.69065929318241, 0.73248077421585)),
+            biquad(
+                x, b: (1.53512485958697, -2.69169618940638, 1.19839281085285), a: (-1.69065929318241, 0.73248077421585)),
             b: (1, -2, 1), a: (-1.99004745483398, 0.99007225036621))
     }
 

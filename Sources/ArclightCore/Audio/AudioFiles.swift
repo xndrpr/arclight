@@ -9,7 +9,9 @@ public enum AudioFiles {
 
     /// A file extension for audio bytes, from their header (nil when Core Audio can't read them).
     public static func sniff(_ d: Data) -> String? {
-        func at(_ o: Int, _ s: String) -> Bool { d.count >= o + s.count && d.subdata(in: o..<(o + s.count)) == Data(s.utf8) }
+        func at(_ o: Int, _ s: String) -> Bool {
+            d.count >= o + s.count && d.subdata(in: o..<(o + s.count)) == Data(s.utf8)
+        }
         if at(0, "RIFF") && at(8, "WAVE") { return "wav" }
         if at(0, "FORM") && (at(8, "AIFF") || at(8, "AIFC")) { return "aiff" }
         if at(0, "fLaC") { return "flac" }
@@ -22,7 +24,8 @@ public enum AudioFiles {
 
     /// A file-name base in plain Latin letters ("Привет, мир" → "privet-mir"), so names stay portable.
     public static func slug(_ s: String) -> String {
-        let latin = s.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? s
+        let latin =
+            s.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? s
         let ascii = String(latin.unicodeScalars.filter { $0.isASCII }.map(Character.init))
         let out = ImageAI.slug(ascii)
         return out == "image" ? "sound" : out
@@ -77,13 +80,33 @@ public enum AudioFiles {
         try file.write(from: buf)
     }
 
+    /// Every frame of a file in its processing format. One `read(into:)` can stop short of the end, so this
+    /// keeps reading until the file is exhausted.
+    public static func readAll(_ f: AVAudioFile) throws -> AVAudioPCMBuffer? {
+        let fmt = f.processingFormat
+        let total = AVAudioFrameCount(max(0, f.length))
+        guard total > 0, let out = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: total),
+            let chunk = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: min(total, 1 << 16)),
+            let dst = out.floatChannelData
+        else { return nil }
+        f.framePosition = 0
+        var done: AVAudioFrameCount = 0
+        while done < total {
+            try f.read(into: chunk, frameCount: min(chunk.frameCapacity, total - done))
+            let n = chunk.frameLength
+            guard n > 0, let src = chunk.floatChannelData else { break }
+            for c in 0..<Int(fmt.channelCount) { (dst[c] + Int(done)).update(from: src[c], count: Int(n)) }
+            done += n
+        }
+        out.frameLength = done
+        return done > 0 ? out : nil
+    }
+
     /// Mono samples of a file (channels averaged), resampled to `rate` when given. For analysis.
     public static func mono(_ url: URL, rate: Double? = nil) throws -> (samples: [Float], rate: Double) {
         let f = try AVAudioFile(forReading: url)
         let fmt = f.processingFormat
-        let n = AVAudioFrameCount(f.length)
-        guard n > 0, let buf = AVAudioPCMBuffer(pcmFormat: fmt, frameCapacity: n) else { return ([], fmt.sampleRate) }
-        try f.read(into: buf)
+        guard let buf = try readAll(f) else { return ([], fmt.sampleRate) }
         let ch = Int(fmt.channelCount), len = Int(buf.frameLength)
         var out = [Float](repeating: 0, count: len)
         if let data = buf.floatChannelData {
