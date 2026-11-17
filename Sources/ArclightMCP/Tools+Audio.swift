@@ -30,6 +30,9 @@ extension MCPServer {
         "gain": prop("number", "Volume 0…4 (1 = as is; effects under music often sit at 0.5–0.8)"),
         "fadeIn": prop("number", "Fade-in (s)"), "fadeOut": prop("number", "Fade-out (s), ends where it stops"),
         "pitch": prop("number", "Pitch shift in semitones, −24…24 (−12 = an octave lower; length unchanged)"),
+        "level": prop(
+            "number",
+            "Instead of gain: how loud the clip should be against the scene audio, in dB (−9 = 9 dB under the voice or music; without scene audio, against −16 LUFS). The gain is worked out from the file's measured loudness. Effects under a voice: −6…−12; subtle: −15…−20."),
     ]
 
     static func with(place extra: [String: JSONValue]) -> [String: JSONValue] {
@@ -38,8 +41,10 @@ extension MCPServer {
 
     /// Puts `asset` into the scene named by `a["scene"]`, if any. Returns report lines.
     func place(_ asset: String, _ a: [String: JSONValue], store s: ProjectStore, defaultAs: String) throws -> [String] {
+        let measured = try? AudioDescriptors.measure(s.assetsURL.appendingPathComponent(asset))
+        let head = measured.map { ["measured: " + $0.line] } ?? []
         guard let sid = a["scene"]?.string else {
-            return ["not placed: add it with scene_apply {\"op\":\"sound\",\"src\":\"\(asset)\",\"offset\":t} or {\"op\":\"scene\",\"audio\":{\"src\":\"\(asset)\"}}"]
+            return head + ["not placed: add it with scene_apply {\"op\":\"sound\",\"src\":\"\(asset)\",\"offset\":t} or {\"op\":\"scene\",\"audio\":{\"src\":\"\(asset)\"}}"]
         }
         let scene = try s.scene(sid)
         let at = a["at"]?.double ?? 0
@@ -47,6 +52,16 @@ extension MCPServer {
         if at != 0 { fields["offset"] = .number(at) }
         for k in ["gain", "fadeIn", "fadeOut", "length", "trim", "pitch"] { if let v = a[k], v != .null { fields[k] = v } }
         let mode = a["as"]?.string ?? defaultAs
+        // Loudness of the scene audio as placed, to set and report the clip's level against it.
+        let refLufs: Double? = mode == "audio" ? nil : scene.audio.flatMap { r in
+            guard r.mute != true, let l = Loudness.integrated(file: SceneAudio.url(r, assets: s.assetsURL)), l > -100
+            else { return nil }
+            return l + 20 * log10(max(r.gain ?? 1, 1e-6))
+        }
+        if let lv = a["level"]?.double, let m = measured, mode != "audio" {
+            let g = pow(10, ((refLufs ?? -16) + lv - m.momentaryMax) / 20)
+            fields["gain"] = .number((min(4, max(0, g)) * 1000).rounded() / 1000)
+        }
         let op: JSONValue
         let label: String
         if mode == "audio" {
@@ -61,7 +76,20 @@ extension MCPServer {
         }
         let applied = try SceneOps.apply([op], to: scene)
         let saved = try saveValidated(applied.scene, store: s, expectedRev: scene.rev, summary: "add \(label)")
-        var lines = ["\(label) at \(Format.number(at))s in \(sid) (rev \(saved.rev))"]
+        var lines = head + ["\(label) at \(Format.number(at))s in \(sid) (rev \(saved.rev))"]
+        if let m = measured, mode != "audio" {
+            let g = fields["gain"]?.double ?? 1
+            let lvl = ((m.momentaryMax + 20 * log10(max(g, 1e-6))) * 10).rounded() / 10
+            var l = "level in the mix \(Format.number(lvl)) LUFS at gain \(Format.number(g))"
+            if let r = refLufs {
+                let d = ((lvl - r) * 10).rounded() / 10
+                l += d >= 0
+                    ? ": \(Format.number(d)) dB OVER the scene audio (\(Format.number((r * 10).rounded() / 10)) LUFS) — too loud for an effect under a voice"
+                    : ": \(Format.number(-d)) dB under the scene audio (\(Format.number((r * 10).rounded() / 10)) LUFS)"
+            }
+            if g >= 3.99 { l += " (gain is at its limit of 4)" }
+            lines.append(l + ". Run mix_check when the sound edits are done.")
+        }
         if let info = SceneAudio.info(s.assetsURL.appendingPathComponent(asset)), at + info.duration > saved.duration + 0.05,
             mode == "audio"
         {
@@ -91,6 +119,9 @@ extension MCPServer {
                         "limit": prop("integer", "Results, default 8 (max 20)"),
                         "any_license": prop(
                             "boolean", "Also show non-commercial / no-derivatives licences (only for private projects)"),
+                        "measure": prop(
+                            "boolean",
+                            "Download the first 5 results and measure each (loudness, brightness, attack, tail, tone), so you choose by what they sound like, not by their titles. Slower; use it whenever the character matters."),
                     ], required: ["query"]),
                 readOnly: true
             ) { [unowned self] a in
@@ -109,8 +140,14 @@ extension MCPServer {
                         "nothing found for “\(q)”. Try other plain English words, drop the length limits, or make it: sound_synth (motion effects) or sound_generate (anything, fal.ai)."
                     )
                 }
+                var measures: [String: String] = [:]
+                if a["measure"]?.bool == true {
+                    for item in items.prefix(5) {
+                        if let d = try? blocking({ try await lib.measure(item) }) { measures[item.id] = d.line }
+                    }
+                }
                 return text(
-                    items.map(\.line).joined(separator: "\n")
+                    items.map { $0.line + (measures[$0.id].map { "\n    measured: " + $0 } ?? "") }.joined(separator: "\n")
                         + "\nsound_import {sound: id, scene, at} to use one (free; credits go to assets/CREDITS.md).")
             },
 
@@ -263,7 +300,7 @@ extension MCPServer {
             Tool(
                 name: "audio_analyze",
                 description:
-                    "Listen to a sound file or a scene's audio: length, loudness, tempo (BPM) and beat times, onsets (every hit or new sound), phrases between pauses (voiceover sentences), the loudest moment and energy per second. Times are scene times when you pass scene (the clip's offset and trim applied), else file times. markers:\"beats\" | \"bars\" (every 4th beat) | \"onsets\" | \"phrases\" also writes them as scene markers (beat-1, bar-1, hit-1, line-1…) so layers can snap and expressions can use marker(\"beat-3\"). Cut animation on beats, land titles on bars or the loudest moment, and start each caption at its phrase.",
+                    "Measure a sound file or a scene's audio — your ears: loudness (LUFS, true peak), character (brightness, where the energy sits, attack, tail, strongest tone) and faults (clicks, clipping, silence at the start), then length, tempo (BPM) and beat times, onsets (every hit or new sound), phrases between pauses (voiceover sentences), the loudest moment and energy per second. Times are scene times when you pass scene (the clip's offset and trim applied), else file times. markers:\"beats\" | \"bars\" (every 4th beat) | \"onsets\" | \"phrases\" also writes them as scene markers (beat-1, bar-1, hit-1, line-1…) so layers can snap and expressions can use marker(\"beat-3\"). Cut animation on beats, land titles on bars or the loudest moment, and start each caption at its phrase.",
                 schema: schema(
                     [
                         "src": prop("string", "A sound file in assets/ (or use scene)"),
@@ -273,6 +310,9 @@ extension MCPServer {
                             "string", "Write markers: beats, bars, onsets or phrases",
                             extra: ["enum": ["beats", "bars", "onsets", "phrases"]]),
                         "max_markers": prop("integer", "At most this many markers (default 48)"),
+                        "image": prop(
+                            "boolean",
+                            "Also return a picture: spectrogram (frequency over time) with a loudness curve under it. Look at it to see where a sound's energy is and when."),
                     ])
             ) { [unowned self] a in
                 let s = try requireStore()
@@ -315,7 +355,20 @@ extension MCPServer {
                     }
                     r.loudest = ((r.loudest + shift) * 100).rounded() / 100
                 }
-                var out = (scene != nil ? "times are scene times\n" : "times are file times\n") + r.summary
+                let stereo = try Stereo.read(url)
+                var out =
+                    AudioDescriptors.measure(stereo).summary + "\n"
+                    + (scene != nil ? "times are scene times\n" : "times are file times\n") + r.summary
+                var blocks: [JSONValue] = []
+                if a["image"]?.bool == true {
+                    let shift = scene != nil ? (ref.offset ?? 0) - (ref.trim ?? 0) : 0
+                    let img = try AudioSheet.render(
+                        stereo, start: shift, marks: (scene?.markers ?? []).map { ($0.name, $0.t) },
+                        phrases: r.phrases)
+                    if let jpg = ContactSheet.jpeg(img) {
+                        blocks.append(["type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg"])
+                    }
+                }
                 if let kind = a["markers"]?.string, let sc = scene {
                     let maxN = try SafeNumber.int(a["max_markers"]?.double ?? 48, "max_markers", in: 1...400)
                     let (prefix, times): (String, [Double]) =
@@ -326,7 +379,7 @@ extension MCPServer {
                         default: ("line", r.phrases.map(\.lowerBound))
                         }
                     guard !times.isEmpty else {
-                        return text(out + "\nno \(kind) found — no markers written")
+                        return blocks + text(out + "\nno \(kind) found — no markers written")
                     }
                     let picked = Array(times.prefix(maxN))
                     // Replace this kind's earlier markers so a re-run doesn't pile up stale ones.
@@ -343,7 +396,60 @@ extension MCPServer {
                 } else if a["markers"] != nil {
                     out += "\n(markers need scene)"
                 }
-                return text(out)
+                return blocks + text(out)
+            },
+
+            Tool(
+                name: "mix_check",
+                description:
+                    "Check how the scene's sound sits together — do this after every sound edit, before you answer, the way you render frames after a visual edit. You cannot hear; this measures. Renders the whole mix (every clip placed, trimmed, faded) and returns: overall loudness (LUFS) and true peak; for each clip when it sounds, how loud it is, how loud everything else is at that moment and how it compares with the scene audio (voice or music); and the problems found — distortion, a clip louder than the voice, a clip buried or silent, cuts that click, files missing. Plus a picture: spectrogram, loudness curve with the speech phrases shaded, the clips as lanes, markers as lines. Fix the problems and run it again. from/to limit it to a stretch of the scene.",
+                schema: schema(
+                    [
+                        "scene": prop("string", "Scene id"),
+                        "from": prop("number", "Start of the stretch to check (s, default 0)"),
+                        "to": prop("number", "End of the stretch (s, default the scene end)"),
+                        "image": prop("boolean", "Return the picture too (default true)"),
+                    ], required: ["scene"]),
+                readOnly: true
+            ) { [unowned self] a in
+                let s = try requireStore()
+                let scene = try s.scene(try a.str("scene"))
+                let from = max(0, a["from"]?.double ?? 0)
+                let to = min(scene.duration, a["to"]?.double ?? scene.duration)
+                guard to > from else { throw ToolError("'to' must be after 'from'") }
+                let rendered = SceneMix.render(scene, assets: s.assetsURL)
+                guard !rendered.stems.isEmpty else {
+                    return text(
+                        "\(scene.id) has no sound"
+                            + (rendered.missing.isEmpty ? "" : " (files not found: \(rendered.missing.joined(separator: ", ")))"))
+                }
+                let whole = from <= 0 && to >= scene.duration
+                let report = MixReport.make(scene, rendered: rendered, from: whole ? nil : from, to: whole ? nil : to)
+                var blocks: [JSONValue] = []
+                if a["image"]?.bool != false {
+                    let i0 = Int(from * Stereo.rate), i1 = min(rendered.mix.count, Int(to * Stereo.rate))
+                    let part = Stereo(l: Array(rendered.mix.l[i0..<i1]), r: Array(rendered.mix.r[i0..<i1]))
+                    var phrases: [ClosedRange<Double>] = []
+                    if let ref = rendered.stems.first(where: \.isReference) {
+                        let t0 = Double(ref.start) / Stereo.rate
+                        phrases = AudioAnalysis.analyze(samples: ref.audio.mono, sampleRate: Stereo.rate).phrases.map {
+                            ($0.lowerBound + t0)...($0.upperBound + t0)
+                        }
+                    }
+                    let lanes = rendered.stems.filter { Double($0.range.upperBound) / Stereo.rate >= from && Double($0.start) / Stereo.rate <= to }
+                        .map {
+                            AudioSheet.Lane(
+                                label: $0.id, from: Double($0.start) / Stereo.rate,
+                                to: Double($0.range.upperBound) / Stereo.rate, highlight: $0.isReference)
+                        }
+                    let img = try AudioSheet.render(
+                        part, start: from, lanes: lanes, marks: (scene.markers ?? []).map { ($0.name, $0.t) },
+                        phrases: phrases)
+                    if let jpg = ContactSheet.jpeg(img) {
+                        blocks.append(["type": "image", "data": .string(jpg.base64EncodedString()), "mimeType": "image/jpeg"])
+                    }
+                }
+                return blocks + text("\(scene.id) rev \(scene.rev), \(Format.number(from))–\(Format.number(to))s\n" + report.text)
             },
         ]
     }

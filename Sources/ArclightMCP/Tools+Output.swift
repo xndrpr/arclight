@@ -141,6 +141,12 @@ extension MCPServer {
                     return text("src: \(n) (exported from \(src.lastPathComponent) with Blender)\n\(info)")
                 }
                 let n = try s.importAsset(from: file, name: name)
+                if AudioFiles.readable.contains(src.pathExtension.lowercased()),
+                    let d = try? AudioDescriptors.measure(s.assetsURL.appendingPathComponent(n))
+                {
+                    return text(
+                        "src: \(n) (\(Format.number((d.duration * 100).rounded() / 100))s)\nmeasured: \(d.line)\nPlace it with scene_apply {\"op\":\"sound\",\"src\":\"\(n)\",\"offset\":t}; audio_analyze {src, image:true} shows more.")
+                }
                 guard Mesh.extensions.contains(src.pathExtension.lowercased()) else { return text("src: " + n) }
                 let mesh = try Mesh.load(s.assetsURL.appendingPathComponent(n))
                 return text("src: \(n)\n\(mesh.summary)")

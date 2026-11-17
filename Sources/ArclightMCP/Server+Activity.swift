@@ -83,6 +83,7 @@ extension MCPServer {
         case "audio_analyze":
             return "listen to \(a["sound"]?.string ?? a["src"]?.string ?? "scene audio")"
                 + (a["markers"]?.string.map { " (\($0) markers)" } ?? "")
+        case "mix_check": return "check the mix of \(a["scene"]?.string ?? "")"
         default: return tool
         }
     }

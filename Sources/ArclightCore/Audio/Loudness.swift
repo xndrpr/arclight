@@ -112,6 +112,24 @@ public enum Loudness {
         return kept.isEmpty ? mean(blocks) : mean(kept)
     }
 
+    private static let lock = NSLock()
+    private static var fileCache: [String: Double] = [:]
+
+    /// Integrated loudness of a whole file (cached per file + modification time); nil when unreadable.
+    public static func integrated(file url: URL) -> Double? {
+        let stamp =
+            ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
+            .timeIntervalSince1970 ?? 0
+        let key = "\(url.path)|\(stamp)"
+        lock.lock()
+        if let v = fileCache[key] { lock.unlock(); return v }
+        lock.unlock()
+        guard let s = try? Stereo.read(url), s.count > 0 else { return nil }
+        let v = integrated(kWeighted(s))
+        lock.lock(); fileCache[key] = v; lock.unlock()
+        return v
+    }
+
     /// True peak (dBTP): the highest point of the waveform between samples too, found by 4× interpolation
     /// around the loudest samples. Also returns where it is (s).
     public static func truePeak(_ s: Stereo) -> (db: Double, at: Double) {

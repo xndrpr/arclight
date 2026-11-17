@@ -146,6 +146,21 @@ public struct SoundLibrary: Sendable {
         return (item, asset)
     }
 
+    /// Downloads a search result to a temporary file and measures it (nothing is kept).
+    public func measure(_ item: Item) async throws -> AudioDescriptors {
+        guard let u = URL(string: item.fileURL), u.scheme == "https" || u.scheme == "http" else {
+            throw ImageAIError.failed("sound library: bad file URL")
+        }
+        let data = try await get(u)
+        guard data.count <= AudioFiles.maxBytes, let ext = AudioFiles.sniff(data) else {
+            throw ImageAIError.failed("not a playable sound")
+        }
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("measure-\(UUID().uuidString).\(ext)")
+        try data.write(to: tmp)
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        return try AudioDescriptors.measure(tmp)
+    }
+
     // MARK: HTTP
 
     func get(_ url: URL) async throws -> Data {

@@ -10,6 +10,14 @@ project format; older projects keep loading.
 
 ### Added
 
+- The AI measures sound instead of guessing. `mix_check` renders the scene's whole mix and reports overall loudness
+  (LUFS) and true peak, every clip against what plays with it and against the voice, and the problems: distortion, a
+  clip louder than the voice, clips that are buried or silent, cuts that click. It returns a picture too (spectrogram,
+  loudness curve with speech shaded, clips as lanes, markers).
+- `audio_analyze` reports loudness in LUFS and true peak, the character of a sound (brightness, energy per band,
+  attack, tail, strongest tone) and its faults, and with `image:true` a spectrogram. Every tool that makes or imports
+  a sound reports the same measurements, and `sound_search {measure:true}` measures the first results.
+- Sounds can be placed by `level` (dB against the scene audio) instead of a bare gain.
 - Sound clips and the scene audio take `pitch`: a shift in semitones (−24…24, −12 = an octave lower) that keeps the
   length, so trims, fades and timing stay put. It is heard in editor playback, drawn in the waveform and mixed into
   exports; the shifted copy is rendered once into `~/Library/Caches/Arclight/pitch`. In the inspector, `scene_apply`
