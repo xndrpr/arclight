@@ -24,6 +24,8 @@ project format; older projects keep loading.
   the exported mix to a target such as −14.
 - Synthesised sounds: `bloop`, `sub`, `pad` and `bell`, a `soft` amount that rounds any preset off, and pitch ±24.
 - The scene inspector edits the audio track and every sound clip (all fields), and `scene_get` lists them in full.
+- `audio_transcribe`: the words of a voiceover with the time each is spoken (ElevenLabs Scribe on fal.ai, saved per
+  file in the project), with `find` for one phrase and `mark` to write markers on words.
 - Sounds can be placed by `level` (dB against the scene audio) instead of a bare gain.
 - Sound clips and the scene audio take `pitch`: a shift in semitones (−24…24, −12 = an octave lower) that keeps the
   length, so trims, fades and timing stay put. It is heard in editor playback, drawn in the waveform and mixed into

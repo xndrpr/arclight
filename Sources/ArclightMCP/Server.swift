@@ -21,6 +21,7 @@ public final class MCPServer {
     /// Tests point the sound library at a mock server and stand in for fal.ai audio.
     var soundLibraryOverride: SoundLibrary?
     var audioProviderOverride: AudioProvider?
+    var transcriptProviderOverride: TranscriptProvider?
     var tools: [Tool] = []
     let out = FileHandle.standardOutput
     /// This session as shown in the editor's top bar and AI panel. Only written to disk while `run()` serves stdio.

@@ -18,6 +18,16 @@ extension MCPServer {
         return p
     }
 
+    func transcriptProvider() throws -> TranscriptProvider {
+        if let p = transcriptProviderOverride { return p }
+        guard ImageSettings.enabled, let p = KeychainStore.falProvider() else {
+            throw ToolError(
+                "Word timings need the user's fal.ai key (Settings ▸ AI). Without it, audio_analyze {markers:\"phrases\"} gives the start of each sentence from the pauses."
+            )
+        }
+        return p
+    }
+
     /// Placement arguments shared by every tool that makes a sound.
     static let placeProps: [String: JSONValue] = [
         "scene": prop("string", "Scene to put it in (optional; without it the file just lands in assets/)"),
@@ -304,6 +314,7 @@ extension MCPServer {
                     lines = ["asset \(info(asset, store: s)) — system voice \(r.voice) (free; engine fal for a natural read)"]
                 }
                 lines += try place(asset, a, store: s, defaultAs: "audio")
+                lines.append("To time pictures and sounds to its words: audio_transcribe (the time of every word) or audio_analyze {markers:\"phrases\"} (free: sentence starts).")
                 return text(lines.joined(separator: "\n"))
             },
 
@@ -407,6 +418,90 @@ extension MCPServer {
                     out += "\n(markers need scene)"
                 }
                 return blocks + text(out)
+            },
+
+            Tool(
+                name: "audio_transcribe",
+                description:
+                    "The words of a voiceover with the time each one is spoken (speech-to-text: ElevenLabs Scribe on fal.ai, the user's key, a few cents a minute; a file is transcribed once and then read from the project). Use it whenever something must land on a word or a line — a sound on \"…one step away\", a title when its word is said, captions — instead of guessing from pauses. With scene the times are scene times (the clip's offset and trim applied). find: a word or phrase → just its times. mark: words or phrases to write as scene markers (say-<word>) so keys and sounds can snap to them.",
+                schema: schema(
+                    [
+                        "src": prop("string", "A sound file in assets/ (or use scene)"),
+                        "scene": prop("string", "Scene whose audio to transcribe"),
+                        "sound": prop("string", "With scene: a sound clip id instead of the scene audio"),
+                        "language": prop("string", "Language code when you know it (\"ru\", \"en\"); default: detected"),
+                        "find": prop("string", "Only report when this word or phrase is said"),
+                        "mark": prop(
+                            "array", "Words or phrases to write as markers at the moment they start",
+                            extra: ["items": ["type": "string"]]),
+                    ])
+            ) { [unowned self] a in
+                let s = try requireStore()
+                var ref: AudioRef
+                var scene: Scene?
+                if let sid = a["scene"]?.string {
+                    let sc = try s.scene(sid)
+                    scene = sc
+                    if let id = a["sound"]?.string {
+                        guard let r = sc.sound(id) else { throw ToolError("no sound '\(id)' in \(sid)") }
+                        ref = r
+                    } else {
+                        guard let r = sc.audio else { throw ToolError("\(sid) has no audio — pass sound (a clip id) or src (a file)") }
+                        ref = r
+                    }
+                } else {
+                    ref = AudioRef(src: try a.str("src"))
+                }
+                // The original file: effects don't change the words, and stretching is undone below.
+                let file = AssetPath.url(ref.src, assets: s.assetsURL)
+                guard FileManager.default.fileExists(atPath: file.path) else { throw ToolError("'\(ref.src)' not found in assets/") }
+                let language = a["language"]?.string
+                let (t, fresh): (Transcript, Bool)
+                if let c = Transcript.cached(file, store: s) {
+                    (t, fresh) = (c, false)
+                } else {
+                    let provider = try transcriptProvider()
+                    (t, fresh) = try blocking { try await Transcript.of(file, language: language, store: s, provider: provider) }
+                }
+                // File time → scene time (a stretched clip plays its words 1/rate apart).
+                let rate = ref.rate ?? 1
+                let shift = scene != nil ? (ref.offset ?? 0) - (ref.trim ?? 0) : 0
+                func at(_ x: Double) -> Double { ((x / rate + shift) * 100).rounded() / 100 }
+                var out = [
+                    "\(ref.src): \(t.words.count) words" + (t.language.map { ", language \($0)" } ?? "")
+                        + (fresh ? " (transcribed now, paid)" : " (from the project's saved transcript)")
+                        + (scene != nil ? "; times are scene times" : "; times are file times")
+                ]
+                if let q = a["find"]?.string, !q.isEmpty {
+                    let hits = t.find(q)
+                    out.append(
+                        hits.isEmpty
+                            ? "“\(q)” is not said. The text: \(t.text)"
+                            : "“\(q)”: " + hits.map { "\(Format.number(at($0.lowerBound)))–\(Format.number(at($0.upperBound)))s" }.joined(separator: ", "))
+                } else {
+                    for line in t.lines {
+                        guard let f = line.first, let l = line.last else { continue }
+                        out.append("\(Format.number(at(f.start)))–\(Format.number(at(l.end)))s  " + line.map(\.text).joined(separator: " "))
+                        out.append("    " + line.map { "\($0.text)@\(Format.number(at($0.start)))" }.joined(separator: " "))
+                    }
+                }
+                if let marks = a["mark"]?.array?.compactMap(\.string), !marks.isEmpty {
+                    guard let sc = scene else { return text(out.joined(separator: "\n") + "\n(markers need scene)") }
+                    var ops: [JSONValue] = []
+                    var names: [String] = []
+                    for m in marks {
+                        guard let hit = t.find(m).first else { out.append("not marked: “\(m)” is not said"); continue }
+                        let name = "say-" + AudioFiles.slug(m)
+                        ops.append(["op": "marker", "name": .string(name), "t": .number(at(hit.lowerBound))])
+                        names.append("\(name)@\(Format.number(at(hit.lowerBound)))")
+                    }
+                    if !ops.isEmpty {
+                        let applied = try SceneOps.apply(ops, to: sc)
+                        let saved = try saveValidated(applied.scene, store: s, expectedRev: sc.rev, summary: "word markers")
+                        out.append("wrote markers \(names.joined(separator: ", ")) in \(sc.id) (rev \(saved.rev))")
+                    }
+                }
+                return text(out.joined(separator: "\n"))
             },
 
             Tool(

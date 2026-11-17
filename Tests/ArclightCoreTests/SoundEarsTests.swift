@@ -259,4 +259,50 @@ import Testing
         let sub = SoundSynth.render(.sub)
         #expect(AudioDescriptors.measure(Stereo(l: sub, r: sub)).bands[0] > 0.6)
     }
+
+    // MARK: Words
+
+    private struct FakeScribe: TranscriptProvider {
+        let calls = Counter()
+        final class Counter: @unchecked Sendable { var n = 0 }
+        func transcribe(_ audio: Data, mime: String, language: String?) async throws -> Transcript {
+            calls.n += 1
+            let v: JSONValue = [
+                "text": "Еда была в одном шаге. У них ушла неделя.", "language_code": "rus",
+                "words": [
+                    ["text": "Еда", "start": 0.5, "end": 0.8, "type": "word"], ["text": " ", "start": 0.8, "end": 0.85, "type": "spacing"],
+                    ["text": "была", "start": 0.85, "end": 1.1, "type": "word"], ["text": "в", "start": 1.15, "end": 1.2, "type": "word"],
+                    ["text": "одном", "start": 1.2, "end": 1.5, "type": "word"], ["text": "шаге.", "start": 1.5, "end": 1.9, "type": "word"],
+                    ["text": "У", "start": 2.6, "end": 2.65, "type": "word"], ["text": "них", "start": 2.65, "end": 2.8, "type": "word"],
+                    ["text": "ушла", "start": 2.8, "end": 3.0, "type": "word"], ["text": "неделя.", "start": 3.0, "end": 3.4, "type": "word"],
+                ],
+            ]
+            return Transcript.parse(v)!
+        }
+    }
+
+    @Test func transcriptGivesWordTimesInSceneTime() throws {
+        let project = try TempProject("words", scenes: [Scene(id: "s", duration: 8)])
+        defer { project.remove() }
+        let assets = project.store.assetsURL
+        try FileManager.default.createDirectory(at: assets, withIntermediateDirectories: true)
+        try write(sine(300, amp: 0.1, seconds: 4), to: assets.appendingPathComponent("voice.wav"))
+        let server = MCPServer(projectPath: project.url.path)
+        let fake = FakeScribe()
+        server.transcriptProviderOverride = fake
+        func run(_ name: String, _ args: [String: JSONValue]) throws -> String {
+            try server.tools.first { $0.name == name }!.run(args).compactMap { $0.object?["text"]?.string }.joined(separator: "\n")
+        }
+        _ = try run("scene_apply", ["scene": "s", "ops": [["op": "scene", "audio": ["src": "voice.wav", "offset": 2]]]])
+        let all = try run("audio_transcribe", ["scene": "s"])
+        #expect(all.contains("9 words") && all.contains("transcribed now"))
+        #expect(all.contains("2.5–3.9s  Еда была в одном шаге.") && all.contains("неделя.@5"))
+        // Second time: from the saved transcript, no new call; find and mark work on it.
+        let found = try run("audio_transcribe", ["scene": "s", "find": "ушла НЕДЕЛЯ", "mark": ["неделя", "нет такого"]])
+        #expect(fake.calls.n == 1 && found.contains("saved transcript"))
+        #expect(found.contains("“ушла НЕДЕЛЯ”: 4.8–5.4s"))
+        #expect(found.contains("say-ned") && found.contains("@5 in s") && found.contains("not marked: “нет такого”"))
+        let outline = try run("scene_get", ["scene": "s"])
+        #expect(outline.contains("say-ned"))
+    }
 }
