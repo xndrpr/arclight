@@ -163,6 +163,8 @@ public struct AudioRef: Codable, Equatable, Sendable {
     public var fadeOut: Double?
     /// Seconds of the file played from `trim` (default: all of it).
     public var length: Double?
+    /// Pitch shift in semitones (−24…24; −12 = an octave lower). Keeps the length: trims and fades stay put.
+    public var pitch: Double?
     /// Silence the audio: left out of exports and muted in editor playback.
     public var mute: Bool?
     public init(src: String) { self.src = src }

@@ -4,8 +4,11 @@ import Foundation
 /// Reference audio: file info, waveform peaks for the timeline, and muxing into exported video.
 public enum SceneAudio {
     /// Resolves `audio.src` against the project's assets folder (absolute paths allowed).
+    /// With `pitch` set this is the pitch-shifted copy (rendered on first use; the original if that fails).
     public static func url(_ a: AudioRef, assets: URL?) -> URL {
-        AssetPath.url(a.src, assets: assets)
+        let src = AssetPath.url(a.src, assets: assets)
+        guard let st = PitchShift.semitones(a), FileManager.default.fileExists(atPath: src.path) else { return src }
+        return PitchShift.shifted(src, semitones: st) ?? src
     }
 
     public struct Info: Equatable, Sendable {

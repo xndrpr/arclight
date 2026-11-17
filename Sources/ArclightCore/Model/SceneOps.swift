@@ -107,12 +107,15 @@ public enum SceneOps {
     /// `r` with the op's clip fields merged in (`null` clears one).
     static func mergeSound(_ r: AudioRef, _ o: [String: JSONValue]) throws -> AudioRef {
         guard var obj = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(r)).object else { return r }
-        for k in ["src", "offset", "trim", "length", "gain", "fadeIn", "fadeOut", "mute"] {
+        for k in ["src", "offset", "trim", "length", "gain", "fadeIn", "fadeOut", "mute", "pitch"] {
             guard let v = o[k] else { continue }
             if k == "src", v == .null { continue }
             obj[k] = v == .null ? nil : v
         }
         if let g = obj["gain"]?.double, !(0...4).contains(g) { throw ModelError.invalid("gain must be 0…4") }
+        if let p = obj["pitch"]?.double, !(-24...24).contains(p) {
+            throw ModelError.invalid("pitch must be −24…24 semitones")
+        }
         return try JSONValue.object(obj).decoded(as: AudioRef.self)
     }
 

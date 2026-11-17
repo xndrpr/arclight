@@ -133,7 +133,7 @@ enum Guide {
           {"op":"sound","id":"whoosh-1","src":"whoosh.wav","offset":1.15,"gain":0.7}   adds or updates a clip
           {"op":"sound","id":"whoosh-1","remove":true}
           Clip fields: src, offset (scene s), trim (file s skipped), length (s played), gain 0…4, fadeIn, fadeOut (ends where \
-        the clip stops), mute.
+        the clip stops), pitch (semitones −24…24, length kept: −3 = darker, +12 = an octave up), mute.
         Getting sounds (each can place its result: scene + at, as "sound" or "audio"):
           sound_synth {preset, duration, pitch, scene, at} — free, instant, no credit: whoosh, swipe, riser, reverse, impact, \
         boom, hit, pop, click, tick, blip, beep, ding, chime, success, error, glitch, typing, sparkle, drop.

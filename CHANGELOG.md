@@ -8,6 +8,13 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+### Added
+
+- Sound clips and the scene audio take `pitch`: a shift in semitones (−24…24, −12 = an octave lower) that keeps the
+  length, so trims, fades and timing stay put. It is heard in editor playback, drawn in the waveform and mixed into
+  exports; the shifted copy is rendered once into `~/Library/Caches/Arclight/pitch`. In the inspector, `scene_apply`
+  (`{"op":"sound","id":"x","pitch":-3}`) and the place options of the sound tools.
+
 ## [0.1.3] - 2026-11-16
 
 Sound and moving models: the AI scores a scene with effects, music and voiceover, and 3D models play their own

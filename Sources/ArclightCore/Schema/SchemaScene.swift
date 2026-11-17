@@ -112,6 +112,9 @@ extension Schema {
                 default: 0),
             Field(
                 "length", .number(min: 0, step: 0.01, unit: "s"), "Seconds played from trim (default: the rest of the file)."),
+            Field(
+                "pitch", .number(min: -24, max: 24, step: 1, unit: "st"),
+                "Pitch shift in semitones (−12 = an octave lower); the length stays the same.", default: 0),
             Field("mute", .bool, "Leave out of exports.", default: false),
         ])
 

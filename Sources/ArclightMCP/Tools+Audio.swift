@@ -29,6 +29,7 @@ extension MCPServer {
         "id": prop("string", "Sound clip id (default from the file name)"),
         "gain": prop("number", "Volume 0…4 (1 = as is; effects under music often sit at 0.5–0.8)"),
         "fadeIn": prop("number", "Fade-in (s)"), "fadeOut": prop("number", "Fade-out (s), ends where it stops"),
+        "pitch": prop("number", "Pitch shift in semitones, −24…24 (−12 = an octave lower; length unchanged)"),
     ]
 
     static func with(place extra: [String: JSONValue]) -> [String: JSONValue] {
@@ -44,7 +45,7 @@ extension MCPServer {
         let at = a["at"]?.double ?? 0
         var fields: [String: JSONValue] = ["src": .string(asset)]
         if at != 0 { fields["offset"] = .number(at) }
-        for k in ["gain", "fadeIn", "fadeOut", "length", "trim"] { if let v = a[k], v != .null { fields[k] = v } }
+        for k in ["gain", "fadeIn", "fadeOut", "length", "trim", "pitch"] { if let v = a[k], v != .null { fields[k] = v } }
         let mode = a["as"]?.string ?? defaultAs
         let op: JSONValue
         let label: String
@@ -170,7 +171,9 @@ extension MCPServer {
                 let seed = UInt64(max(0, a["seed"]?.double ?? 1))
                 let asset = try SoundSynth.write(p, duration: d, pitch: pitch, seed: seed, name: a["name"]?.string, store: s)
                 var lines = ["asset \(info(asset, store: s)) — synthesised \(p.rawValue) (free)"]
-                lines += try place(asset, a, store: s, defaultAs: "sound")
+                var placeArgs = a
+                placeArgs["pitch"] = nil  // already baked into the synthesised file
+                lines += try place(asset, placeArgs, store: s, defaultAs: "sound")
                 return text(lines.joined(separator: "\n"))
             },
 
