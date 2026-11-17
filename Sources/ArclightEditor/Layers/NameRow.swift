@@ -4,6 +4,7 @@ import SwiftUI
 
 struct NameRow: View {
     @ObservedObject var doc: EditorDocument
+    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0  // redraw when ⇧ + scroll resizes the rows
     @ObservedObject var ui: LayerUIState
     let row: TLRow
     let childCount: Int

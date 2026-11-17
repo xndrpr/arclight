@@ -11,8 +11,13 @@ struct TLRow: Identifiable {
 
 enum TL {
     static let nameW: CGFloat = 250
-    /// Follows the layer list density (compact 26 / detailed 44) so names and tracks align.
-    static var rowH: CGFloat { LayerDensity.current.rowHeight }
+    /// Layer row height, shared by names and tracks so they align: the density's (compact 26 / detailed 44) until
+    /// ⇧ + scroll over the rows sets one of its own.
+    static var rowH: CGFloat {
+        let v = Pref.store.double(forKey: Pref.layerRowHeight)
+        return v > 0 ? clamp(CGFloat(v), rowRange).rounded() : LayerDensity.current.rowHeight
+    }
+    static let rowRange: ClosedRange<CGFloat> = 22...120
     /// Ruler: a marker band on top, time labels and ticks below.
     static let rulerH: CGFloat = 34
     static let markerBandH: CGFloat = 14
@@ -22,16 +27,28 @@ enum TL {
     static var soundsH: CGFloat { laneHeight(Pref.soundsLaneHeight, default: 34) }
     static let laneRange: ClosedRange<CGFloat> = 28...240
 
-    private static func laneHeight(_ key: String, default d: CGFloat) -> CGFloat {
-        let v = Pref.store.double(forKey: key)
-        return v > 0 ? min(max(CGFloat(v), laneRange.lowerBound), laneRange.upperBound) : d
+    private static func clamp(_ v: CGFloat, _ r: ClosedRange<CGFloat>) -> CGFloat {
+        min(max(v, r.lowerBound), r.upperBound)
     }
 
-    /// Grows / shrinks a lane's height by `delta` points, kept in `laneRange`.
-    static func resizeLane(_ key: String, by delta: CGFloat) {
-        let now = key == Pref.audioLaneHeight ? audioH : soundsH
-        let h = min(max(now + delta, laneRange.lowerBound), laneRange.upperBound)
-        if h != now { Pref.store.set(Double(h.rounded()), forKey: key) }
+    private static func laneHeight(_ key: String, default d: CGFloat) -> CGFloat {
+        let v = Pref.store.double(forKey: key)
+        return v > 0 ? clamp(CGFloat(v), laneRange).rounded() : d
+    }
+
+    /// Grows / shrinks the layer rows (`Pref.layerRowHeight`) or a lane by `delta` points, kept in range. The
+    /// unrounded height is stored so small trackpad steps add up. Tall rows switch the list to detailed (thumbnails).
+    static func resize(_ key: String, by delta: CGFloat) {
+        let row = key == Pref.layerRowHeight
+        let stored = Pref.store.double(forKey: key)
+        let now = stored > 0 ? CGFloat(stored) : row ? rowH : key == Pref.audioLaneHeight ? audioH : soundsH
+        let h = clamp(now + delta, row ? rowRange : laneRange)
+        guard h != now else { return }
+        Pref.store.set(Double(h), forKey: key)
+        if row {
+            let d = (h.rounded() >= 36 ? LayerDensity.detailed : .compact).rawValue
+            if Pref.store.string(forKey: Pref.layerDensity) != d { Pref.store.set(d, forKey: Pref.layerDensity) }
+        }
     }
 
     /// Keyframe times (scene seconds) shown on a row.
@@ -70,6 +87,7 @@ struct TimelineView: View {
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     @AppStorage(Pref.audioLaneHeight) private var audioLaneH = 0.0
     @AppStorage(Pref.soundsLaneHeight) private var soundsLaneH = 0.0
+    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0
 
     var body: some View {
         let rows = doc.layerRows()
@@ -78,10 +96,13 @@ struct TimelineView: View {
             Hairline()
             GeometryReader { geo in
                 let trackW = max(geo.size.width - TL.nameW - 1, 50)
-                // Rows area fills the panel, so the empty space below the last row is clickable / box-selectable.
-                let rowsH = max(
-                    geo.size.height - TL.rulerH - 1 - (doc.scene.audio != nil ? TL.audioH + 1 : 0)
-                        - (doc.scene.sounds?.isEmpty == false ? TL.soundsH + 1 : 0), 60)
+                // The lanes scroll with the rows (a tall lane must not push the layers out of reach); the rows
+                // area still fills what is left of the panel, so the space below the last row is clickable.
+                let viewH = max(geo.size.height - TL.rulerH - 1, 60)
+                let lanesH =
+                    (doc.scene.audio != nil ? TL.audioH + 1 : 0)
+                    + (doc.scene.sounds?.isEmpty == false ? TL.soundsH + 1 : 0)
+                let rowsH = max(viewH - lanesH, 60)
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
                         LayerListHeader(doc: doc)
@@ -90,32 +111,36 @@ struct TimelineView: View {
                     }
                     .frame(height: TL.rulerH)
                     Hairline()
-                    if doc.scene.audio != nil {
-                        HStack(spacing: 0) {
-                            AudioLaneHeader(doc: doc).frame(width: TL.nameW)
-                            Hairline(vertical: true)
-                            AudioLane(doc: doc, width: trackW)
-                        }
-                        .frame(height: TL.audioH)
-                        Hairline()
-                    }
-                    if doc.scene.sounds?.isEmpty == false {
-                        HStack(spacing: 0) {
-                            SoundsLaneHeader(doc: doc).frame(width: TL.nameW)
-                            Hairline(vertical: true)
-                            SoundsLane(doc: doc, width: trackW)
-                        }
-                        .frame(height: TL.soundsH)
-                        Hairline()
-                    }
                     ScrollView(.vertical) {
-                        HStack(alignment: .top, spacing: 0) {
-                            NamesColumn(doc: doc, rows: rows).frame(width: TL.nameW, alignment: .top)
-                                .frame(minHeight: rowsH, alignment: .top)
-                            Hairline(vertical: true)
-                            Tracks(doc: doc, rows: rows, width: trackW, minHeight: rowsH)
+                        VStack(spacing: 0) {
+                            if doc.scene.audio != nil {
+                                HStack(spacing: 0) {
+                                    AudioLaneHeader(doc: doc).frame(width: TL.nameW)
+                                    Hairline(vertical: true)
+                                    AudioLane(doc: doc, width: trackW)
+                                }
+                                .frame(height: TL.audioH)
+                                .reportsLane(Pref.audioLaneHeight, to: scroll)
+                                Hairline()
+                            }
+                            if doc.scene.sounds?.isEmpty == false {
+                                HStack(spacing: 0) {
+                                    SoundsLaneHeader(doc: doc).frame(width: TL.nameW)
+                                    Hairline(vertical: true)
+                                    SoundsLane(doc: doc, width: trackW)
+                                }
+                                .frame(height: TL.soundsH)
+                                .reportsLane(Pref.soundsLaneHeight, to: scroll)
+                                Hairline()
+                            }
+                            HStack(alignment: .top, spacing: 0) {
+                                NamesColumn(doc: doc, rows: rows).frame(width: TL.nameW, alignment: .top)
+                                    .frame(minHeight: rowsH, alignment: .top)
+                                Hairline(vertical: true)
+                                Tracks(doc: doc, rows: rows, width: trackW, minHeight: rowsH, viewportHeight: viewH)
+                            }
+                            .frame(minHeight: max(CGFloat(rows.count) * TL.rowH, rowsH), alignment: .top)
                         }
-                        .frame(minHeight: max(CGFloat(rows.count) * TL.rowH, rowsH), alignment: .top)
                     }
                     // A legacy (always-visible) scroller would take width and shift the tracks against the ruler.
                     .scrollIndicators(.never)
@@ -136,6 +161,18 @@ struct TimelineView: View {
             }
         }
         .background(UI.panel)
+    }
+}
+
+extension View {
+    /// Keeps `monitor.lanes[key]` at this lane's window frame (for ⇧ + scroll over it).
+    func reportsLane(_ key: String, to monitor: TimelineScrollMonitor) -> some View {
+        background(
+            GeometryReader { g in
+                Color.clear
+                    .onChange(of: g.frame(in: .global), initial: true) { _, f in monitor.lanes[key] = f }
+                    .onDisappear { monitor.lanes[key] = nil }
+            })
     }
 }
 

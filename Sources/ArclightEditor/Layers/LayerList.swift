@@ -9,6 +9,7 @@ struct NamesColumn: View {
     @ObservedObject var doc: EditorDocument
     let rows: [TLRow]
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
+    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0
     static let space = "layerNames"
 
     var body: some View {
@@ -92,6 +93,7 @@ struct LayerListHeader: View {
             ) {
                 doc.objectWillChange.send()
                 density = (detailed ? LayerDensity.compact : .detailed).rawValue
+                Pref.store.removeObject(forKey: Pref.layerRowHeight)  // back to that density's own row height
             }
         }
         .padding(.leading, 10).padding(.trailing, 4)

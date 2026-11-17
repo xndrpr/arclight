@@ -18,9 +18,13 @@ struct Tracks: View {
     let rows: [TLRow]
     let width: CGFloat
     var minHeight: CGFloat = 120
+    /// Height of the scroll view the tracks sit in (taller than `minHeight` when lanes sit above them).
+    var viewportHeight: CGFloat
+    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0  // redraw when ⇧ + scroll resizes the rows
 
-    init(doc: EditorDocument, rows: [TLRow], width: CGFloat, minHeight: CGFloat = 120) {
+    init(doc: EditorDocument, rows: [TLRow], width: CGFloat, minHeight: CGFloat = 120, viewportHeight: CGFloat? = nil) {
         self.doc = doc; self.ui = doc.timelineUI; self.rows = rows; self.width = width; self.minHeight = minHeight
+        self.viewportHeight = max(viewportHeight ?? minHeight, minHeight)
     }
 
     private enum Hit: Equatable { case none, key(Int, Double), bar(Int), edgeIn(Int), edgeOut(Int) }
@@ -49,10 +53,10 @@ struct Tracks: View {
         let map = TimeMap(doc: doc, width: width)
         let d = doc.scene.duration
         let fullH = max(CGFloat(rows.count) * TL.rowH, minHeight)
-        // The canvas covers only the visible window (`minHeight` is the scroll view's height), not the whole track
+        // The canvas covers only the visible window (`viewportHeight` is the scroll view's height), not the whole track
         // area: a 70-layer scene is ~3000 pt tall, and rasterising all of it took ~65 ms on every scene change.
-        let top = min(max(0, visibleTop), max(0, fullH - minHeight))
-        let canvasH = min(fullH, minHeight + TL.rowH)
+        let top = min(max(0, visibleTop), max(0, fullH - viewportHeight))
+        let canvasH = min(fullH, viewportHeight + TL.rowH)
         ZStack(alignment: .topLeading) {
             Color.clear.frame(width: width, height: fullH)
             Canvas(rendersAsynchronously: true) { ctx, size in

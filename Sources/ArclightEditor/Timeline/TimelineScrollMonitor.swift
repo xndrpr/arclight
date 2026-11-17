@@ -2,8 +2,9 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// ⌥ + scroll (mouse or trackpad) and pinch zoom the timeline at the pointer; sideways scroll / ⇧ + scroll pans,
-/// except over the audio or sounds lane, where ⇧ + scroll makes that lane taller or shorter.
+/// ⌥ + scroll (mouse or trackpad) and pinch zoom the timeline at the pointer; sideways scroll pans, and so does
+/// ⇧ + scroll over the ruler. ⇧ + scroll over the rows makes them taller or shorter, over the audio or sounds
+/// lane that lane.
 /// Plain vertical scrolling is left to the layer list. Also tracks whether the last click was in the timeline's
 /// track area (ruler, audio lane, tracks), which decides whether ⌫ / ⌥← → act on selected keyframes.
 final class TimelineScrollMonitor: ObservableObject {
@@ -11,6 +12,8 @@ final class TimelineScrollMonitor: ObservableObject {
     var region: CGRect = .zero
     var trackX: CGFloat = 0
     var trackW: CGFloat = 1
+    /// Window frames of the audio / sounds lanes, by height pref key (they scroll with the rows).
+    var lanes: [String: CGRect] = [:]
     private lazy var monitor = LocalEventMonitor([.scrollWheel, .magnify, .leftMouseDown, .rightMouseDown]) {
         [weak self] e in
         guard let self else { return e }
@@ -51,11 +54,12 @@ final class TimelineScrollMonitor: ObservableObject {
             return nil
         }
         let dx = e.scrollingDeltaX, dy = e.scrollingDeltaY
-        if e.modifierFlags.contains(.shift), let key = lane(at: p.y - region.minY, doc: doc) {
+        if e.modifierFlags.contains(.shift), let key = resizable(at: p) {
             // A mouse wheel with ⇧ arrives as sideways scroll (AppKit swaps the axes); a trackpad keeps dy.
             let d = precise ? dy : (dy != 0 ? dy : dx)
             if !precise || abs(dy) >= abs(dx) {
-                TL.resizeLane(key, by: precise ? d * 0.5 : d * 4)
+                doc.objectWillChange.send()
+                TL.resize(key, by: precise ? d * 0.5 : d * 4)
                 return nil
             }
         }
@@ -68,14 +72,9 @@ final class TimelineScrollMonitor: ObservableObject {
         return e
     }
 
-    /// The resizable lane (its height pref key) at `y` points below the top of the timeline area, if any.
-    private func lane(at y: CGFloat, doc: EditorDocument) -> String? {
-        var top = TL.rulerH + 1
-        if doc.scene.audio != nil {
-            if y >= top && y < top + TL.audioH { return Pref.audioLaneHeight }
-            top += TL.audioH + 1
-        }
-        if doc.scene.sounds?.isEmpty == false, y >= top && y < top + TL.soundsH { return Pref.soundsLaneHeight }
-        return nil
+    /// What ⇧ + scroll resizes at `p` (its height pref key): a lane, else the layer rows; nil over the ruler.
+    private func resizable(at p: CGPoint) -> String? {
+        guard p.y > region.minY + TL.rulerH + 1 else { return nil }
+        return lanes.first { $0.value.contains(p) }?.key ?? Pref.layerRowHeight
     }
 }

@@ -60,7 +60,8 @@ enum Pref {
 
     // Layers
     static let layerDensity = "layers.density"
-    /// Timeline audio / sounds lane heights (⇧ + scroll over a lane).
+    /// Timeline row / audio lane / sounds lane heights (⇧ + scroll over them). Row height unset = density default.
+    static let layerRowHeight = "layers.rowHeight"
     static let audioLaneHeight = "timeline.audioLaneHeight"
     static let soundsLaneHeight = "timeline.soundsLaneHeight"
     /// Collapsed groups of one scene (`projectPath` may be empty).
