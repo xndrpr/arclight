@@ -16,10 +16,23 @@ enum TL {
     /// Ruler: a marker band on top, time labels and ticks below.
     static let rulerH: CGFloat = 34
     static let markerBandH: CGFloat = 14
-    /// Reference-audio lane under the ruler.
-    static let audioH: CGFloat = 46
-    /// Sound-clips lane under the audio lane.
-    static let soundsH: CGFloat = 34
+    /// Reference-audio lane under the ruler (persisted; ⇧ + scroll over it changes it).
+    static var audioH: CGFloat { laneHeight(Pref.audioLaneHeight, default: 46) }
+    /// Sound-clips lane under the audio lane (persisted; ⇧ + scroll over it changes it).
+    static var soundsH: CGFloat { laneHeight(Pref.soundsLaneHeight, default: 34) }
+    static let laneRange: ClosedRange<CGFloat> = 28...240
+
+    private static func laneHeight(_ key: String, default d: CGFloat) -> CGFloat {
+        let v = Pref.store.double(forKey: key)
+        return v > 0 ? min(max(CGFloat(v), laneRange.lowerBound), laneRange.upperBound) : d
+    }
+
+    /// Grows / shrinks a lane's height by `delta` points, kept in `laneRange`.
+    static func resizeLane(_ key: String, by delta: CGFloat) {
+        let now = key == Pref.audioLaneHeight ? audioH : soundsH
+        let h = min(max(now + delta, laneRange.lowerBound), laneRange.upperBound)
+        if h != now { Pref.store.set(Double(h.rounded()), forKey: key) }
+    }
 
     /// Keyframe times (scene seconds) shown on a row.
     static func keyTimes(_ r: TLRow) -> [Double] {
@@ -55,6 +68,8 @@ struct TimelineView: View {
     @ObservedObject var doc: EditorDocument
     @StateObject private var scroll = TimelineScrollMonitor()
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
+    @AppStorage(Pref.audioLaneHeight) private var audioLaneH = 0.0
+    @AppStorage(Pref.soundsLaneHeight) private var soundsLaneH = 0.0
 
     var body: some View {
         let rows = doc.layerRows()

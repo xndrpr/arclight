@@ -5,6 +5,7 @@ import SwiftUI
 /// Left column of the sounds lane: how many clips, mute all, remove all.
 struct SoundsLaneHeader: View {
     @ObservedObject var doc: EditorDocument
+    @AppStorage(Pref.soundsLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 
     var body: some View {
         let sounds = doc.scene.sounds ?? []
@@ -43,6 +44,7 @@ struct SoundsLaneHeader: View {
 struct SoundsLane: View {
     @ObservedObject var doc: EditorDocument
     let width: CGFloat
+    @AppStorage(Pref.soundsLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 
     @State private var dragId: String?
     @State private var baseOffset = 0.0

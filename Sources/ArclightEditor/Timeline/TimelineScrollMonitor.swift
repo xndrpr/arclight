@@ -2,7 +2,8 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// ⌥ + scroll (mouse or trackpad) and pinch zoom the timeline at the pointer; sideways scroll / ⇧ + scroll pans.
+/// ⌥ + scroll (mouse or trackpad) and pinch zoom the timeline at the pointer; sideways scroll / ⇧ + scroll pans,
+/// except over the audio or sounds lane, where ⇧ + scroll makes that lane taller or shorter.
 /// Plain vertical scrolling is left to the layer list. Also tracks whether the last click was in the timeline's
 /// track area (ruler, audio lane, tracks), which decides whether ⌫ / ⌥← → act on selected keyframes.
 final class TimelineScrollMonitor: ObservableObject {
@@ -50,6 +51,14 @@ final class TimelineScrollMonitor: ObservableObject {
             return nil
         }
         let dx = e.scrollingDeltaX, dy = e.scrollingDeltaY
+        if e.modifierFlags.contains(.shift), let key = lane(at: p.y - region.minY, doc: doc) {
+            // A mouse wheel with ⇧ arrives as sideways scroll (AppKit swaps the axes); a trackpad keeps dy.
+            let d = precise ? dy : (dy != 0 ? dy : dx)
+            if !precise || abs(dy) >= abs(dx) {
+                TL.resizeLane(key, by: precise ? d * 0.5 : d * 4)
+                return nil
+            }
+        }
         if abs(dx) > abs(dy) || e.modifierFlags.contains(.shift) {
             let d = abs(dx) > abs(dy) ? dx : dy
             // past the end extends the timeline
@@ -57,5 +66,16 @@ final class TimelineScrollMonitor: ObservableObject {
             return nil
         }
         return e
+    }
+
+    /// The resizable lane (its height pref key) at `y` points below the top of the timeline area, if any.
+    private func lane(at y: CGFloat, doc: EditorDocument) -> String? {
+        var top = TL.rulerH + 1
+        if doc.scene.audio != nil {
+            if y >= top && y < top + TL.audioH { return Pref.audioLaneHeight }
+            top += TL.audioH + 1
+        }
+        if doc.scene.sounds?.isEmpty == false, y >= top && y < top + TL.soundsH { return Pref.soundsLaneHeight }
+        return nil
     }
 }

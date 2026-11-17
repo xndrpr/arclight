@@ -11,6 +11,7 @@ import QuartzCore
 ///   end) on its AVAudioPlayerNode, starting at a host time so a clip that begins later waits the right amount.
 /// - Gain and fades follow `AudioClip.envelope` via each node's volume (updated ~60×/s).
 /// - Watches for seeks and loop wraps: when the playhead drifts > 60 ms from where the audio is, it reschedules.
+///   Its timer also ticks the playhead, so the clock keeps running when the viewer stops drawing frames.
 final class AudioPlayback {
     private static let players = NSMapTable<EditorDocument, AudioPlayback>.weakToStrongObjects()
 
@@ -151,6 +152,11 @@ final class AudioPlayback {
     /// Volume envelopes + seek / loop detection.
     private func update() {
         guard running, let doc else { return }
+        // Advance the playhead here too: the viewer only ticks when it draws, and when its frames stall (no
+        // drawable, window idle until the mouse moves) a frozen playTime would read as a seek every 60 ms and
+        // restart the audio on the same few milliseconds over and over.
+        if doc.playing { _ = doc.tick() }
+        guard doc.playing else { return }
         let expected = anchorT + (CACurrentMediaTime() - anchorHost)
         if abs(doc.playTime - expected) > 0.06 { start(); return }
         for v in voices {

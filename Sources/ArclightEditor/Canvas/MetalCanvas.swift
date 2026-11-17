@@ -68,8 +68,9 @@ struct MetalCanvas: NSViewRepresentable {
         func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) { view.needsDisplay = true }
 
         func draw(in view: MTKView) {
-            guard let drawable = view.currentDrawable, let cb = doc.renderer.queue.makeCommandBuffer() else { return }
+            // Tick before asking for a drawable: a frame without one must not hold the playhead still.
             let t = doc.playing ? doc.tick() : doc.viewTime  // past END: hold the last frame
+            guard let drawable = view.currentDrawable, let cb = doc.renderer.queue.makeCommandBuffer() else { return }
             doc.renderer.draft = true  // motion blur only at export
             doc.renderer.only = doc.soloIds.isEmpty ? nil : doc.soloIds
             doc.renderer.encodePreview(

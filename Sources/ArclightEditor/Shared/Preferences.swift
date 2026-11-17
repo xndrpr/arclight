@@ -60,6 +60,9 @@ enum Pref {
 
     // Layers
     static let layerDensity = "layers.density"
+    /// Timeline audio / sounds lane heights (⇧ + scroll over a lane).
+    static let audioLaneHeight = "timeline.audioLaneHeight"
+    static let soundsLaneHeight = "timeline.soundsLaneHeight"
     /// Collapsed groups of one scene (`projectPath` may be empty).
     static func layersCollapsed(projectPath: String, scene: String) -> String {
         "layers.collapsed.\(projectPath).\(scene)"
