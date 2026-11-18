@@ -14,12 +14,12 @@ extension Renderer {
     func texture(src: String, assets: URL?, linear: Bool = false) -> MTLTexture? {
         let url = AssetPath.url(src, assets: assets)
         // Keyed by path + modification date, so an asset rewritten under the same name (asset_write) shows up.
-        let stamp =
-            ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let stamp = FileStamp.of(url.path)
         let prefix = url.path + (linear ? "#linear#" : "#srgb#")
         let key = prefix + "\(stamp)"
         if let t = images[key] { return t }
+        // A picture that can't be read is not tried again until the file changes.
+        if missingImages.contains(key) { return nil }
         let t = try? textureLoader.newTexture(
             URL: url,
             options: [
@@ -27,7 +27,12 @@ extension Renderer {
                 .textureUsage: MTLTextureUsage.shaderRead.rawValue,
                 .textureStorageMode: MTLStorageMode.private.rawValue,
             ])
-        if let t { images = images.filter { !$0.key.hasPrefix(prefix) }; images[key] = t }
+        if let t {
+            images = images.filter { !$0.key.hasPrefix(prefix) }; images[key] = t
+        } else {
+            if missingImages.count > 512 { missingImages.removeAll() }
+            missingImages.insert(key)
+        }
         return t
     }
 

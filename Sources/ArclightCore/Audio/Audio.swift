@@ -24,6 +24,11 @@ public enum SceneAudio {
             duration: Double(f.length) / fmt.sampleRate, sampleRate: fmt.sampleRate, channels: Int(fmt.channelCount))
     }
 
+    /// Works out `speech` ahead of the first Play (it decodes the whole voice file), off the main thread.
+    public static func warm(_ scene: Scene, assets: URL?) {
+        DispatchQueue.global(qos: .utility).async { _ = speech(scene, assets: assets) }
+    }
+
     private static var speechCache: [String: [ClosedRange<Double>]] = [:]
 
     /// When the scene audio is speaking (its phrases between pauses, in scene time) — what `duck` follows.
@@ -32,9 +37,7 @@ public enum SceneAudio {
         guard let a = scene.audio, a.mute != true, (scene.sounds ?? []).contains(where: { ($0.duck ?? 0) > 0 && $0.mute != true })
         else { return [] }
         let u = url(a, assets: assets)
-        let stamp =
-            ((try? FileManager.default.attributesOfItem(atPath: u.path)[.modificationDate]) as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let stamp = FileStamp.of(u.path)
         let key = "\(u.path)|\(stamp)"
         lock.lock()
         var phrases = speechCache[key]
@@ -58,9 +61,7 @@ public enum SceneAudio {
 
     /// Peak level (0…1) per bucket across the whole file, for drawing a waveform. Cached per file + size.
     public static func peaks(_ url: URL, buckets: Int) -> [Float] {
-        let stamp =
-            ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let stamp = FileStamp.of(url.path)
         let key = "\(url.path)|\(stamp)|\(buckets)"
         lock.lock()
         if let p = peakCache[key] { lock.unlock(); return p }

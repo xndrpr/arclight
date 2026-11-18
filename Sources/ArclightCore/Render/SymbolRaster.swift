@@ -42,10 +42,8 @@ final class SymbolRasterCache {
 
     /// A file's or folder's modification date as text ("-" when it doesn't exist).
     static func fileDate(_ url: URL) -> String {
-        guard let d = (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date else {
-            return "-"
-        }
-        return "\(d.timeIntervalSince1970)"
+        let s = FileStamp.of(url.path)
+        return s == 0 ? "-" : "\(s)"
     }
 
     /// Layer-space size of a symbol drawn `size` px tall at full height (shorter symbols keep their proportion,

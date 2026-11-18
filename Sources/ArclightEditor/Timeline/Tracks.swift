@@ -72,6 +72,9 @@ struct Tracks: View {
             .frame(width: width, height: canvasH)
             .offset(y: top)
             .allowsHitTesting(false)
+            TimelineInk.Playhead(clock: doc.clock, map: map)
+                .frame(width: width, height: canvasH)
+                .offset(y: top)
         }
         .background(
             GeometryReader { g in

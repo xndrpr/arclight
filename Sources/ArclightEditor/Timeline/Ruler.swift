@@ -29,15 +29,9 @@ struct Ruler: View {
             if let w = doc.workArea { drawWorkArea(ctx, size, map, w) }
             drawEnd(ctx, size, map, d)
             drawMarkers(ctx, size, map)
-            let px = map.x(doc.time)
-            TimelineInk.drawPlayhead(ctx, size, x: px)
-            var head = Path()
-            head.move(to: CGPoint(x: px - 5, y: TL.markerBandH));
-            head.addLine(to: CGPoint(x: px + 5, y: TL.markerBandH))
-            head.addLine(to: CGPoint(x: px, y: TL.markerBandH + 6))
-            ctx.fill(head, with: .color(TimelineInk.playhead))
         }
         .frame(width: width, height: TL.rulerH)
+        .overlay(TimelineInk.Playhead(clock: doc.clock, map: map, head: true))
         .overlay(alignment: .topLeading) { renameField(map) }
         .clipped()
         .contentShape(Rectangle())

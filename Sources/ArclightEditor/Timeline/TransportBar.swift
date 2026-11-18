@@ -19,7 +19,8 @@ struct TransportBar: View {
         .environment(\.barHitHeight, 36)  // buttons take clicks across the whole bar height
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .clipped()
-        .onAppear { AudioPlayback.attach(doc) }
+        .onAppear { AudioPlayback.attach(doc); SceneAudio.warm(doc.scene, assets: doc.assets) }
+        .onChange(of: doc.scene.id) { _, _ in SceneAudio.warm(doc.scene, assets: doc.assets) }
     }
 
     private func bar(_ d: Density) -> some View {
@@ -33,7 +34,8 @@ struct TransportBar: View {
             ) { doc.togglePlay() }
             if d == .full { IconButton(symbol: "chevron.right", help: "Next frame (→)") { doc.step(1) } }
             IconButton(symbol: "repeat", help: loopHelp, active: doc.loopEnabled) { doc.toggleLoop() }
-            Text(timecode(doc.time)).font(UI.mono).foregroundStyle(UI.text).frame(width: 78, alignment: .leading)
+            PlayheadText(clock: doc.clock) { Self.timecode($0) }
+                .font(UI.mono).foregroundStyle(UI.text).frame(width: 78, alignment: .leading)
                 .padding(.leading, 6).fixedSize()
                 .help("Playhead · ← → step frames, Home / End jump")
             // Secondary info steps down too (most important last to go).
@@ -86,7 +88,9 @@ struct TransportBar: View {
                 Text("/ " + timecode(doc.scene.duration)).font(UI.mono).foregroundStyle(UI.faint).fixedSize()
             }
             if frame {
-                Text("f\(Int((doc.time * doc.fps).rounded()))").font(UI.monoSmall).foregroundStyle(UI.faint).fixedSize()
+                let fps = doc.fps
+                PlayheadText(clock: doc.clock) { "f\(Int(($0 * fps).rounded()))" }
+                    .font(UI.monoSmall).foregroundStyle(UI.faint).fixedSize()
             }
             if doc.isPastEnd {
                 Text(chips ? "PAST END" : "END+").font(.system(size: 8.5, weight: .bold)).tracking(0.5).foregroundStyle(
@@ -111,7 +115,9 @@ struct TransportBar: View {
         return "Loop \(state) (⌘L). ⌥-drag on the ruler to loop a work area."
     }
 
-    private func timecode(_ t: Double) -> String {
+    private func timecode(_ t: Double) -> String { Self.timecode(t) }
+
+    private static func timecode(_ t: Double) -> String {
         let s = Int(t), cs = Int(((t - Double(s)) * 100).rounded(.down))
         return String(format: "%02d:%02d.%02d", s / 60, s % 60, cs)
     }
@@ -140,4 +146,11 @@ private struct WorkAreaChip: View {
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(UI.border, lineWidth: 1))
         .help("Work area — playback loops inside it. ⌥-drag on the ruler to change, ⌥-click to clear.")
     }
+}
+
+/// A label of the playhead's time that follows it during playback without redrawing the bar around it.
+private struct PlayheadText: View {
+    @ObservedObject var clock: PlayClock
+    let text: (Double) -> String
+    var body: some View { Text(text(clock.time)).monospacedDigit() }
 }

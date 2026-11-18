@@ -73,6 +73,26 @@ public enum ActivityLog {
         }
     }
 
+    /// The log's size in bytes (0 when there is none).
+    public static func size(project: URL) -> UInt64 {
+        ((try? FileManager.default.attributesOfItem(atPath: url(project).path)[.size]) as? NSNumber)?.uint64Value ?? 0
+    }
+
+    /// The entries appended after byte `offset` (whole lines only) and the offset after them. nil when the file is
+    /// now shorter than `offset` (it was trimmed): read it again from the start.
+    public static func read(project: URL, after offset: UInt64) -> (entries: [ActivityEntry], offset: UInt64)? {
+        guard let h = try? FileHandle(forReadingFrom: url(project)) else { return offset == 0 ? ([], 0) : nil }
+        defer { try? h.close() }
+        guard let end = try? h.seekToEnd(), end >= offset, (try? h.seek(toOffset: offset)) != nil else { return nil }
+        guard end > offset, let data = try? h.readToEnd(), let last = data.lastIndex(of: 0x0A) else {
+            return ([], offset)
+        }
+        let dec = JSONDecoder()
+        let whole = data[data.startIndex...last]
+        let entries = whole.split(separator: 0x0A).compactMap { try? dec.decode(ActivityEntry.self, from: Data($0)) }
+        return (entries, offset + UInt64(whole.count))
+    }
+
     private static func trim(_ f: URL, keep: Int) {
         guard let s = try? String(contentsOf: f, encoding: .utf8) else { return }
         let lines = s.split(separator: "\n").suffix(keep)

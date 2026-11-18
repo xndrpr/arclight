@@ -83,9 +83,9 @@ struct AudioLane: View {
                     Path(TimelineInk.lineRect(map.x(m.t), width: 1, height: size.height)),
                     with: .color(MarkerStyle.color(m).opacity(0.3)))
             }
-            TimelineInk.drawPlayhead(ctx, size, x: map.x(doc.time))
         }
         .frame(width: width, height: TL.audioH)
+        .overlay(TimelineInk.Playhead(clock: doc.clock, map: map))
         .clipped()
         .contentShape(Rectangle())
         .onContinuousHover { phase in

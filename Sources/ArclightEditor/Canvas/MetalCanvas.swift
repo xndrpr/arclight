@@ -9,9 +9,13 @@ struct MetalCanvas: NSViewRepresentable {
 
     private static let maxPixels: CGFloat = 8192
 
-    static func drawableSize(for points: CGSize, backing: CGFloat = NSScreen.main?.backingScaleFactor ?? 2) -> CGSize {
+    /// `playing`: the scene's size in px while it plays — more pixels than the film has only cost frame time.
+    static func drawableSize(
+        for points: CGSize, backing: CGFloat = NSScreen.main?.backingScaleFactor ?? 2, playing scene: CGSize? = nil
+    ) -> CGSize {
         let w = points.width * backing, h = points.height * backing
-        let k = min(1, maxPixels / max(w, h, 1))
+        var k = min(1, maxPixels / max(w, h, 1))
+        if let scene, scene.width > 1 { k = min(k, scene.width / max(w, 1)) }
         return CGSize(width: max(1, (w * k).rounded()), height: max(1, (h * k).rounded()))
     }
 
@@ -44,6 +48,9 @@ struct MetalCanvas: NSViewRepresentable {
         context.coordinator.doc = doc
         v.clearColor = Self.clearColor
         if pixelSize.width > 1, v.drawableSize != pixelSize { v.drawableSize = pixelSize; v.needsDisplay = true }
+        // No more frames than the scene has (a 30 fps scene on a 120 Hz screen would be drawn four times over).
+        let fps = min(60, max(12, Int(doc.fps.rounded())))
+        if v.preferredFramesPerSecond != fps { v.preferredFramesPerSecond = fps }
         v.isPaused = !doc.playing
         v.enableSetNeedsDisplay = !doc.playing
         if !doc.playing { v.needsDisplay = true }

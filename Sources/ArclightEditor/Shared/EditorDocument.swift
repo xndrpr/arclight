@@ -29,10 +29,24 @@ final class EditorDocument: ObservableObject {
     /// Which AI prompt field the contextual bar shows (generate / fill / expand), when open.
     @Published var aiPrompt: AIPromptKind?
     @Published var selection: String? { didSet { if selection != oldValue { stateChanged() } } }
-    /// Playhead (scene seconds). Published at a reduced rate while playing; see `playTime`.
-    @Published var time: Double = 0 { didSet { if !playing { playTime = time }; stateChanged() } }
+    /// Playhead (scene seconds). A change redraws the editor, except the steps playback makes (`ticking`): those
+    /// only move `clock`, which the playhead line and the timecode watch, so playing costs the UI almost nothing.
+    var time: Double = 0 {
+        willSet { if !ticking { objectWillChange.send() } }
+        didSet {
+            if clock.time != time { clock.time = time }
+            if !playing { playTime = time }
+            if !ticking { stateChanged() }
+        }
+    }
+    /// True while `tick()` moves `time` during playback.
+    var ticking = false
+    let clock = PlayClock()
     @Published var playing = false {
-        didSet { if playing { lastTick = CACurrentMediaTime(); playTime = time } else { rate = 1 } }
+        didSet {
+            FileStamp.hold = playing
+            if playing { lastTick = CACurrentMediaTime(); playTime = time } else { rate = 1 }
+        }
     }
     /// Shuttle speed (J/K/L): negative plays backwards.
     @Published var rate: Double = 1
@@ -97,6 +111,8 @@ final class EditorDocument: ObservableObject {
     var stamps: [String: Date] = [:]
     var stateWork: DispatchWorkItem?
     var activityStamp: Date?
+    /// How far into the activity log the feed has been read (bytes).
+    var activityOffset: UInt64 = 0
     var zoomTween: Timer?
 
     private var pollTimer: Timer?
@@ -212,4 +228,9 @@ final class EditorDocument: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in if self?.toast == msg { self?.toast = nil }
         }
     }
+}
+
+/// The playhead for the few views that follow it during playback (the playhead line, the timecode).
+final class PlayClock: ObservableObject {
+    @Published var time: Double = 0
 }

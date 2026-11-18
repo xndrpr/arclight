@@ -51,7 +51,6 @@ struct TrackDrawing {
                 Path(TimelineInk.lineRect(x, width: 1, height: size.height)),
                 with: .color(MarkerStyle.color(m).opacity(0.35)))
         }
-        TimelineInk.drawPlayhead(ctx, size, x: map.x(doc.time))
     }
 
     private func drawRow(

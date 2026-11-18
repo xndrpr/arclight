@@ -96,10 +96,25 @@ extension EditorDocument {
         let stamp = (try? FileManager.default.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
         guard force || stamp != activityStamp else { return }
         activityStamp = stamp
+        // Usually a few lines were appended: read just those. A forced refresh, the first read, or a trimmed
+        // file reads the tail of the whole log.
+        if !force, activityOffset > 0, let more = ActivityLog.read(project: url, after: activityOffset) {
+            activityOffset = more.offset
+            guard !more.entries.isEmpty else { return }
+            let known = Set(activity.suffix(64).map(\.id))
+            let fresh = more.entries.filter { !known.contains($0.id) }
+            guard !fresh.isEmpty else { return }
+            activity = Array((activity + fresh).suffix(400))
+            if fresh.contains(where: \.isAI) { agentActiveUntil = Date().addingTimeInterval(4) }
+            return
+        }
+        let size = ActivityLog.size(project: url)
         let entries = ActivityLog.read(project: url, limit: 400)
-        let newAgentEntries = entries.filter { $0.isAI && !activity.map(\.id).contains($0.id) }
+        let known = Set(activity.map(\.id))
+        let newAgentEntries = entries.contains { $0.isAI && !known.contains($0.id) }
         activity = entries
-        if !newAgentEntries.isEmpty && !force { agentActiveUntil = Date().addingTimeInterval(4) }
+        activityOffset = size
+        if newAgentEntries && !force { agentActiveUntil = Date().addingTimeInterval(4) }
     }
 
     func poll() {

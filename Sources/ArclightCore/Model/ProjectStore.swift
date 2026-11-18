@@ -40,6 +40,16 @@ public final class ProjectStore {
         }
     }
 
+    /// Decoded files by path, with the modification date and size they had: `reload` decodes only what changed
+    /// (an agent's edit touches one scene; a project has dozens).
+    private var decodedScenes: [String: (date: Date?, size: Int, scene: Scene)] = [:]
+    private var decodedThumbnails: [String: (date: Date?, size: Int, page: Thumbnail)] = [:]
+
+    private static func fileState(_ f: URL) -> (date: Date?, size: Int) {
+        let a = try? FileManager.default.attributesOfItem(atPath: f.path)
+        return (a?[.modificationDate] as? Date, (a?[.size] as? NSNumber)?.intValue ?? -1)
+    }
+
     /// Re-reads everything from disk (the editor and the MCP server both write).
     public func reload() throws {
         ProjectStore.registerFonts(in: url)
@@ -52,8 +62,14 @@ public final class ProjectStore {
             ?? []
         for f in files where f.pathExtension == "json" {
             do {
+                let st = ProjectStore.fileState(f)
+                if let c = decodedScenes[f.path], c.date == st.date, c.size == st.size, st.date != nil {
+                    scenes[c.scene.id] = c.scene
+                    continue
+                }
                 let s = try JSONDecoder().decode(Scene.self, from: Data(contentsOf: f))
                 scenes[s.id] = s
+                decodedScenes[f.path] = (st.date, st.size, s)
             } catch {
                 throw ModelError.invalid("\(f.lastPathComponent): \(error)")
             }
@@ -70,8 +86,14 @@ public final class ProjectStore {
         for f in (try? fm.contentsOfDirectory(at: thumbnailsURL, includingPropertiesForKeys: nil)) ?? []
         where f.pathExtension == "json" {
             do {
+                let st = ProjectStore.fileState(f)
+                if let c = decodedThumbnails[f.path], c.date == st.date, c.size == st.size, st.date != nil {
+                    thumbnails[c.page.id] = c.page
+                    continue
+                }
                 let p = try JSONDecoder().decode(Thumbnail.self, from: Data(contentsOf: f))
                 thumbnails[p.id] = p
+                decodedThumbnails[f.path] = (st.date, st.size, p)
             } catch {
                 throw ModelError.invalid("thumbnails/\(f.lastPathComponent): \(error)")
             }

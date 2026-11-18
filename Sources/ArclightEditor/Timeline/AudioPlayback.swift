@@ -90,9 +90,7 @@ final class AudioPlayback {
     private func load(_ v: Voice, _ ref: AudioRef) -> AVAudioFile? {
         guard let doc else { return nil }
         let url = SceneAudio.url(ref, assets: doc.assets)
-        let stamp =
-            ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let stamp = FileStamp.of(url.path)
         let key = "\(url.path)|\(stamp)"
         v.ref = ref
         if key == v.fileKey, let f = v.file { return f }

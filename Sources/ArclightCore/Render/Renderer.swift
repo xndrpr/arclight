@@ -71,6 +71,8 @@ public final class Renderer {
     let symbolRasters: SymbolRasterCache
     let textureLoader: MTKTextureLoader
     var images: [String: MTLTexture] = [:]
+    /// Keys (path + stamp) of pictures that couldn't be read.
+    var missingImages: Set<String> = []
     var layouts: [String: TextLayout] = [:]
     var atlases: [String: SpriteAtlas] = [:]
     /// Instances computed once per frame and shared by all world phases.

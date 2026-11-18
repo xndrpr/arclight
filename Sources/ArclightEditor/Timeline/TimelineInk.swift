@@ -48,6 +48,28 @@ enum TimelineInk {
         ctx.fill(Path(lineRect(ex, width: 1, height: size.height)), with: .color(endLine))
     }
 
+    /// The playhead over a lane, as its own layer: it follows `clock`, so a lane isn't redrawn as it moves.
+    struct Playhead: View {
+        @ObservedObject var clock: PlayClock
+        let map: TimeMap
+        /// The ruler's: with the triangle under the marker band.
+        var head = false
+
+        var body: some View {
+            Canvas { ctx, size in
+                let px = map.x(clock.time)
+                TimelineInk.drawPlayhead(ctx, size, x: px)
+                guard head else { return }
+                var h = Path()
+                h.move(to: CGPoint(x: px - 5, y: TL.markerBandH))
+                h.addLine(to: CGPoint(x: px + 5, y: TL.markerBandH))
+                h.addLine(to: CGPoint(x: px, y: TL.markerBandH + 6))
+                ctx.fill(h, with: .color(TimelineInk.playhead))
+            }
+            .allowsHitTesting(false)
+        }
+    }
+
     static func drawPlayhead(_ ctx: GraphicsContext, _ size: CGSize, x px: CGFloat) {
         ctx.fill(Path(lineRect(px, width: 1.5, height: size.height)), with: .color(playhead))
     }

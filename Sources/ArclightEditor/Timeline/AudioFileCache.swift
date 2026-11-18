@@ -13,9 +13,7 @@ final class AudioFileCache {
     private var loading: Set<String> = []
 
     private func key(_ url: URL) -> String {
-        let stamp =
-            ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let stamp = FileStamp.of(url.path)
         return "\(url.path)|\(stamp)"
     }
 

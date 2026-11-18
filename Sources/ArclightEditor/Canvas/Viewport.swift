@@ -38,7 +38,7 @@ struct ViewportView: View {
                         })
                 if board { BoardOverlay(doc: doc, vp: vp, origin: origin, scale: s) }
                 ZStack {
-                    MetalCanvas(doc: doc, pixelSize: MetalCanvas.drawableSize(for: size))
+                    MetalCanvas(doc: doc, pixelSize: MetalCanvas.drawableSize(for: size, playing: doc.playing ? cs : nil))
                     if !doc.cinema {
                         GuidesOverlay(canvas: cs, scale: s, thumbnail: doc.isThumbnail)
                         GizmoOverlay(doc: doc, vp: vp, scale: s)

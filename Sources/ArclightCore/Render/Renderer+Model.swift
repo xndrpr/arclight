@@ -52,9 +52,7 @@ extension Renderer {
     /// The model file at `src` on the GPU, cached by path and modification date (nil when it can't be read).
     func gpuMesh(src: String, assets: URL?) -> GPUMesh? {
         let url = AssetPath.url(src, assets: assets)
-        let stamp =
-            ((try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate]) as? Date)?
-            .timeIntervalSince1970 ?? 0
+        let stamp = FileStamp.of(url.path)
         let key = "\(url.path)#\(stamp)"
         if let m = meshes[key] { return m ?? nil }
         let built = (try? Mesh.load(url)).flatMap { makeGPUMesh($0) }

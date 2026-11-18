@@ -13,9 +13,11 @@ extension EditorDocument {
         playTime = step.t
         lastTick = now
         if step.stop { playing = false; time = (playTime * fps).rounded() / fps; return playTime }
-        if now - lastPublish > 1.0 / 20 {
+        if now - lastPublish > 1.0 / 30 {
             lastPublish = now
+            ticking = true
             time = (playTime * fps).rounded(.down) / fps
+            ticking = false
             followPlayhead()
         }
         return playTime
