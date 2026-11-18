@@ -433,41 +433,95 @@ private struct ChatQueue: View {
 }
 
 /// The composer's model picker: which model answers and how hard it thinks (the same settings as Settings ▸ AI).
+/// A popover rather than a menu, so it opens with a short animation and shows both choices side by side.
 struct ChatBrainMenu: View {
     @State private var model = ChatSettings.model
     @State private var effort = ChatSettings.effort
+    @State private var open = false
+    @State private var hover = false
 
     var body: some View {
-        Menu {
-            Section("Model") {
-                ForEach(ChatModel.allCases, id: \.self) { m in
-                    Button {
-                        ChatSettings.model = m; model = m; ChatSettingsChange.post()
-                    } label: {
-                        if m == model { Label(m.label, systemImage: "checkmark") } else { Text(m.label) }
-                    }
-                }
-            }
-            Section("Thinking") {
-                ForEach(ChatEffort.allCases, id: \.self) { e in
-                    Button {
-                        ChatSettings.effort = e; effort = e; ChatSettingsChange.post()
-                    } label: {
-                        if e == effort { Label(e.label, systemImage: "checkmark") } else { Text(e.label) }
-                    }
-                }
-            }
+        Button {
+            open.toggle()
         } label: {
-            HStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text("\(model.label) · \(effort.label)").font(UI.small)
                 Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold))
+                    .rotationEffect(.degrees(open ? 180 : 0))
             }
-            .foregroundStyle(UI.dim)
+            .foregroundStyle(hover || open ? UI.text : UI.dim)
+            .padding(.horizontal, 7).frame(height: 22)
+            .background(RoundedRectangle(cornerRadius: 6).fill(hover || open ? UI.hover : .clear))
+            .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .buttonStyle(.plain).cursor(.pointingHand).onHover { hover = $0 }
+        .animation(Motion.animation(UI.fade), value: hover)
+        .animation(Motion.snappy, value: open)
         .help("Which model answers, and how hard it thinks")
+        .popover(isPresented: $open, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 10) {
+                section("Model") {
+                    ForEach(ChatModel.allCases, id: \.self) { m in
+                        option(m.label, detail: Self.detail(m), on: m == model) {
+                            ChatSettings.model = m; model = m; ChatSettingsChange.post()
+                        }
+                    }
+                }
+                section("Thinking") {
+                    HStack(spacing: 4) {
+                        ForEach(ChatEffort.allCases, id: \.self) { e in
+                            Button {
+                                ChatSettings.effort = e; effort = e; ChatSettingsChange.post()
+                            } label: {
+                                Text(e.label).font(UI.small.weight(e == effort ? .semibold : .regular))
+                                    .foregroundStyle(e == effort ? UI.onAccent : UI.label2)
+                                    .frame(maxWidth: .infinity).frame(height: 24)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(e == effort ? UI.accent : UI.raised))
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain).cursor(.pointingHand)
+                        }
+                    }
+                    .animation(Motion.snappy, value: effort)
+                }
+            }
+            .padding(12).frame(width: 260)
+        }
         .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in
             model = ChatSettings.model; effort = ChatSettings.effort
         }
+    }
+
+    private static func detail(_ m: ChatModel) -> String {
+        switch m {
+        case .opus: return "Best results, slower"
+        case .sonnet: return "Fast and capable"
+        case .haiku: return "Fastest, for small edits"
+        }
+    }
+
+    private func section<C: View>(_ title: String, @ViewBuilder _ c: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title.uppercased()).font(.system(size: 9.5, weight: .semibold)).tracking(0.5).foregroundStyle(UI.faint)
+            c()
+        }
+    }
+
+    private func option(_ title: String, detail: String, on: Bool, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 12))
+                    .foregroundStyle(on ? UI.accent : UI.faint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(UI.font.weight(on ? .semibold : .regular)).foregroundStyle(UI.text)
+                    Text(detail).font(.system(size: 10.5)).foregroundStyle(UI.dim)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 6).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 6).fill(on ? UI.selected : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).cursor(.pointingHand)
     }
 }

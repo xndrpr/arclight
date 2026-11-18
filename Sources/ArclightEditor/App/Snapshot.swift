@@ -155,6 +155,9 @@ public enum EditorSnapshot {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { doc.postBoard(.fitAll) }
             } else if it.hasPrefix("tool:"), let t = ThumbnailTool(rawValue: String(it.dropFirst(5))) {
                 doc.tool = t
+            } else if it.hasPrefix("prompt:"), let k = AIPromptKind(rawValue: String(it.dropFirst(7))) {
+                if doc.workspace != .thumbnail { doc.setWorkspace(.thumbnail) }
+                doc.aiPrompt = k
             }
         }
         AgentMonitor.shared.fake(fakes)

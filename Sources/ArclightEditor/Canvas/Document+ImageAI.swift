@@ -137,12 +137,25 @@ struct AIContextBar: View {
             Image(systemName: "sparkles").font(.system(size: 12)).foregroundStyle(UI.accent)
             if let kind = doc.aiPrompt {
                 TextField(placeholder(kind), text: $prompt)
-                    .textFieldStyle(.plain).font(UI.font).frame(width: 300).focused($focused)
+                    .textFieldStyle(.plain).font(UI.font).frame(minWidth: 220, idealWidth: 320, maxWidth: 380)
+                    .focused($focused)
                     .onSubmit { submit(kind) }
                     .onAppear { focused = true }
-                Button(kind == .fill ? "Fill" : kind == .expand ? "Expand" : "Generate") { submit(kind) }
-                    .buttonStyle(PillButtonStyle(primary: true)).disabled(
-                        kind != .expand && prompt.trimmingCharacters(in: .whitespaces).isEmpty)
+                if kind == .generate { ImageModelPicker() }
+                let empty = kind != .expand && prompt.trimmingCharacters(in: .whitespaces).isEmpty
+                Button {
+                    submit(kind)
+                } label: {
+                    Text(kind == .fill ? "Fill" : kind == .expand ? "Expand" : "Generate")
+                        .font(.system(size: 12, weight: .semibold)).foregroundStyle(UI.onAccent)
+                        .padding(.horizontal, 11).frame(height: 24)
+                        .background(Capsule().fill(UI.accent))
+                        .contentShape(Capsule())
+                        .fixedSize()
+                }
+                .buttonStyle(.plain).cursor(.pointingHand).disabled(empty).opacity(empty ? 0.45 : 1)
+                .animation(UI.fade, value: empty)
+                .help("Run it (Return)")
                 Button {
                     close()
                 } label: {
@@ -226,5 +239,74 @@ struct MarqueeOverlay: View {
         }
         .allowsHitTesting(false)
         .onAppear { withAnimation(.linear(duration: 0.6).repeatForever(autoreverses: false)) { phase = 8 } }
+    }
+}
+
+/// The image model for Generate, from the same catalog as Settings ▸ AI (Auto picks one per request).
+struct ImageModelPicker: View {
+    @State private var models = ImageSettings.models
+    @State private var open = false
+    @State private var hover = false
+
+    var body: some View {
+        Button {
+            open.toggle()
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "cpu").font(.system(size: 10))
+                Text(name(models.generate)).font(UI.small).lineLimit(1)
+                Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold))
+                    .rotationEffect(.degrees(open ? 180 : 0))
+            }
+            .foregroundStyle(hover || open ? UI.text : UI.dim)
+            .padding(.horizontal, 7).frame(height: 24)
+            .background(Capsule().fill(hover || open ? UI.hover : UI.raised))
+            .contentShape(Capsule())
+            .fixedSize()
+        }
+        .buttonStyle(.plain).cursor(.pointingHand).onHover { hover = $0 }
+        .animation(Motion.snappy, value: open)
+        .help("Image model (price per picture)")
+        .popover(isPresented: $open, arrowEdge: .top) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    row(ModelCatalog.auto, "Auto", "The best model for each picture")
+                    ForEach(ModelCatalog.images) { e in
+                        row(e.id, e.label, "\(e.priceNote) · \(e.bestFor)" + (e.expensive ? " · expensive" : ""))
+                    }
+                }
+                .padding(8)
+            }
+            .frame(width: 340).frame(maxHeight: 380)
+        }
+        .onAppear { models = ImageSettings.models }
+    }
+
+    private func name(_ id: String) -> String {
+        id == ModelCatalog.auto ? "Auto" : ModelCatalog.entry(id)?.label ?? id
+    }
+
+    private func row(_ id: String, _ title: String, _ detail: String) -> some View {
+        let on = models.generate == id
+        return Button {
+            models.generate = id
+            ImageSettings.models = models
+            open = false
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 12))
+                    .foregroundStyle(on ? UI.accent : UI.faint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(UI.font.weight(on ? .semibold : .regular)).foregroundStyle(UI.text)
+                    Text(detail).font(.system(size: 10.5)).foregroundStyle(UI.dim).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 6).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 6).fill(on ? UI.selected : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).cursor(.pointingHand)
     }
 }
