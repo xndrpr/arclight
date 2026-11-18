@@ -68,37 +68,18 @@ struct ChatView: View {
             Spacer()
             ChatModelMenu()
             historyMenu
-            IconButton(symbol: "square.and.pencil", help: "New chat (this one stays in the history)") {
-                chat.newChat()
+            IconButton(symbol: "square.and.pencil", help: "New chat (this one stays in the list and keeps working)") {
+                doc.chats.newChat()
             }
-            .disabled(chat.transcript.items.isEmpty || chat.running)
+            .disabled(chat.transcript.items.isEmpty)
             IconButton(symbol: "gearshape", help: "Chat settings") { ChatSettingsLink.open() }
         }
         .padding(.horizontal, 10).frame(height: 32)
     }
 
-    /// Past chats of this project: open one (the current one is kept), or delete it.
+    /// The project's chats: bring one to the front, rename or delete it. A dot marks one that is working or waiting.
     private var historyMenu: some View {
-        Menu {
-            if chat.archive.isEmpty {
-                Text("No earlier chats")
-            } else {
-                Section("Earlier chats") {
-                    ForEach(chat.archive.prefix(30)) { c in
-                        Menu("\(c.title)  ·  \(Self.date(c.date))") {
-                            Button("Open") { chat.open(archived: c.id) }.disabled(chat.running)
-                            Button("Delete", role: .destructive) { chat.delete(archived: c.id) }
-                        }
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: "clock.arrow.circlepath").font(.system(size: 11, weight: .medium))
-                .foregroundStyle(UI.label2)
-        }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-        .help("Chat history")
-        .onAppear { chat.refreshArchive() }
+        ChatListMenu(chats: doc.chats)
     }
 
     static func date(_ d: Date) -> String {
@@ -536,5 +517,54 @@ private struct FlowRow: Layout {
             rows[rows.count - 1] = r
         }
         return rows
+    }
+}
+
+/// The header's chat list: every chat of the project, the one in front ticked.
+struct ChatListMenu: View {
+    @ObservedObject var chats: ChatStore
+    @State private var renaming: ChatTranscript.Summary?
+    @State private var name = ""
+
+    var body: some View {
+        Menu {
+            Section("Chats") {
+                ForEach(chats.list.prefix(40)) { c in
+                    Menu {
+                        Button("Open") { chats.select(c.id) }.disabled(c.id == chats.activeID)
+                        Button("Rename…") { name = c.title; renaming = c }
+                        Button("Delete", role: .destructive) { chats.delete(c.id) }
+                    } label: {
+                        Text(Self.label(c, status: chats.status(c.id), front: c.id == chats.activeID))
+                    } primaryAction: {
+                        chats.select(c.id)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 11, weight: .medium))
+                if chats.list.count > 1 { Text("\(chats.list.count)").font(UI.monoSmall) }
+            }
+            .foregroundStyle(chats.runningCount > 0 ? UI.ai : UI.label2)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help("Chats of this project")
+        .alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
+            TextField("Name", text: $name)
+            Button("Rename") { if let r = renaming { chats.rename(r.id, to: name) }; renaming = nil }
+            Button("Cancel", role: .cancel) { renaming = nil }
+        }
+    }
+
+    static func label(_ c: ChatTranscript.Summary, status: ChatController.Status, front: Bool) -> String {
+        let mark: String
+        switch status {
+        case .running: mark = "◉ "
+        case .waiting: mark = "◆ "
+        case .failed: mark = "✕ "
+        case .idle: mark = front ? "✓ " : "   "
+        }
+        return "\(mark)\(c.title)  ·  \(ChatView.date(c.date))"
     }
 }

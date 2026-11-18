@@ -42,7 +42,7 @@ struct AIPanelContent: View {
             tabs
             Hairline()
             if tab == "chat" {
-                ChatView(doc: doc, chat: doc.chat)
+                ChatView(doc: doc, chat: doc.chat).id(doc.chat.id)
             } else {
                 connection
                 Hairline()

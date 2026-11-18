@@ -1,8 +1,8 @@
 import ArclightCore
 import Foundation
 
-/// The AI panel's chat for one open project: the transcript, the running turn, and the backend and tool server
-/// behind it. Both backends reach Arclight's tools through a child `arclight mcp` process on this project, so every
+/// One chat of an open project (`ChatStore` holds them all): the transcript, the running turn, and the backend and
+/// tool server behind it. Both backends reach Arclight's tools through a child `arclight mcp` process on this project, so every
 /// change shows in the activity feed with revert, like any agent's. Touched on the main thread only (the turn itself
 /// runs in a task; its events come back through the main queue, in order).
 final class ChatController: ObservableObject, @unchecked Sendable {
@@ -28,14 +28,19 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     /// stream sends hundreds a second).
     private let inbox = EventInbox()
 
-    init(project: URL) {
+    /// Called (main thread) when what the chat list shows of this chat may have changed: it started or finished
+    /// a turn, or was saved.
+    var onChange: () -> Void = {}
+
+    var id: String { transcript.id }
+
+    init(project: URL, transcript t: ChatTranscript = ChatTranscript()) {
         self.project = project
-        transcript = ChatTranscript.load(project: project)
+        transcript = t
         // A tool row left running by a turn that never finished (the app quit mid-call) is shown as stopped.
         for i in transcript.items.indices where transcript.items[i].kind == .tool && transcript.items[i].ok == nil {
             transcript.items[i].ok = false
         }
-        archive = ChatTranscript.archived(project: project)
     }
 
     deinit {
@@ -136,6 +141,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
 
     private func run(_ text: String, attachments: [ChatAttachment] = []) {
         running = true
+        onChange()
         revision += 1
         let context = [
             note(), ChatPrompt.directionNote(ChatSettings.directionStages),
@@ -169,37 +175,20 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         backend?.close()  // the CLI backend's process; the API one stops with the task
     }
 
-    /// Starts a new chat. The current one is kept in the history (`ChatTranscript.archive`), not deleted.
-    func newChat() {
-        stop()
-        transcript.archive(project: project)
-        transcript = ChatTranscript()
-        backend = nil
+    /// Gives the chat a name of the user's own (empty: back to the first message).
+    func rename(_ name: String) {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        transcript.name = n.isEmpty ? nil : n
         persist()
-        refreshArchive()
-        revision += 1
     }
 
-    /// Past chats of this project, newest first (the header's history menu).
-    @Published private(set) var archive: [ChatTranscript.Summary] = []
+    /// What the chat list shows of this chat.
+    enum Status { case idle, running, waiting, failed }
 
-    func refreshArchive() { archive = ChatTranscript.archived(project: project) }
-
-    /// Opens a past chat; the current one goes into the history.
-    func open(archived id: String) {
-        guard !running, let t = ChatTranscript.restore(id, project: project) else { return }
-        transcript.archive(project: project)
-        transcript = t
-        backend = nil  // the restored history is passed to a fresh backend on the next send
-        backendConfig = ""
-        persist()
-        refreshArchive()
-        revision += 1
-    }
-
-    func delete(archived id: String) {
-        ChatTranscript.deleteArchived(id, project: project)
-        refreshArchive()
+    var status: Status {
+        if running { return .running }
+        if transcript.pendingChoice != nil { return .waiting }
+        return transcript.items.last?.kind == .error ? .failed : .idle
     }
 
     /// What the AI is doing right now, in words (the progress bar's live line).
@@ -235,11 +224,13 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     /// Saves off the main thread (a long chat's history is megabytes of JSON), in order, so a later save never
     /// loses to an earlier one.
     private func persist() {
+        transcript.updated = Date()
         let t = transcript, p = project
         Self.saver.async { t.save(project: p) }
+        onChange()
     }
 
-    private static let saver = DispatchQueue(label: "arclight.chat.save", qos: .utility)
+    static let saver = DispatchQueue(label: "arclight.chat.save", qos: .utility)
 
     // MARK: Turn
 

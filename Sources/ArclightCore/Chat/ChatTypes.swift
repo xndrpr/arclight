@@ -78,7 +78,7 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
     enum CodingKeys: String, CodingKey { case id, kind, text, tool, input, ok, choice, attachments, started, duration }
 }
 
-/// A project's chat, saved at `<project>/.arclight/chat.json` so it survives closing the project.
+/// One of a project's chats, saved at `<project>/.arclight/chats/<id>.json` so it survives closing the project.
 public struct ChatTranscript: Codable, Equatable, Sendable {
     /// What the user sees.
     public var items: [ChatItem] = []
@@ -92,10 +92,13 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
     /// Stable id of this conversation (its file name once archived) and when it started.
     public var id: String = UUID().uuidString
     public var created: Date = Date()
+    /// When it was last saved with something new, and the name the user gave it (nil: `title` makes one).
+    public var updated: Date?
+    public var name: String?
 
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case items, history, cliSession, plan, id, created }
+    enum CodingKeys: String, CodingKey { case items, history, cliSession, plan, id, created, updated, name }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -105,68 +108,60 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
         plan = try? c.decodeIfPresent(ChatPlan.self, forKey: .plan)
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
+        updated = try c.decodeIfPresent(Date.self, forKey: .updated)
+        name = try c.decodeIfPresent(String.self, forKey: .name)
     }
 
-    /// The first thing the user said, as the chat's name in the history list.
+    /// The chat's name in the list: the one the user gave it, else the first thing they said.
     public var title: String {
-        let t = items.first { $0.kind == .user && !$0.text.isEmpty }?.text ?? "Chat"
+        if let n = name?.trimmingCharacters(in: .whitespacesAndNewlines), !n.isEmpty { return n }
+        let t = items.first { $0.kind == .user && !$0.text.isEmpty }?.text ?? "New chat"
         let line = t.split(separator: "\n").first.map(String.init) ?? t
         return line.count > 60 ? String(line.prefix(60)) + "…" : line
     }
 
-    /// Past chats of a project, kept when a new chat starts: `<project>/.arclight/chats/<id>.json`.
-    public static func archiveFolder(_ project: URL) -> URL {
+    /// A project's chats: `<project>/.arclight/chats/<id>.json`, one file each, with `index.json` beside them.
+    public static func folder(_ project: URL) -> URL {
         project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chats")
     }
 
-    /// Moves this chat into the archive (nothing to keep when it is empty).
-    public func archive(project: URL) {
-        guard !items.isEmpty else { return }
-        try? JSONFile.write(
-            self, to: Self.archiveFolder(project).appendingPathComponent("\(id).json"), encoder: JSONEncoder())
-    }
+    public static func file(_ id: String, project: URL) -> URL { folder(project).appendingPathComponent("\(id).json") }
 
-    /// One archived chat, for the history menu.
-    public struct Summary: Identifiable, Equatable, Sendable {
-        public var id: String
-        public var title: String
-        public var date: Date
-        public var messages: Int
-    }
-
-    /// Archived chats, newest first.
-    public static func archived(project: URL) -> [Summary] {
-        let dir = archiveFolder(project)
-        let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
-        return files.filter { $0.pathExtension == "json" }.compactMap { u in
-            guard let t = JSONFile.read(ChatTranscript.self, from: u) else { return nil }
-            let date = t.items.isEmpty ? t.created : t.created
-            return Summary(id: t.id, title: t.title, date: date, messages: t.items.filter { $0.kind == .user }.count)
-        }.sorted { $0.date > $1.date }
-    }
-
-    /// Takes an archived chat out of the archive (it becomes the current one).
-    public static func restore(_ id: String, project: URL) -> ChatTranscript? {
-        let u = archiveFolder(project).appendingPathComponent("\(id).json")
-        guard let t = JSONFile.read(ChatTranscript.self, from: u) else { return nil }
-        try? FileManager.default.removeItem(at: u)
-        return t
-    }
-
-    public static func deleteArchived(_ id: String, project: URL) {
-        try? FileManager.default.removeItem(at: archiveFolder(project).appendingPathComponent("\(id).json"))
-    }
-
-    public static func url(_ project: URL) -> URL {
+    /// The single chat file of projects made before a project could hold several chats.
+    static func legacyURL(_ project: URL) -> URL {
         project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chat.json")
     }
 
-    public static func load(project: URL) -> ChatTranscript {
-        JSONFile.read(ChatTranscript.self, from: url(project)) ?? ChatTranscript()
+    /// One chat in the list.
+    public struct Summary: Identifiable, Equatable, Codable, Sendable {
+        public var id: String
+        public var title: String
+        /// When it last changed.
+        public var date: Date
+        /// How many messages the user sent.
+        public var messages: Int
+
+        public init(id: String, title: String, date: Date, messages: Int) {
+            self.id = id; self.title = title; self.date = date; self.messages = messages
+        }
     }
 
+    public var summary: Summary {
+        Summary(id: id, title: title, date: updated ?? created, messages: items.filter { $0.kind == .user }.count)
+    }
+
+    public static func load(_ id: String, project: URL) -> ChatTranscript? {
+        JSONFile.read(ChatTranscript.self, from: file(id, project: project))
+    }
+
+    /// Writes the chat to its file (an empty chat has nothing to keep).
     public func save(project: URL) {
-        try? JSONFile.write(self, to: Self.url(project), encoder: JSONEncoder())
+        guard !items.isEmpty else { return }
+        try? JSONFile.write(self, to: Self.file(id, project: project), encoder: JSONEncoder())
+    }
+
+    public static func delete(_ id: String, project: URL) {
+        try? FileManager.default.removeItem(at: file(id, project: project))
     }
 
     /// Folds one event into the visible rows: text and thinking deltas extend the last row of their kind.
@@ -217,6 +212,59 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
         } else {
             items.append(ChatItem(kind: kind, text: s))
         }
+    }
+}
+
+/// The list of a project's chats (`chats/index.json`): what the chat list shows without opening every chat file,
+/// and which chat was open last.
+public struct ChatIndex: Codable, Equatable, Sendable {
+    public var active: String?
+    /// Newest first.
+    public var chats: [ChatTranscript.Summary] = []
+
+    public init() {}
+
+    static func url(_ project: URL) -> URL { ChatTranscript.folder(project).appendingPathComponent("index.json") }
+
+    /// The index, made to agree with the chat files that are there: a chat file it doesn't list is read and added
+    /// (an older project, a file copied in), a listed chat whose file is gone is dropped. The single `chat.json` of
+    /// an older project is moved in as a chat first.
+    public static func load(project: URL) -> ChatIndex {
+        let fm = FileManager.default
+        var index = JSONFile.read(ChatIndex.self, from: url(project)) ?? ChatIndex()
+        let legacy = ChatTranscript.legacyURL(project)
+        if let t = JSONFile.read(ChatTranscript.self, from: legacy) {
+            if !t.items.isEmpty, !fm.fileExists(atPath: ChatTranscript.file(t.id, project: project).path) {
+                t.save(project: project)
+                index.active = t.id
+            }
+            // Gone only once its copy is in place.
+            if t.items.isEmpty || fm.fileExists(atPath: ChatTranscript.file(t.id, project: project).path) {
+                try? fm.removeItem(at: legacy)
+            }
+        }
+        let files = (try? fm.contentsOfDirectory(at: ChatTranscript.folder(project), includingPropertiesForKeys: nil)) ?? []
+        let ids = Set(files.filter { $0.pathExtension == "json" && $0.lastPathComponent != "index.json" }
+            .map { $0.deletingPathExtension().lastPathComponent })
+        let before = index
+        index.chats.removeAll { !ids.contains($0.id) }
+        for id in ids.subtracting(index.chats.map(\.id)) {
+            // Listed under the file's name, whatever id is written inside it.
+            if var t = ChatTranscript.load(id, project: project) { t.id = id; index.chats.append(t.summary) }
+        }
+        index.chats.sort { $0.date > $1.date }
+        if let a = index.active, !ids.contains(a) { index.active = nil }
+        if index != before { index.save(project: project) }
+        return index
+    }
+
+    public func save(project: URL) { try? JSONFile.write(self, to: Self.url(project), encoder: JSONEncoder()) }
+
+    /// Puts `s` in the list (replacing its earlier entry), newest first.
+    public mutating func note(_ s: ChatTranscript.Summary) {
+        chats.removeAll { $0.id == s.id }
+        chats.append(s)
+        chats.sort { $0.date > $1.date }
     }
 }
 

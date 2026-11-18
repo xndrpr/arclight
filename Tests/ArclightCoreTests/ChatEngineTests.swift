@@ -283,11 +283,32 @@ private final class Events: @unchecked Sendable {
         defer { try? FileManager.default.removeItem(at: dir) }
         var t = ChatTranscript()
         t.items = [ChatItem(kind: .user, text: "Make a caterpillar scene\nwith 16 copies")]
-        t.archive(project: dir)
-        let list = ChatTranscript.archived(project: dir)
-        #expect(list.map(\.title) == ["Make a caterpillar scene"] && list.first?.messages == 1)
-        let back = ChatTranscript.restore(t.id, project: dir)
-        #expect(back?.items.first?.text.hasPrefix("Make") == true && ChatTranscript.archived(project: dir).isEmpty)
+        t.save(project: dir)
+        var second = ChatTranscript()
+        second.items = [ChatItem(kind: .user, text: "Louder"), ChatItem(kind: .user, text: "Still louder")]
+        second.name = "Sound pass"
+        second.updated = Date().addingTimeInterval(60)
+        second.save(project: dir)
+        // The list is made from the files, newest first, and both chats stay.
+        let list = ChatIndex.load(project: dir).chats
+        #expect(list.map(\.title) == ["Sound pass", "Make a caterpillar scene"] && list.map(\.messages) == [2, 1])
+        #expect(ChatTranscript.load(t.id, project: dir)?.items.first?.text.hasPrefix("Make") == true)
+        ChatTranscript.delete(t.id, project: dir)
+        #expect(ChatIndex.load(project: dir).chats.map(\.id) == [second.id])
+    }
+
+    @Test func aProjectsSingleOldChatBecomesOneOfItsChats() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "chat-old-\(UUID().uuidString).arclight")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        var t = ChatTranscript()
+        t.items = [ChatItem(kind: .user, text: "Hello")]
+        let old = dir.appendingPathComponent(".arclight/chat.json")
+        try JSONFile.write(t, to: old, encoder: JSONEncoder())
+        let index = ChatIndex.load(project: dir)
+        #expect(index.chats.map(\.id) == [t.id] && index.active == t.id)
+        #expect(!FileManager.default.fileExists(atPath: old.path))
+        #expect(ChatTranscript.load(t.id, project: dir)?.items.count == 1)
     }
 
     @Test func askChoiceStopsTheTurnAndTheAnswerBecomesItsResult() async throws {
