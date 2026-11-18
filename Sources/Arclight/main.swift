@@ -243,6 +243,10 @@ case "snapshot":
     }
     exit(EditorSnapshot.run(o))
 
+case "uibench":
+    guard let path = args.positional.first else { fail("usage: arclight uibench <project>") }
+    exit(UIBench.run(project: path))
+
 case "clickprobe":
     // Development: replays moving / jittery clicks into off-screen buttons and reports which ones fire.
     if args.positional.first == "scroll" { exit(ClickProbe.scrollCancel()) }

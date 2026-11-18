@@ -130,14 +130,21 @@ struct TopBar: View {
 
 /// "⚡ Performance" — half-resolution preview while on.
 private struct PerformanceToggle: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var label = true
     @State private var hover = false
 
-    var body: some View {
-        let on = doc.performance
+    var body: some View { Inner(view: doc.view, label: label, hover: $hover) }
+
+    private struct Inner: View {
+        @ObservedObject var view: ViewOptions
+        let label: Bool
+        @Binding var hover: Bool
+
+        var body: some View {
+        let on = view.performance
         Button {
-            doc.performance.toggle()
+            view.performance.toggle()
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "bolt.fill").font(.system(size: 10))
@@ -153,6 +160,7 @@ private struct PerformanceToggle: View {
         .help(
             "Performance mode is \(on ? "on" : "off"): preview at half resolution if playback lags. Export is always full quality. (⇧⌘P)"
         )
+        }
     }
 }
 

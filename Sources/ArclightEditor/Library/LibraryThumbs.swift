@@ -166,7 +166,8 @@ struct ThumbImage: View {
 
 /// Lazily rendered picture of a scene (scenes list).
 struct SceneThumb: View {
-    @ObservedObject var doc: EditorDocument
+    /// Not observed: the picture depends only on the scene (its rev) and the project.
+    let doc: EditorDocument
     let scene: Scene
     @State private var image: CGImage?
 

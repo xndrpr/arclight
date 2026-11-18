@@ -88,6 +88,7 @@ struct AudioLane: View {
             }
         }
         .frame(width: width, height: TL.audioH)
+        .onReceive(NotificationCenter.default.publisher(for: AudioFileCache.loaded)) { _ in loads += 1 }
         .overlay(TimelineInk.Playhead(clock: doc.clock, map: map))
         .clipped()
         .contentShape(Rectangle())

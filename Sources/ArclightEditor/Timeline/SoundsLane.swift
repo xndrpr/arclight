@@ -9,7 +9,7 @@ struct SoundsLaneHeader: View {
 
     var body: some View {
         let sounds = doc.scene.sounds ?? []
-        let missing = sounds.filter { doc.soundClip($0) == nil }.count
+        let missing = sounds.count - doc.soundRows().count
         let allMuted = !sounds.isEmpty && sounds.allSatisfy { $0.mute == true }
         let rows = doc.soundRowCount
         HStack(spacing: 6) {
@@ -86,6 +86,7 @@ struct SoundsLane: View {
             }
         }
         .frame(width: width, height: TL.soundsH(rows: rows))
+        .onReceive(NotificationCenter.default.publisher(for: AudioFileCache.loaded)) { _ in loads += 1 }
         .overlay(TimelineInk.Playhead(clock: doc.clock, map: map))
         .clipped()
         .contentShape(Rectangle())
@@ -230,6 +231,14 @@ extension EditorDocument {
     /// Sound clips with their row: sorted by start, each on the first row that is free by then, so no two clips
     /// on a row overlap. Clips whose file can't be read are left out.
     func soundRows(onLoad: @escaping () -> Void = {}) -> [SoundRow] {
+        let key = LaneMemo.key(scene.sounds ?? [], duration: scene.duration, assets: assets)
+        if let m = laneMemo.sounds, m.key == key { return m.value }
+        let rows = buildSoundRows(onLoad: onLoad)
+        laneMemo.sounds = (key, rows)
+        return rows
+    }
+
+    private func buildSoundRows(onLoad: @escaping () -> Void) -> [SoundRow] {
         var placed: [(AudioRef, AudioClip, AudioFileCache.Entry)] = []
         for r in scene.sounds ?? [] {
             if let (c, e) = soundClip(r, onLoad: onLoad) { placed.append((r, c, e)) }

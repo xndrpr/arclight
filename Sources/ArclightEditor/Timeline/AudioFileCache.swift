@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import ArclightCore
 import SwiftUI
 
@@ -10,6 +11,10 @@ final class AudioFileCache {
 
     struct Entry { var info: SceneAudio.Info; var peaks: [Float]? }
     private var entries: [String: Entry] = [:]
+    /// Bumped whenever peaks arrive: memoised lane rows built before are stale then.
+    private(set) var generation = 0
+    /// Posted (main thread) when a file's peaks arrive, for every lane that shows them.
+    static let loaded = Notification.Name("arclight.audioPeaksLoaded")
     private var loading: Set<String> = []
 
     private func key(_ url: URL) -> String {
@@ -43,7 +48,9 @@ final class AudioFileCache {
                 DispatchQueue.main.async {
                     self.entries[k]?.peaks = p
                     self.loading.remove(k)
+                    self.generation += 1
                     onLoad()
+                    NotificationCenter.default.post(name: Self.loaded, object: nil)
                 }
             }
         }
@@ -55,9 +62,35 @@ extension EditorDocument {
     /// The scene's audio placement, or nil when there's no audio (or the file can't be read).
     func audioClip(onLoad: @escaping () -> Void = {}) -> (clip: AudioClip, ref: AudioRef, entry: AudioFileCache.Entry)?
     {
-        guard let a = scene.audio,
-            let e = AudioFileCache.shared.entry(SceneAudio.url(a, assets: assets), onLoad: onLoad)
-        else { return nil }
-        return (AudioClip(a, fileDuration: e.info.duration, sceneDuration: scene.duration), a, e)
+        guard let a = scene.audio else { return nil }
+        let key = LaneMemo.key([a], duration: scene.duration, assets: assets)
+        if let m = laneMemo.audio, m.key == key { return m.value }
+        let v: (clip: AudioClip, ref: AudioRef, entry: AudioFileCache.Entry)? = {
+            guard let e = AudioFileCache.shared.entry(SceneAudio.url(a, assets: assets), onLoad: onLoad) else { return nil }
+            return (AudioClip(a, fileDuration: e.info.duration, sceneDuration: scene.duration), a, e)
+        }()
+        laneMemo.audio = (key, v)
+        return v
     }
+}
+
+/// The audio lanes' rows, worked out once per change instead of on every redraw (each reads files and effect caches).
+/// A key holds what the rows come from; the time slot makes a file rewritten on disk show within a couple of seconds.
+final class LaneMemo {
+    struct Key: Equatable {
+        var refs: [AudioRef]
+        var duration: Double
+        var assets: String
+        var generation: Int
+        var slot: Int
+    }
+
+    static func key(_ refs: [AudioRef], duration: Double, assets: URL?) -> Key {
+        Key(
+            refs: refs, duration: duration, assets: assets?.path ?? "", generation: AudioFileCache.shared.generation,
+            slot: Int(CACurrentMediaTime() / 2))
+    }
+
+    var audio: (key: Key, value: (clip: AudioClip, ref: AudioRef, entry: AudioFileCache.Entry)?)?
+    var sounds: (key: Key, value: [EditorDocument.SoundRow])?
 }

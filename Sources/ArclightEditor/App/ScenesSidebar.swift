@@ -44,23 +44,29 @@ struct ScenesSidebar: View {
 
     @ViewBuilder private func row(_ s: Scene) -> some View {
         let selected = s.id == doc.scene.id
-        HStack(spacing: 8) {
-            SceneThumb(doc: doc, scene: s)
-                .frame(width: 56, height: 56 * CGFloat(canvasRatio(s)))
-                .opacity(selected ? 1 : 0.85)
-            VStack(alignment: .leading, spacing: 2) {
-                if renaming == s.id {
-                    RenameField(initial: s.name ?? s.id, placeholder: "Scene name") { n in
-                        renaming = nil
-                        if let n, n != (s.name ?? s.id) { doc.renameScene(s.id, n) }
+        Group {
+            if renaming == s.id {
+                HStack(spacing: 8) {
+                    SceneThumb(doc: doc, scene: s)
+                        .frame(width: 56, height: 56 * CGFloat(canvasRatio(s)))
+                    VStack(alignment: .leading, spacing: 2) {
+                        RenameField(initial: s.name ?? s.id, placeholder: "Scene name") { n in
+                            renaming = nil
+                            if let n, n != (s.name ?? s.id) { doc.renameScene(s.id, n) }
+                        }
+                        Text("\(fmt(s.duration))s · \(s.nodes.count) layers").font(UI.monoSmall)
+                            .foregroundStyle(UI.dim).lineLimit(1)
                     }
-                } else {
-                    Text(s.name ?? s.id).font(UI.font).foregroundStyle(UI.text).lineLimit(1)
+                    Spacer(minLength: 0)
                 }
-                Text("\(fmt(s.duration))s · \(s.nodes.count) layers").font(UI.monoSmall).foregroundStyle(UI.dim)
-                    .lineLimit(1)
+            } else {
+                // Equatable: a change elsewhere in the editor (selection, playhead, a panel) doesn't redo 30 rows.
+                SceneRowLabel(
+                    doc: doc, scene: s, rev: s.rev, name: s.name ?? s.id, duration: s.duration, layers: s.nodes.count,
+                    ratio: canvasRatio(s), selected: selected
+                )
+                .equatable()
             }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 8).padding(.vertical, 6)
         .background {
@@ -154,5 +160,36 @@ private struct NewSceneMenu: View {
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().frame(width: 24, height: 22)
         .help("New scene (⇧⌘N) or from a template (⌥⌘N)").cursor(.pointingHand)
+    }
+}
+
+/// One scene row's picture and text. Compared by value, so it is only drawn again when the scene itself changes.
+private struct SceneRowLabel: View, Equatable {
+    let doc: EditorDocument
+    let scene: Scene
+    let rev: Int
+    let name: String
+    let duration: Double
+    let layers: Int
+    let ratio: Double
+    let selected: Bool
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.scene.id == b.scene.id && a.rev == b.rev && a.name == b.name && a.duration == b.duration
+            && a.layers == b.layers && a.ratio == b.ratio && a.selected == b.selected
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            SceneThumb(doc: doc, scene: scene)
+                .frame(width: 56, height: 56 * CGFloat(ratio))
+                .opacity(selected ? 1 : 0.85)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name).font(UI.font).foregroundStyle(UI.text).lineLimit(1)
+                Text("\(fmt(duration))s · \(layers) layers").font(UI.monoSmall).foregroundStyle(UI.dim)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
     }
 }

@@ -56,9 +56,13 @@ final class EditorDocument: ObservableObject {
     /// Shuttle speed (J/K/L): negative plays backwards.
     @Published var rate: Double = 1
     /// Half-resolution preview for heavy scenes. Off by default; remembered per user.
-    @Published var performance = Pref.store.bool(forKey: Pref.performance) {
-        didSet { Pref.store.set(performance, forKey: Pref.performance) }
+    /// Not published on the document (that redraws the whole editor): the viewer and the toggle watch `view`.
+    var performance: Bool {
+        get { view.performance }
+        set { view.performance = newValue }
     }
+    /// Small view settings with their own observers.
+    let view = ViewOptions()
     @Published var toast: String?
     /// Timeline view: seconds visible across the track area (the zoom) and the left edge (seconds).
     /// Panning only moves the offset, never the scale; changing the duration never rescales.
@@ -106,6 +110,8 @@ final class EditorDocument: ObservableObject {
     }()
     /// The chat in front.
     var chat: ChatController { chats.active }
+    /// Memoised audio lane rows (AudioFileCache.swift).
+    let laneMemo = LaneMemo()
     /// The chats' own window, once opened (ChatWindow.swift).
     var chatWindow: ChatWindowController?
 
@@ -252,4 +258,12 @@ final class EditorDocument: ObservableObject {
 /// The playhead for the few views that follow it during playback (the playhead line, the timecode).
 final class PlayClock: ObservableObject {
     @Published var time: Double = 0
+}
+
+/// View settings that only a few views show (the viewer, its toggle): observed on their own, so changing one
+/// doesn't redraw the editor.
+final class ViewOptions: ObservableObject {
+    @Published var performance = Pref.store.bool(forKey: Pref.performance) {
+        didSet { Pref.store.set(performance, forKey: Pref.performance) }
+    }
 }
