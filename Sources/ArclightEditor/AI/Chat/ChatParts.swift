@@ -31,9 +31,11 @@ enum ChatBlock: Identifiable {
 }
 
 /// A run of tool calls: one line saying what happened (or what is happening), opening into each call.
-struct ChatToolGroup: View {
+struct ChatToolGroup: View, Equatable {
     let tools: [ChatItem]
     @State private var open = false
+
+    static func == (a: Self, b: Self) -> Bool { a.tools == b.tools }
 
     var body: some View {
         let running = tools.last { $0.ok == nil }

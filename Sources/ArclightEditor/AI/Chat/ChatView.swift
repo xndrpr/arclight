@@ -6,12 +6,10 @@ import UniformTypeIdentifiers
 /// The AI panel's Chat tab: talk to the AI in the editor, no outside agent needed. Its changes land in the
 /// Activity tab like any agent's, with revert.
 struct ChatView: View {
-    @ObservedObject var doc: EditorDocument
+    /// Not observed: only choice cards read it (and they observe it themselves). Observing it here redrew the
+    /// whole chat on every document change.
+    let doc: EditorDocument
     @ObservedObject var chat: ChatController
-    /// The list is scrolled to (near) the bottom: new rows keep it there. Scrolling up stops following.
-    @State private var pinned = true
-    @State private var viewport: CGFloat = 0
-    @State private var contentHeight: CGFloat = 0
     @State private var dropping = false
 
     var body: some View {
@@ -22,7 +20,12 @@ struct ChatView: View {
             if chat.transcript.items.isEmpty {
                 ChatEmptyState(chat: chat).frame(maxHeight: .infinity, alignment: .top)
             } else {
-                messages
+                // Equatable: typing in the field (draft) or attaching files doesn't redraw the history.
+                ChatMessageList(
+                    doc: doc, chat: chat, items: chat.transcript.items, running: chat.running,
+                    activity: chat.activity, revision: chat.revision
+                )
+                .equatable()
             }
             Hairline()
             ChatInput(chat: chat)
@@ -106,89 +109,6 @@ struct ChatView: View {
         return f.string(from: d)
     }
 
-    private var messages: some View {
-        let items = chat.transcript.items
-        let lastId = items.last?.id
-        return ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(ChatBlock.group(items)) { block in
-                        Group {
-                            switch block {
-                            case .item(let item):
-                                if item.kind == .choice, let c = item.choice {
-                                    ChoiceCard(doc: doc, chat: chat, choice: c)
-                                } else {
-                                    ChatRow(item: item, live: chat.running && item.id == lastId).equatable()
-                                }
-                            case .tools(let tools):
-                                ChatToolGroup(tools: tools)
-                            }
-                        }
-                        .id(block.id)
-                    }
-                    if chat.running, items.last?.kind != .thinking { ChatWorking(label: chat.activity) }
-                    Color.clear.frame(height: 1).id(Self.bottom)
-                }
-                .padding(.horizontal, 14).padding(.vertical, 12)
-                // Wide panels (expanded) keep a readable line length.
-                .frame(maxWidth: 760).frame(maxWidth: .infinity)
-                .background(
-                    GeometryReader { g in
-                        Color.clear.preference(
-                            key: ChatScrollKey.self,
-                            value: ChatScrollKey.Value(
-                                bottom: g.frame(in: .named(Self.space)).maxY, height: g.size.height))
-                    })
-            }
-            .coordinateSpace(name: Self.space)
-            .background(
-                GeometryReader { g in
-                    Color.clear.onAppear { viewport = g.size.height }.onChange(of: g.size.height) { _, h in viewport = h
-                    }
-                }
-            )
-            .onPreferenceChange(ChatScrollKey.self) { v in
-                // Content that grew (a streamed word, a new row) doesn't unpin; only the user scrolling does.
-                if abs(v.height - contentHeight) > 0.5 {
-                    contentHeight = v.height
-                } else {
-                    pinned = v.bottom - viewport < 40
-                }
-            }
-            .onChange(of: chat.revision) { _, _ in
-                if pinned { proxy.scrollTo(Self.bottom, anchor: .bottom) }
-            }
-            .onChange(of: chat.transcript.items.count) { old, new in
-                // The user's own message always brings the list back down.
-                if new > old, chat.transcript.items.last?.kind == .user {
-                    pinned = true
-                    proxy.scrollTo(Self.bottom, anchor: .bottom)
-                }
-            }
-            .onAppear { DispatchQueue.main.async { proxy.scrollTo(Self.bottom, anchor: .bottom) } }
-            .overlay(alignment: .bottom) {
-                if !pinned {
-                    Button {
-                        pinned = true
-                        withMotion(UI.fade) { proxy.scrollTo(Self.bottom, anchor: .bottom) }
-                    } label: {
-                        Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold)).foregroundStyle(UI.text)
-                            .frame(width: 26, height: 26)
-                            .background(Circle().fill(UI.raised))
-                            .overlay(Circle().stroke(UI.border))
-                            .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
-                    }
-                    .buttonStyle(.plain).cursor(.pointingHand).help("Scroll to the latest").padding(.bottom, 8)
-                    .transition(.opacity)
-                }
-            }
-        }
-    }
-
-    private static let bottom = "chat-bottom"
-    private static let space = "chat-scroll"
-
     /// Files and images dropped on the chat: file URLs, else image data as PNG.
     static func load(_ providers: [NSItemProvider], done: @escaping ([URL], [Data]) -> Void) {
         let group = DispatchGroup()
@@ -217,9 +137,113 @@ struct ChatView: View {
     }
 }
 
+/// The message list. Lazy: only rows on screen are laid out, so a long chat stays fast while it streams.
+private struct ChatMessageList: View, Equatable {
+    let doc: EditorDocument
+    let chat: ChatController
+    let items: [ChatItem]
+    let running: Bool
+    let activity: String?
+    let revision: Int
+    /// The list is scrolled to (near) the bottom: new rows keep it there. Scrolling up stops following.
+    @State private var pinned = true
+    @State private var viewport: CGFloat = 0
+    /// Where the content's top was last frame. New text grows the list downward and leaves it still; only
+    /// scrolling moves it.
+    @State private var lastTop: CGFloat = 0
+
+    static func == (a: Self, b: Self) -> Bool {
+        a.revision == b.revision && a.running == b.running && a.activity == b.activity && a.items == b.items
+    }
+
+    var body: some View {
+        let lastId = items.last?.id
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(ChatBlock.group(items)) { block in
+                        Group {
+                            switch block {
+                            case .item(let item):
+                                if item.kind == .choice, let c = item.choice {
+                                    ChoiceCard(doc: doc, chat: chat, choice: c)
+                                } else {
+                                    ChatRow(item: item, live: running && item.id == lastId).equatable()
+                                }
+                            case .tools(let tools):
+                                ChatToolGroup(tools: tools).equatable()
+                            }
+                        }
+                        .id(block.id)
+                    }
+                    if running, items.last?.kind != .thinking { ChatWorking(label: activity) }
+                    Color.clear.frame(height: 1).id(Self.bottom)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 12)
+                // Wide panels (expanded) keep a readable line length.
+                .frame(maxWidth: 760).frame(maxWidth: .infinity)
+                .background(
+                    GeometryReader { g in
+                        Color.clear.preference(
+                            key: ChatScrollKey.self,
+                            value: ChatScrollKey.Value(
+                                top: g.frame(in: .named(Self.space)).minY, bottom: g.frame(in: .named(Self.space)).maxY))
+                    })
+            }
+            .coordinateSpace(name: Self.space)
+            .background(
+                GeometryReader { g in
+                    Color.clear.onAppear { viewport = g.size.height }.onChange(of: g.size.height) { _, h in viewport = h
+                    }
+                }
+            )
+            .onPreferenceChange(ChatScrollKey.self) { v in
+                // The top moving down means the user scrolled up: stop following, even mid-stream. Back near
+                // the bottom follows again. Content growing never unpins.
+                if v.top > lastTop + 0.5 {
+                    pinned = false
+                } else if v.bottom - viewport < 40 {
+                    pinned = true
+                }
+                lastTop = v.top
+            }
+            .onChange(of: revision) { _, _ in
+                if pinned { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+            }
+            .onChange(of: items.count) { old, new in
+                // The user's own message always brings the list back down.
+                if new > old, items.last?.kind == .user {
+                    pinned = true
+                    proxy.scrollTo(Self.bottom, anchor: .bottom)
+                }
+            }
+            .onAppear { DispatchQueue.main.async { proxy.scrollTo(Self.bottom, anchor: .bottom) } }
+            .overlay(alignment: .bottom) {
+                if !pinned {
+                    Button {
+                        pinned = true
+                        withMotion(UI.fade) { proxy.scrollTo(Self.bottom, anchor: .bottom) }
+                    } label: {
+                        Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold)).foregroundStyle(UI.text)
+                            .frame(width: 26, height: 26)
+                            .background(Circle().fill(UI.raised))
+                            .overlay(Circle().stroke(UI.border))
+                            .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+                    }
+                    .buttonStyle(.plain).cursor(.pointingHand).help("Scroll to the latest").padding(.bottom, 8)
+                    .transition(.opacity)
+                }
+            }
+        }
+    }
+
+    private static let bottom = "chat-bottom"
+    private static let space = "chat-scroll"
+}
+
 /// Where the message list's content ends (in the scroll view's own space) and how tall it is.
 private struct ChatScrollKey: PreferenceKey {
-    struct Value: Equatable { var bottom: CGFloat = 0; var height: CGFloat = 0 }
+    struct Value: Equatable { var top: CGFloat = 0; var bottom: CGFloat = 0 }
     static let defaultValue = Value()
     static func reduce(value: inout Value, nextValue: () -> Value) { value = nextValue() }
 }

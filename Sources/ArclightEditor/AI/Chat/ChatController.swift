@@ -72,7 +72,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         transcript.plan?.waiting = false
         transcript.items.append(ChatItem(kind: .user, text: text, attachments: files.isEmpty ? nil : files))
         // Saved right away: a turn that never finishes (quit, crash, lost network) still keeps the message.
-        transcript.save(project: project)
+        persist()
         if let c = waiting {
             let a = ChatChoice.Answer(comment: text, typed: true)
             transcript.answer(c.id, a)
@@ -122,7 +122,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         let a = ChatChoice.Answer(picked: picked, comment: comment)
         transcript.answer(choice.id, a)
         transcript.plan?.waiting = false
-        transcript.save(project: project)
+        persist()
         run(choice.resultText(a))
     }
 
@@ -175,7 +175,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         transcript.archive(project: project)
         transcript = ChatTranscript()
         backend = nil
-        transcript.save(project: project)
+        persist()
         refreshArchive()
         revision += 1
     }
@@ -192,7 +192,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         transcript = t
         backend = nil  // the restored history is passed to a fresh backend on the next send
         backendConfig = ""
-        transcript.save(project: project)
+        persist()
         refreshArchive()
         revision += 1
     }
@@ -226,11 +226,20 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         // Long turns are saved as they go (at most every few seconds).
         if Date().timeIntervalSince(lastSave) > 4 {
             lastSave = Date()
-            transcript.save(project: project)
+            persist()
         }
     }
 
     private var lastSave = Date.distantPast
+
+    /// Saves off the main thread (a long chat's history is megabytes of JSON), in order, so a later save never
+    /// loses to an earlier one.
+    private func persist() {
+        let t = transcript, p = project
+        Self.saver.async { t.save(project: p) }
+    }
+
+    private static let saver = DispatchQueue(label: "arclight.chat.save", qos: .utility)
 
     // MARK: Turn
 
@@ -262,7 +271,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
             running = false
             task = nil
             revision += 1
-            transcript.save(project: project)
+            persist()
         }
     }
 
