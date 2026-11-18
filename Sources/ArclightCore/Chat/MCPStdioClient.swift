@@ -82,19 +82,42 @@ public final class MCPStdioClient: @unchecked Sendable {
 
     // MARK: JSON-RPC
 
+    /// A cancelled task stops waiting at once (`CancellationError`) and the server is told to drop the request
+    /// (`notifications/cancelled`); an answer that still comes is ignored. What the tool already did stays done.
     private func request(_ method: String, _ params: [String: JSONValue]) async throws -> JSONValue {
-        try await withCheckedThrowingContinuation { (c: CheckedContinuation<JSONValue, Error>) in
-            lock.lock()
-            if closed {
-                lock.unlock()
-                c.resume(throwing: MCPClientError.closed)
-                return
-            }
-            let id = nextId
+        let id = lock.withLock { () -> Int in
             nextId += 1
-            pending[id] = c
+            return nextId - 1
+        }
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (c: CheckedContinuation<JSONValue, Error>) in
+                lock.lock()
+                if closed {
+                    lock.unlock()
+                    c.resume(throwing: MCPClientError.closed)
+                    return
+                }
+                if Task.isCancelled {
+                    lock.unlock()
+                    c.resume(throwing: CancellationError())
+                    return
+                }
+                pending[id] = c
+                lock.unlock()
+                write([
+                    "jsonrpc": "2.0", "id": .number(Double(id)), "method": .string(method), "params": .object(params),
+                ])
+            }
+        } onCancel: {
+            lock.lock()
+            let c = pending.removeValue(forKey: id)
             lock.unlock()
-            write(["jsonrpc": "2.0", "id": .number(Double(id)), "method": .string(method), "params": .object(params)])
+            guard let c else { return }
+            write([
+                "jsonrpc": "2.0", "method": "notifications/cancelled",
+                "params": ["requestId": .number(Double(id)), "reason": "Stopped by the user"],
+            ])
+            c.resume(throwing: CancellationError())
         }
     }
 

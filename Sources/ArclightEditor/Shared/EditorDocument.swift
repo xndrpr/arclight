@@ -87,6 +87,8 @@ final class EditorDocument: ObservableObject {
     lazy var chats: ChatStore = {
         let s = ChatStore(project: url)
         s.note = { [weak self] in self?.chatNote() }
+        s.checkpoint = { [weak self] in self?.chatCheckpoint() ?? [:] }
+        s.revert = { [weak self] in self?.revertChat(to: $0) ?? [] }
         s.onActiveChange = { [weak self] in self?.objectWillChange.send() }
         return s
     }()

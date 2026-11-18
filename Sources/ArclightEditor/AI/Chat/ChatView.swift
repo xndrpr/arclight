@@ -155,7 +155,13 @@ private struct ChatMessageList: View, Equatable {
                                 if item.kind == .choice, let c = item.choice {
                                     ChoiceCard(doc: doc, chat: chat, choice: c)
                                 } else {
-                                    ChatRow(item: item, live: running && item.id == lastId).equatable()
+                                    ChatRow(
+                                        item: item, live: running && item.id == lastId,
+                                        canGoBack: !running && item.checkpoint != nil,
+                                        editFrom: { confirmBack(item, edit: true) },
+                                        revert: { confirmBack(item, edit: false) }
+                                    )
+                                    .equatable()
                                 }
                             case .tools(let tools):
                                 ChatToolGroup(tools: tools).equatable()
@@ -224,6 +230,20 @@ private struct ChatMessageList: View, Equatable {
         }
     }
 
+    /// Going back changes scenes (and "edit" removes messages): asked first.
+    private func confirmBack(_ item: ChatItem, edit: Bool) {
+        let a = NSAlert()
+        a.messageText = edit ? "Go back to this message?" : "Revert this turn?"
+        a.informativeText =
+            edit
+            ? "The scenes go back to how they were when you sent it, and the messages after it are removed. Its text returns to the field so you can change it. What the AI made stays in each scene's History."
+            : "The scenes go back to how they were when you sent this message. The conversation stays, and what the AI made stays in each scene's History."
+        a.addButton(withTitle: edit ? "Go Back" : "Revert")
+        a.addButton(withTitle: "Cancel")
+        guard a.runModal() == .alertFirstButtonReturn else { return }
+        if edit { chat.editFrom(item) } else { chat.revertTurn(item) }
+    }
+
     private static let bottom = "chat-bottom"
     private static let space = "chat-scroll"
 }
@@ -240,9 +260,16 @@ struct ChatRow: View, Equatable {
     let item: ChatItem
     /// The row the running turn is writing to now.
     var live = false
+    /// User rows: the message can be gone back to (it has a checkpoint and nothing is running).
+    var canGoBack = false
+    var editFrom: () -> Void = {}
+    var revert: () -> Void = {}
     @State private var open = false
+    @State private var hover = false
 
-    static func == (a: ChatRow, b: ChatRow) -> Bool { a.item == b.item && a.live == b.live }
+    static func == (a: ChatRow, b: ChatRow) -> Bool {
+        a.item == b.item && a.live == b.live && a.canGoBack == b.canGoBack
+    }
 
     var body: some View {
         switch item.kind {
@@ -267,11 +294,33 @@ struct ChatRow: View, Equatable {
                         .lineSpacing(2)
                         .padding(.horizontal, 11).padding(.vertical, 8)
                         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(UI.selected))
-                        .contextMenu { Button("Copy Message") { Self.copy(item.text) } }
+                        .contextMenu {
+                            Button("Copy Message") { Self.copy(item.text) }
+                            if canGoBack {
+                                Button("Edit from Here…", action: editFrom)
+                                Button("Revert This Turn…", action: revert)
+                            }
+                        }
                 }
+                // Shown on hover, like the reply's copy button: the row keeps its height either way.
+                HStack(spacing: 2) {
+                    IconButton(symbol: "doc.on.doc", help: "Copy message") { Self.copy(item.text) }
+                    if canGoBack {
+                        IconButton(symbol: "pencil", help: "Edit from here: go back to this message and change it") {
+                            editFrom()
+                        }
+                        IconButton(
+                            symbol: "arrow.uturn.backward",
+                            help: "Revert this turn: put the scenes back to how they were before it"
+                        ) { revert() }
+                    }
+                }
+                .frame(height: 18).opacity(hover ? 1 : 0).animation(UI.fade, value: hover)
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.leading, 30)
+            .contentShape(Rectangle())
+            .onHover { hover = $0 }
         case .assistant:
             ChatAssistantRow(text: item.text, live: live)
         case .thinking:

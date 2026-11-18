@@ -10,6 +10,9 @@ final class ChatStore: ObservableObject {
     @Published private(set) var activeID: String = ""
     /// What the editor shows right now, put at the start of each message.
     var note: () -> String? = { nil }
+    /// Scene revisions now, and putting scenes back to an earlier set (the document's; see `Document+Chat`).
+    var checkpoint: () -> [String: Int] = { [:] }
+    var revert: ([String: Int]) -> [String] = { _ in [] }
     /// Called when another chat comes to the front (the views showing "the chat" follow it).
     var onActiveChange: () -> Void = {}
 
@@ -37,6 +40,8 @@ final class ChatStore: ObservableObject {
 
     @discardableResult private func adopt(_ c: ChatController) -> ChatController {
         c.note = { [weak self] in self?.note() }
+        c.checkpoint = { [weak self] in self?.checkpoint() ?? [:] }
+        c.revert = { [weak self] in self?.revert($0) ?? [] }
         c.onChange = { [weak self, weak c] in
             guard let self, let c else { return }
             if !c.transcript.items.isEmpty { self.index.note(c.transcript.summary) }

@@ -12,6 +12,9 @@ struct ChatInput: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if !chat.queue.isEmpty {
+                ChatQueue(chat: chat).transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             if !chat.pending.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -46,26 +49,62 @@ struct ChatInput: View {
                         pickFiles()
                     }
                     .disabled(!chat.hasCredentials)
+                    ChatBrainMenu()
                     Spacer()
                     if chat.running {
-                        IconButton(symbol: "stop.fill", help: "Stop (Esc)") { chat.stop() }
-                    } else {
-                        IconButton(symbol: "arrow.up.circle.fill", help: "Send (Return)", active: chat.canSend) {
-                            chat.send()
+                        // Something typed: Return queues it for when the AI is done. Stop stays beside it.
+                        if chat.canSend {
+                            IconButton(
+                                symbol: "text.line.last.and.arrowtriangle.forward",
+                                help: "Queue: sent when the AI finishes (Return)", active: true
+                            ) { chat.send() }
+                            .transition(.scale.combined(with: .opacity))
                         }
-                        .disabled(!chat.canSend)
+                        Button {
+                            chat.stop()
+                        } label: {
+                            HStack(spacing: 5) {
+                                if chat.stopping {
+                                    ProgressView().controlSize(.mini)
+                                } else {
+                                    Image(systemName: "stop.fill").font(.system(size: 9))
+                                }
+                                Text(chat.stopping ? "Stopping…" : "Stop").font(UI.small)
+                            }
+                            .foregroundStyle(UI.text).padding(.horizontal, 9).frame(height: 22)
+                            .background(Capsule().fill(UI.raised)).overlay(Capsule().stroke(UI.border))
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain).cursor(.pointingHand).disabled(chat.stopping).help("Stop the AI (Esc)")
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
+                    } else {
+                        Button {
+                            chat.send()
+                        } label: {
+                            Image(systemName: "arrow.up").font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(chat.canSend ? UI.onAccent : UI.faint)
+                                .frame(width: 24, height: 24)
+                                .background(Circle().fill(chat.canSend ? UI.accent : UI.raised))
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain).cursor(.pointingHand).disabled(!chat.canSend).help("Send (Return)")
+                        .transition(.scale(scale: 0.8).combined(with: .opacity))
                     }
                 }
-                .padding(.horizontal, 4).padding(.bottom, 3)
+                .padding(.horizontal, 5).padding(.bottom, 5)
+                .animation(Motion.snappy, value: chat.running)
+                .animation(Motion.snappy, value: chat.canSend)
             }
             .background(RoundedRectangle(cornerRadius: 8).fill(UI.field))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(focused ? UI.accent.opacity(0.6) : UI.fieldBorder))
         }
         .padding(10)
+        .animation(Motion.snappy, value: chat.queue)
     }
 
     private var placeholder: String {
         guard chat.hasCredentials else { return "Add an API key in Settings first" }
+        if chat.running { return "Write the next message — it is sent when the AI finishes…" }
         return chat.transcript.pendingChoice != nil ? "Or answer in your own words…" : "Ask the AI…"
     }
 
@@ -352,5 +391,79 @@ final class ChatNSTextView: NSTextView {
     static func hasFiles(_ pb: NSPasteboard) -> Bool {
         pb.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
             || pb.data(forType: .png) != nil || pb.data(forType: .tiff) != nil
+    }
+}
+
+/// Messages written while the AI was working, above the field: they go out together when the turn ends.
+private struct ChatQueue: View {
+    @ObservedObject var chat: ChatController
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("QUEUED").font(.system(size: 9.5, weight: .semibold)).tracking(0.5).foregroundStyle(UI.faint)
+                Spacer()
+                if chat.running {
+                    Button("Send now") { chat.sendQueuedNow() }
+                        .buttonStyle(.plain).font(UI.small).foregroundStyle(UI.accent).cursor(.pointingHand)
+                        .help("Stop what the AI is doing and send this right away")
+                }
+            }
+            ForEach(chat.queue) { q in
+                HStack(spacing: 6) {
+                    Image(systemName: "clock").font(.system(size: 9)).foregroundStyle(UI.faint)
+                    Text(q.text.isEmpty ? "\(q.files.count) file\(q.files.count == 1 ? "" : "s")" : q.text)
+                        .font(UI.small).foregroundStyle(UI.label2).lineLimit(1).truncationMode(.tail)
+                    if !q.text.isEmpty, !q.files.isEmpty {
+                        Image(systemName: "paperclip").font(.system(size: 9)).foregroundStyle(UI.faint)
+                    }
+                    Spacer(minLength: 0)
+                    IconButton(symbol: "pencil", help: "Change it (back into the field)") { chat.edit(queued: q) }
+                    IconButton(symbol: "xmark", help: "Remove") { chat.remove(queued: q) }
+                }
+                .padding(.leading, 8).frame(height: 26)
+                .background(RoundedRectangle(cornerRadius: 7).fill(UI.raised))
+            }
+        }
+    }
+}
+
+/// The composer's model picker: which model answers and how hard it thinks (the same settings as Settings ▸ AI).
+struct ChatBrainMenu: View {
+    @State private var model = ChatSettings.model
+    @State private var effort = ChatSettings.effort
+
+    var body: some View {
+        Menu {
+            Section("Model") {
+                ForEach(ChatModel.allCases, id: \.self) { m in
+                    Button {
+                        ChatSettings.model = m; model = m; ChatSettingsChange.post()
+                    } label: {
+                        if m == model { Label(m.label, systemImage: "checkmark") } else { Text(m.label) }
+                    }
+                }
+            }
+            Section("Thinking") {
+                ForEach(ChatEffort.allCases, id: \.self) { e in
+                    Button {
+                        ChatSettings.effort = e; effort = e; ChatSettingsChange.post()
+                    } label: {
+                        if e == effort { Label(e.label, systemImage: "checkmark") } else { Text(e.label) }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text("\(model.label) · \(effort.label)").font(UI.small)
+                Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold))
+            }
+            .foregroundStyle(UI.dim)
+        }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .help("Which model answers, and how hard it thinks")
+        .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in
+            model = ChatSettings.model; effort = ChatSettings.effort
+        }
     }
 }

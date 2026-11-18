@@ -65,6 +65,10 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
     /// Thinking rows: when the thinking started, and how long it took once it ended (nil while it runs).
     public var started: Date?
     public var duration: Double?
+    /// User rows: where the project stood when the message was sent — each scene's revision, and how long the
+    /// model's own history was. Going back to the message ("Edit from here", "Revert this turn") restores these.
+    public var checkpoint: [String: Int]?
+    public var historyCount: Int?
 
     public init(
         id: String = UUID().uuidString, kind: Kind, text: String, tool: String? = nil, input: String? = nil,
@@ -75,7 +79,9 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
         self.attachments = attachments
     }
 
-    enum CodingKeys: String, CodingKey { case id, kind, text, tool, input, ok, choice, attachments, started, duration }
+    enum CodingKeys: String, CodingKey {
+        case id, kind, text, tool, input, ok, choice, attachments, started, duration, checkpoint, historyCount
+    }
 }
 
 /// One of a project's chats, saved at `<project>/.arclight/chats/<id>.json` so it survives closing the project.

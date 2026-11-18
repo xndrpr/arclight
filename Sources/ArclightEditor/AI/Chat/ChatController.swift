@@ -17,6 +17,11 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     let project: URL
     /// What the editor shows right now, put at the start of each message (`EditorDocument.chatNote`).
     var note: () -> String? = { nil }
+    /// Scene revisions now, and putting scenes back to an earlier set (set by `ChatStore`).
+    var checkpoint: () -> [String: Int] = { [:] }
+    var revert: ([String: Int]) -> [String] = { _ in [] }
+    /// Something the AI must be told with the next message (the user went back on its work).
+    private var aside: String?
 
     private var tools: MCPStdioClient?
     private var backend: ChatBackend?
@@ -61,21 +66,71 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     // MARK: Intents
 
     var canSend: Bool {
-        hasCredentials && !running
-            && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty)
+        hasCredentials && (!draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !pending.isEmpty)
     }
 
+    /// A message written while the AI was working: sent by itself when the turn ends.
+    struct Queued: Identifiable, Equatable {
+        let id = UUID()
+        var text: String
+        var files: [ChatAttachment]
+    }
+
+    @Published private(set) var queue: [Queued] = []
+    /// True between Stop and the turn actually ending.
+    @Published private(set) var stopping = false
+    /// Set by "send now": the turn is being stopped so the queue goes out right after.
+    private var flushAfterStop = false
+
+    /// Sends the message in the field — or, while the AI is working, puts it in the queue.
     func send() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard canSend else { return }
         let files = pending
         draft = ""
         pending = []
+        if running {
+            queue.append(Queued(text: text, files: files))
+            return
+        }
+        post(text, files: files)
+    }
+
+    /// Takes a queued message back into the field to change it.
+    func edit(queued q: Queued) {
+        guard let i = queue.firstIndex(of: q) else { return }
+        queue.remove(at: i)
+        draft = q.text
+        pending = q.files
+    }
+
+    func remove(queued q: Queued) { queue.removeAll { $0.id == q.id } }
+
+    /// Stops the running turn and sends the queue right away.
+    func sendQueuedNow() {
+        guard running, !queue.isEmpty else { return }
+        flushAfterStop = true
+        stop()
+    }
+
+    /// Sends the next queued message, if the chat is free to take it.
+    private func sendNextQueued() {
+        guard !running, !queue.isEmpty else { return }
+        // Everything waiting goes as one message: the AI reads it together anyway.
+        let all = queue
+        queue = []
+        post(all.map(\.text).filter { !$0.isEmpty }.joined(separator: "\n\n"), files: all.flatMap(\.files))
+    }
+
+    private func post(_ text: String, files: [ChatAttachment]) {
         noteBackendSwitch()
         // Typed while a question waits: that's the answer, in the user's own words.
         let waiting = transcript.pendingChoice
         transcript.plan?.waiting = false
-        transcript.items.append(ChatItem(kind: .user, text: text, attachments: files.isEmpty ? nil : files))
+        var mine = ChatItem(kind: .user, text: text, attachments: files.isEmpty ? nil : files)
+        mine.checkpoint = checkpoint()
+        mine.historyCount = transcript.history.count
+        transcript.items.append(mine)
         // Saved right away: a turn that never finishes (quit, crash, lost network) still keeps the message.
         persist()
         if let c = waiting {
@@ -143,8 +198,10 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         running = true
         onChange()
         revision += 1
+        let told = aside
+        aside = nil
         let context = [
-            note(), ChatPrompt.directionNote(ChatSettings.directionStages),
+            told, note(), ChatPrompt.directionNote(ChatSettings.directionStages),
             ChatPrompt.soundNote(SoundNotes.read(project)),
         ].compactMap { $0 }
             .joined(separator: "\n")
@@ -171,8 +228,59 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     }
 
     func stop() {
+        guard running else { return }
+        stopping = true
         task?.cancel()
         backend?.close()  // the CLI backend's process; the API one stops with the task
+    }
+
+    // MARK: Going back
+
+    /// True when the message has a checkpoint to go back to (messages sent before checkpoints existed don't).
+    func canGoBack(_ item: ChatItem) -> Bool { !running && item.kind == .user && item.checkpoint != nil }
+
+    /// Puts the scenes back to where they were when `item` was sent. The conversation stays; the AI is told.
+    func revertTurn(_ item: ChatItem) {
+        guard canGoBack(item), let c = item.checkpoint else { return }
+        let scenes = revert(c)
+        let what = scenes.isEmpty ? "Nothing had changed since this message." : "Put back: \(scenes.joined(separator: ", "))."
+        transcript.items.append(ChatItem(kind: .notice, text: "Reverted this turn. \(what)"))
+        if !scenes.isEmpty {
+            aside =
+                "[The user reverted the changes made after their message “\(item.text.prefix(120))”. "
+                + "Scenes put back to how they were before it: \(scenes.joined(separator: ", ")). Read a scene again before editing it.]"
+        }
+        revision += 1
+        persist()
+    }
+
+    /// Goes back to `item`: the scenes return to where they were when it was sent, the messages from it on are
+    /// taken out, and its text is back in the field to change and send again.
+    func editFrom(_ item: ChatItem) {
+        guard canGoBack(item), let c = item.checkpoint, let i = transcript.items.firstIndex(where: { $0.id == item.id })
+        else { return }
+        let scenes = revert(c)
+        transcript.items.removeSubrange(i...)
+        transcript.plan = nil
+        queue = []
+        if let n = item.historyCount, n <= transcript.history.count {
+            // API: the model's own history is cut at the same point, so it never saw what followed.
+            transcript.history = Array(transcript.history.prefix(n))
+        }
+        if transcript.cliSession != nil {
+            // The command-line agent keeps its own session and can't forget: tell it what happened.
+            aside =
+                "[The user went back to an earlier message and rewrote it. Everything you did after that point was "
+                + "undone (scenes put back: \(scenes.isEmpty ? "none" : scenes.joined(separator: ", "))). "
+                + "Disregard your work after it and read scenes again before editing.]"
+        }
+        backend?.close()
+        backend = nil  // made again from the cut history on the next send
+        backendConfig = ""
+        draft = item.text
+        pending = item.attachments ?? []
+        revision += 1
+        persist()
     }
 
     /// Gives the chat a name of the user's own (empty: back to the first message).
@@ -260,9 +368,15 @@ final class ChatController: ObservableObject, @unchecked Sendable {
                 transcript.items[i].ok = false
             }
             running = false
+            stopping = false
             task = nil
             revision += 1
             persist()
+            // The queue goes out after a turn that ended by itself, or one stopped for it ("send now"). After a
+            // plain Stop or an error it waits: the user decides.
+            let flush = flushAfterStop
+            flushAfterStop = false
+            if error == nil || flush { sendNextQueued() }
         }
     }
 

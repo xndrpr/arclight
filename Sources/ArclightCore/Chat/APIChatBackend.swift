@@ -205,7 +205,7 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
             if isError { r["is_error"] = true }
             return (.object(r), .toolEnd(id: id, ok: !isError, summary: summary, image: ChatPrompt.firstImage(content)))
         } catch {
-            let m = "\(error)"
+            let m = error is CancellationError ? "Stopped by the user while this was running." : "\(error)"
             return (Self.errorResult(id, m), .toolEnd(id: id, ok: false, summary: m, image: nil))
         }
     }
