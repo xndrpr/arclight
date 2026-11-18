@@ -135,7 +135,12 @@ private struct ChatMessageList: View, Equatable {
     @State private var scroll = ScrollMemo()
 
     /// Not view state: it changes on every frame of a scroll and nothing is drawn from it.
-    private final class ScrollMemo { var lastTop: CGFloat = 0 }
+    private final class ScrollMemo {
+        var lastTop: CGFloat = 0
+        /// When the user last scrolled down with the wheel or trackpad: only then does reaching the bottom
+        /// follow it again (new text arriving at the bottom must not).
+        var wheelDown: CFTimeInterval = 0
+    }
 
     static func == (a: Self, b: Self) -> Bool {
         // `revision` moves with every change to the rows: comparing the rows themselves (megabytes of text and
@@ -194,10 +199,12 @@ private struct ChatMessageList: View, Equatable {
             .onPreferenceChange(ChatScrollKey.self) { v in
                 // The top moving down means the user scrolled up: stop following, even mid-stream. Back near
                 // the bottom follows again. Content growing never unpins.
-                if v.top > scroll.lastTop + 0.5 {
-                    if pinned { pinned = false }
-                } else if v.bottom - viewport < 40 {
-                    if !pinned { pinned = true }
+                // The scroller dragged up (no wheel event) also stops following. Back at the bottom follows again
+                // only after the user scrolled down to it.
+                if v.top > scroll.lastTop + 0.5, pinned, CACurrentMediaTime() - scroll.wheelDown > 0.3 {
+                    pinned = false
+                } else if !pinned, v.bottom - viewport < 24, CACurrentMediaTime() - scroll.wheelDown < 0.4 {
+                    pinned = true
                 }
                 scroll.lastTop = v.top
             }
@@ -212,20 +219,40 @@ private struct ChatMessageList: View, Equatable {
                 }
             }
             .onAppear { DispatchQueue.main.async { proxy.scrollTo(Self.bottom, anchor: .bottom) } }
+            // A scroll up stops following at once, on the event itself: waiting for the layout to show it let
+            // the next streamed words pull the list back down first.
+            .background(
+                ScrollWheelWatcher { up in
+                    if up {
+                        if pinned { pinned = false }
+                    } else {
+                        scroll.wheelDown = CACurrentMediaTime()
+                    }
+                })
             .overlay(alignment: .bottom) {
                 if !pinned {
                     Button {
                         pinned = true
                         withMotion(UI.fade) { proxy.scrollTo(Self.bottom, anchor: .bottom) }
                     } label: {
-                        Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold)).foregroundStyle(UI.text)
-                            .frame(width: 26, height: 26)
-                            .background(Circle().fill(UI.raised))
-                            .overlay(Circle().stroke(UI.border))
-                            .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
+                        HStack(spacing: 5) {
+                            if running {
+                                ProgressView().controlSize(.mini)
+                                Text("AI is writing").font(UI.small)
+                            }
+                            Image(systemName: "arrow.down").font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(UI.text).padding(.horizontal, running ? 10 : 0)
+                        .frame(minWidth: 28, minHeight: 28)
+                        .background(Capsule().fill(UI.raised))
+                        .overlay(Capsule().stroke(UI.border))
+                        .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
+                        .contentShape(Capsule())
                     }
-                    .buttonStyle(.plain).cursor(.pointingHand).help("Scroll to the latest").padding(.bottom, 8)
-                    .transition(.opacity)
+                    .buttonStyle(.plain).cursor(.pointingHand).help("Jump to the latest (⌘↓)")
+                    .keyboardShortcut(.downArrow, modifiers: .command)
+                    .padding(.bottom, 10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
         }
@@ -744,5 +771,40 @@ private struct ShimmerIf: ViewModifier {
     let on: Bool
     func body(content: Content) -> some View {
         if on { content.modifier(Shimmer()) } else { content }
+    }
+}
+
+/// Reports scroll-wheel and trackpad scrolls over the view it backs: `true` for up (towards older messages).
+private struct ScrollWheelWatcher: NSViewRepresentable {
+    let scrolled: (Bool) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let v = WatchView()
+        v.scrolled = scrolled
+        return v
+    }
+
+    func updateNSView(_ v: NSView, context: Context) { (v as? WatchView)?.scrolled = scrolled }
+
+    final class WatchView: NSView {
+        var scrolled: (Bool) -> Void = { _ in }
+        private var monitor: Any?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] e in
+                guard let self, let w = self.window, e.window === w else { return e }
+                let p = self.convert(e.locationInWindow, from: nil)
+                guard self.bounds.contains(p), abs(e.scrollingDeltaY) > abs(e.scrollingDeltaX) else { return e }
+                if e.scrollingDeltaY > 0.5 { self.scrolled(true) } else if e.scrollingDeltaY < -0.5 { self.scrolled(false) }
+                return e
+            }
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        deinit { if let monitor { NSEvent.removeMonitor(monitor) } }
     }
 }
