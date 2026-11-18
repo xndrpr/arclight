@@ -72,8 +72,11 @@ struct AudioLane: View {
             _ = loads
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(UI.raised.opacity(0.35)))
             if let c {
-                AudioLaneDrawing(clip: c.clip, ref: c.ref, peaks: c.entry.peaks, map: map, gainLabel: drag == .gain)
-                    .draw(ctx, size)
+                AudioLaneDrawing(
+                    clip: c.clip, ref: c.ref, peaks: c.entry.peaks, map: map, gainLabel: drag == .gain,
+                    picked: doc.selectedSound == EditorDocument.sceneAudioId
+                )
+                .draw(ctx, size)
             }
             let ex = map.x(doc.scene.duration)
             TimelineInk.drawPastEnd(ctx, size, endX: ex)
@@ -147,6 +150,7 @@ struct AudioLane: View {
             let h = hit(g.startLocation, c.clip, map)
             drag = h
             if h == .none {
+                doc.selectedSound = nil
                 doc.scrub(to: map.t(g.location.x), tolerance: tol)
                 return
             }
@@ -200,9 +204,10 @@ struct AudioLane: View {
         if base != nil {
             doc.endGesture()
             if !wasDrag, drag == .body {
-                // A click on the clip (no drag) moves the playhead there, like empty space.
-                doc.playing = false
-                doc.time = doc.clampedTime(pressT)
+                // A click on the clip (no drag) selects it: Delete removes the scene's audio.
+                doc.selection = nil
+                doc.multiSelection = []
+                doc.selectedSound = EditorDocument.sceneAudioId
             }
             if wasDrag, let a = doc.scene.audio {
                 switch drag {

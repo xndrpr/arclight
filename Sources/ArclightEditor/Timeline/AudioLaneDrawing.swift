@@ -9,12 +9,19 @@ struct AudioLaneDrawing {
     let peaks: [Float]?
     let map: TimeMap
     var gainLabel = false
+    /// Selected (Delete removes it).
+    var picked = false
 
     func draw(_ ctx: GraphicsContext, _ size: CGSize) {
         let c = clip
         let box = AudioLane.box(c, map, height: size.height)
         let muted = ref.mute == true
-        ctx.fill(Path(roundedRect: box, cornerRadius: 3), with: .color(muted ? UI.field : UI.raised))
+        ctx.fill(
+            Path(roundedRect: box, cornerRadius: 3),
+            with: .color(picked ? UI.accent.opacity(0.28) : (muted ? UI.field : UI.raised)))
+        if picked {
+            ctx.stroke(Path(roundedRect: box, cornerRadius: 3), with: .color(UI.accent), lineWidth: 1.5)
+        }
         // Waveform: one bar per pixel column, mirrored around the middle.
         if let peaks, !peaks.isEmpty, c.fileDuration > 0 {
             var wave = Path()

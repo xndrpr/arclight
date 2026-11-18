@@ -28,7 +28,12 @@ final class EditorDocument: ObservableObject {
     @Published var marquee: CGRect?
     /// Which AI prompt field the contextual bar shows (generate / fill / expand), when open.
     @Published var aiPrompt: AIPromptKind?
-    @Published var selection: String? { didSet { if selection != oldValue { stateChanged() } } }
+    @Published var selection: String? {
+        didSet {
+            if selection != oldValue { stateChanged() }
+            if selection != nil, selectedSound != nil { selectedSound = nil }
+        }
+    }
     /// Playhead (scene seconds). A change redraws the editor, except the steps playback makes (`ticking`): those
     /// only move `clock`, which the playhead line and the timecode watch, so playing costs the UI almost nothing.
     var time: Double = 0 {
@@ -68,6 +73,10 @@ final class EditorDocument: ObservableObject {
     @Published var cinema = false
     @Published var viewerOnly = false
     @Published var busy: String?
+    /// The sound clip clicked in the sounds lane (Delete removes it). Cleared when a layer is selected.
+    @Published var selectedSound: String?
+    /// `selectedSound` for the scene's own audio (the lane under the ruler).
+    static let sceneAudioId = "@audio"
     /// The video export running or last run (ExportSheet.swift).
     let exportJob = ExportJob()
     var onCinemaChange: ((Bool) -> Void)?

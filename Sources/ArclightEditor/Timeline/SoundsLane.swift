@@ -72,7 +72,9 @@ struct SoundsLane: View {
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(UI.raised.opacity(0.35)))
             for it in items {
                 let b = Self.box(it.clip, row: it.row, map)
-                draw(ctx, it.ref, it.clip, it.peaks, b, selected: it.ref.id == dragId || it.ref.id == hoverId)
+                draw(
+                    ctx, it.ref, it.clip, it.peaks, b, selected: it.ref.id == dragId || it.ref.id == hoverId,
+                    picked: it.ref.id != nil && it.ref.id == doc.selectedSound)
             }
             let ex = map.x(doc.scene.duration)
             TimelineInk.drawPastEnd(ctx, size, endX: ex)
@@ -114,7 +116,9 @@ struct SoundsLane: View {
                 Text("Right-click a clip for options")
             }
         }
-        .help("Sound clips: drag to move · right-click for volume, mute and remove · click empty space to move the playhead")
+        .help(
+            "Sound clips: click to select (Delete removes it) · drag to move · right-click for volume, mute and remove · click empty space to move the playhead"
+        )
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { g in changed(g, items, rows, map) }
@@ -135,6 +139,7 @@ struct SoundsLane: View {
                 doc.beginGesture()
             } else {
                 scrubbing = true
+                doc.selectedSound = nil
                 doc.scrub(to: map.t(g.location.x), tolerance: tol)
             }
             return
@@ -161,16 +166,23 @@ struct SoundsLane: View {
             if moved, let r = doc.scene.sound(id) {
                 doc.flash("\(id) at \(fmt(r.offset ?? 0))s")
             } else if !moved {
-                doc.playing = false
-                doc.time = doc.clampedTime(doc.scene.sound(id)?.offset ?? doc.time)
+                // A click picks the clip (Delete removes it); the playhead stays where it is.
+                doc.selection = nil
+                doc.multiSelection = []
+                doc.selectedSound = id
             }
         }
         dragId = nil; scrubbing = false
     }
 
-    private func draw(_ ctx: GraphicsContext, _ ref: AudioRef, _ c: AudioClip, _ peaks: [Float]?, _ box: CGRect, selected: Bool) {
+    private func draw(
+        _ ctx: GraphicsContext, _ ref: AudioRef, _ c: AudioClip, _ peaks: [Float]?, _ box: CGRect, selected: Bool,
+        picked: Bool = false
+    ) {
         let muted = ref.mute == true
-        ctx.fill(Path(roundedRect: box, cornerRadius: 3), with: .color(muted ? UI.field : UI.raised))
+        ctx.fill(
+            Path(roundedRect: box, cornerRadius: 3),
+            with: .color(picked ? UI.accent.opacity(0.28) : (muted ? UI.field : UI.raised)))
         if let peaks, !peaks.isEmpty, c.fileDuration > 0, box.width > 4 {
             var wave = Path()
             let mid = box.midY, half = box.height / 2 - 1
@@ -192,8 +204,9 @@ struct SoundsLane: View {
             ctx.fill(wave, with: .color(muted ? UI.faint : UI.dim))
         }
         ctx.stroke(
-            Path(roundedRect: box, cornerRadius: 3), with: .color(selected ? UI.text.opacity(0.8) : UI.fieldBorder),
-            lineWidth: 1)
+            Path(roundedRect: box, cornerRadius: 3),
+            with: .color(picked ? UI.accent : (selected ? UI.text.opacity(0.8) : UI.fieldBorder)),
+            lineWidth: picked ? 1.5 : 1)
         if box.width > 24 {
             ctx.draw(
                 Text(ref.id ?? (ref.src as NSString).lastPathComponent).font(.system(size: 9, weight: .medium))

@@ -6,6 +6,18 @@ extension EditorDocument {
     var selectedLayerIds: [String] { scene.nodes.map(\.id).filter { selectedIds.contains($0) } }
 
     func deleteSelection() {
+        if selectedSound == EditorDocument.sceneAudioId, scene.audio != nil {
+            removeAudio()
+            flash("Removed the scene audio")
+            selectedSound = nil
+            return
+        }
+        if let id = selectedSound, scene.sound(id) != nil {
+            apply([["op": "sound", "id": .string(id), "remove": true]])
+            flash("Removed \(id)")
+            selectedSound = nil
+            return
+        }
         let ids = selectedLayerIds
         guard !ids.isEmpty else { return }
         apply([["op": "remove", "ids": .array(ids.map { .string($0) })]])
