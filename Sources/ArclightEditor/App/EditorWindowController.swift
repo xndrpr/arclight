@@ -48,6 +48,8 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     required init?(coder: NSCoder) { fatalError() }
 
     func windowWillClose(_ notification: Notification) {
+        doc.chatWindow?.close()
+        doc.chatWindow = nil
         doc.saveNow()
         onClose(self)
     }
@@ -66,6 +68,7 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     @objc func saveDocument(_ sender: Any?) { doc.saveNow(); doc.flash("Saved") }
     @objc func togglePerformance(_ sender: Any?) { doc.performance.toggle() }
     @objc func toggleAIPanel(_ sender: Any?) { AIPanelState.toggle() }
+    @objc func openChatWindow(_ sender: Any?) { doc.openChatWindow() }
     @objc func toggleViewerOnly(_ sender: Any?) { doc.viewerOnly.toggle() }
     @objc func toggleCinema(_ sender: Any?) { setCinema(!doc.cinema) }
     @objc func zoomIn(_ sender: Any?) { doc.zoomTimeline(by: 1.5) }

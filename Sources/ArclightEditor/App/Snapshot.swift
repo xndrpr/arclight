@@ -63,6 +63,8 @@ public enum EditorSnapshot {
     private static func rootView(_ o: Options, doc: EditorDocument) -> AnyView {
         switch o.panel {
         case "settings": return AnyView(SettingsView(doc: doc, initialTab: o.tab))
+        case "chats":
+            return AnyView(ChatWindowView(doc: doc, chats: doc.chats).frame(width: CGFloat(o.width)))
         case "chat":
             return AnyView(ChatView(doc: doc, chat: doc.chat).frame(width: CGFloat(o.width)).background(UI.panel))
         case "choiceviewer":

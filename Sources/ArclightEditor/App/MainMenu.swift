@@ -75,6 +75,7 @@ enum MainMenu {
                 item("Performance Mode", #selector(W.togglePerformance(_:)), "p", [.command, .shift]),
                 .separator(),
                 item("AI Panel", #selector(W.toggleAIPanel(_:)), "a", [.command, .option]),
+                item("Chats Window", #selector(W.openChatWindow(_:)), "a", [.command, .shift]),
                 appThemeMenu(),
                 .separator(),
                 item("Enter Full Screen", #selector(NSWindow.toggleFullScreen(_:)), "f", [.command, .control]),

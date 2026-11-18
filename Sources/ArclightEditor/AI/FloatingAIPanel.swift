@@ -220,6 +220,9 @@ struct AIPanelHeader: View {
                     MCPSetup.copy(doc.url.path)
                     doc.flash("Project path copied — paste it to your AI agent")
                 }
+                IconButton(symbol: "macwindow.on.rectangle", help: "Open the chats in their own window (⇧⌘A)") {
+                    doc.openChatWindow()
+                }
                 IconButton(
                     symbol: expanded ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
                     help: expanded

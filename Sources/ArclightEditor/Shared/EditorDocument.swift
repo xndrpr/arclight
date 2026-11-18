@@ -92,6 +92,8 @@ final class EditorDocument: ObservableObject {
     }()
     /// The chat in front.
     var chat: ChatController { chats.active }
+    /// The chats' own window, once opened (ChatWindow.swift).
+    var chatWindow: ChatWindowController?
 
     /// Primary + extra selection.
     var selectedIds: Set<String> { multiSelection.union(selection.map { [$0] } ?? []) }

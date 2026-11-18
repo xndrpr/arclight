@@ -131,10 +131,16 @@ private struct ChatMessageList: View, Equatable {
     @State private var viewport: CGFloat = 0
     /// Where the content's top was last frame. New text grows the list downward and leaves it still; only
     /// scrolling moves it.
-    @State private var lastTop: CGFloat = 0
+    @State private var scroll = ScrollMemo()
+
+    /// Not view state: it changes on every frame of a scroll and nothing is drawn from it.
+    private final class ScrollMemo { var lastTop: CGFloat = 0 }
 
     static func == (a: Self, b: Self) -> Bool {
-        a.revision == b.revision && a.running == b.running && a.activity == b.activity && a.items == b.items
+        // `revision` moves with every change to the rows: comparing the rows themselves (megabytes of text and
+        // pictures, 30 times a second) would cost more than the redraw it saves.
+        a.revision == b.revision && a.running == b.running && a.activity == b.activity
+            && a.items.count == b.items.count && a.chat === b.chat
     }
 
     var body: some View {
@@ -181,12 +187,12 @@ private struct ChatMessageList: View, Equatable {
             .onPreferenceChange(ChatScrollKey.self) { v in
                 // The top moving down means the user scrolled up: stop following, even mid-stream. Back near
                 // the bottom follows again. Content growing never unpins.
-                if v.top > lastTop + 0.5 {
-                    pinned = false
+                if v.top > scroll.lastTop + 0.5 {
+                    if pinned { pinned = false }
                 } else if v.bottom - viewport < 40 {
-                    pinned = true
+                    if !pinned { pinned = true }
                 }
-                lastTop = v.top
+                scroll.lastTop = v.top
             }
             .onChange(of: revision) { _, _ in
                 if pinned { proxy.scrollTo(Self.bottom, anchor: .bottom) }
@@ -311,10 +317,21 @@ struct ChatRow: View, Equatable {
         NSPasteboard.general.setString(s, forType: .string)
     }
 
+    /// Inline Markdown of one block, remembered: while a reply streams only its last block is new each time.
     static func markdown(_ s: String) -> AttributedString {
-        (try? AttributedString(
-            markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
+        if let hit = markdownCache.object(forKey: s as NSString) { return hit.value }
+        let a =
+            (try? AttributedString(
+                markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
+        markdownCache.setObject(Boxed(a), forKey: s as NSString)
+        return a
     }
+
+    private static let markdownCache: NSCache<NSString, Boxed<AttributedString>> = {
+        let c = NSCache<NSString, Boxed<AttributedString>>()
+        c.countLimit = 4000
+        return c
+    }()
 }
 
 /// A tool call: name, arguments at a glance, done / failed; click for its output and picture.
@@ -351,7 +368,7 @@ struct ChatToolRow: View {
                         Text(item.text).font(UI.monoSmall).foregroundStyle(UI.label2).textSelection(.enabled)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if let d = item.image, let img = NSImage(data: d) {
+                    if let img = ChatImageCache.image(item) {
                         Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).frame(maxHeight: 160)
                             .clipShape(RoundedRectangle(cornerRadius: 4))
                     }
@@ -566,5 +583,27 @@ struct ChatListMenu: View {
         case .idle: mark = front ? "✓ " : "   "
         }
         return "\(mark)\(c.title)  ·  \(ChatView.date(c.date))"
+    }
+}
+
+final class Boxed<T> {
+    let value: T
+    init(_ v: T) { value = v }
+}
+
+/// Pictures tools returned, decoded once per row instead of on every redraw.
+enum ChatImageCache {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.countLimit = 60
+        return c
+    }()
+
+    static func image(_ item: ChatItem) -> NSImage? {
+        guard let d = item.image else { return nil }
+        if let hit = cache.object(forKey: item.id as NSString) { return hit }
+        guard let img = NSImage(data: d) else { return nil }
+        cache.setObject(img, forKey: item.id as NSString)
+        return img
     }
 }

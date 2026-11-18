@@ -100,7 +100,7 @@ struct ChatAssistantRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ChatMarkdown(text: text)
+            ChatMarkdown(text: text, live: live)
             if !live {
                 HStack(spacing: 2) {
                     IconButton(symbol: "doc.on.doc", help: "Copy message") { ChatRow.copy(text) }
@@ -121,6 +121,23 @@ struct ChatAssistantRow: View {
 /// Inline styles (bold, italic, code, links) inside each block.
 struct ChatMarkdown: View {
     let text: String
+    /// Still being written: its new blocks fade in.
+    var live = false
+
+    private static let parsed: NSCache<NSString, Boxed<[Block]>> = {
+        let c = NSCache<NSString, Boxed<[Block]>>()
+        c.countLimit = 600
+        return c
+    }()
+
+    /// `blocks`, remembered for a reply that is finished (a long chat is scrolled through many times).
+    static func cachedBlocks(_ text: String, live: Bool) -> [Block] {
+        if live { return blocks(text) }
+        if let hit = parsed.object(forKey: text as NSString) { return hit.value }
+        let b = blocks(text)
+        parsed.setObject(Boxed(b), forKey: text as NSString)
+        return b
+    }
 
     enum Block: Equatable {
         case paragraph(String)
@@ -174,9 +191,11 @@ struct ChatMarkdown: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, b in block(b) }
+        let blocks = Self.cachedBlocks(text, live: live)
+        return VStack(alignment: .leading, spacing: 7) {
+            ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in block(b).transition(.opacity) }
         }
+        .animation(live ? Motion.animation(.easeOut(duration: 0.35)) : nil, value: blocks.count)
         .textSelection(.enabled)
     }
 
