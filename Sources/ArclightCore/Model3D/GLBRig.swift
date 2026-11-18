@@ -71,8 +71,8 @@ public struct Rig: Sendable {
         return clips.firstIndex { $0.name.lowercased() == s.lowercased() }
     }
 
-    /// Every vertex position and normal (Arclight space) with clip `clip` at `time` seconds (nil: rest pose).
-    public func pose(clip: Int?, time: Float) -> (positions: [SIMD3<Float>], normals: [SIMD3<Float>]) {
+    /// The nodes with clip `clip` applied at `time` (nil: at rest), and their world matrices.
+    func worlds(clip: Int?, time: Float) -> (local: [Node], world: [simd_float4x4]) {
         var local = nodes
         if let clip, clips.indices.contains(clip) {
             for ch in clips[clip].channels where local.indices.contains(ch.node) {
@@ -106,6 +106,78 @@ public struct Rig: Sendable {
             world[i] = w
             return w
         }
+        return (local, local.indices.map { matrix($0) })
+    }
+
+    // MARK: Skinning on the GPU
+
+    /// Where each skin's joints and each piece's node sit in the matrix palette.
+    private func slots() -> (skin: [Int], node: [Int: Int], count: Int) {
+        var skin: [Int] = [], next = 0
+        for s in skins { skin.append(next); next += s.joints.count }
+        var node: [Int: Int] = [:]
+        for p in pieces where node[p.node] == nil { node[p.node] = next; next += 1 }
+        return (skin, node, next)
+    }
+
+    /// True when a pose needs the CPU (`pose`): shape keys move vertices one by one.
+    var hasMorphs: Bool { pieces.contains { !$0.targets.isEmpty } }
+
+    /// Every vertex at rest in its piece's own space, with up to four palette slots and their weights (summing
+    /// to 1). A vertex times its blended palette matrices is the same point `pose` gives.
+    func skinVertices() -> (
+        positions: [SIMD3<Float>], normals: [SIMD3<Float>], slots: [SIMD4<Float>], weights: [SIMD4<Float>]
+    ) {
+        let lay = slots()
+        let total = pieces.map { $0.first + $0.positions.count }.max() ?? 0
+        var pos = [SIMD3<Float>](repeating: .zero, count: total)
+        var nor = [SIMD3<Float>](repeating: .zero, count: total)
+        var slot = [SIMD4<Float>](repeating: .zero, count: total)
+        var wgt = [SIMD4<Float>](repeating: SIMD4(1, 0, 0, 0), count: total)
+        for p in pieces {
+            let own = Float(lay.node[p.node] ?? 0)
+            let skin = p.skin.flatMap { skins.indices.contains($0) ? $0 : nil }
+            for k in p.positions.indices {
+                let i = p.first + k
+                pos[i] = p.positions[k]
+                nor[i] = k < p.normals.count ? p.normals[k] : .zero
+                slot[i] = SIMD4(own, 0, 0, 0)
+                guard let skin, k < p.joints.count, k < p.weights.count else { continue }
+                let n = skins[skin].joints.count
+                var s = SIMD4<Float>.zero, w = SIMD4<Float>.zero
+                var sum: Float = 0
+                for c in 0..<4 where p.weights[k][c] > 0 {
+                    let j = Int(p.joints[k][c])
+                    guard j >= 0, j < n else { continue }
+                    s[c] = Float(lay.skin[skin] + j); w[c] = p.weights[k][c]; sum += w[c]
+                }
+                // No usable bone: the piece's node carries the vertex, as in `pose`.
+                if sum > 1e-6 { slot[i] = s; wgt[i] = w / sum }
+            }
+        }
+        return (pos, nor, slot, wgt)
+    }
+
+    /// The matrix palette (to Arclight space) for clip `clip` at `time`: what `skinVertices` slots point into.
+    func palette(clip: Int?, time: Float) -> [simd_float4x4] {
+        let lay = slots()
+        let world = worlds(clip: clip, time: time).world
+        func w(_ i: Int) -> simd_float4x4 { world.indices.contains(i) ? world[i] : matrix_identity_float4x4 }
+        var out = [simd_float4x4](repeating: gltfToArclight, count: max(lay.count, 1))
+        for (si, sk) in skins.enumerated() {
+            for (k, j) in sk.joints.enumerated() {
+                out[lay.skin[si] + k] =
+                    gltfToArclight * w(j) * (k < sk.inverseBind.count ? sk.inverseBind[k] : matrix_identity_float4x4)
+            }
+        }
+        for (node, s) in lay.node { out[s] = gltfToArclight * w(node) }
+        return out
+    }
+
+    /// Every vertex position and normal (Arclight space) with clip `clip` at `time` seconds (nil: rest pose).
+    public func pose(clip: Int?, time: Float) -> (positions: [SIMD3<Float>], normals: [SIMD3<Float>]) {
+        let (local, world) = worlds(clip: clip, time: time)
+        func matrix(_ i: Int) -> simd_float4x4 { world[i] }
 
         let total = pieces.map { $0.first + $0.positions.count }.max() ?? 0
         var pos = [SIMD3<Float>](repeating: .zero, count: total)

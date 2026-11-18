@@ -110,6 +110,18 @@ struct GLTFBuilder {
         let mid = rig.pose(clip: 0, time: 0.5).positions
         #expect(near(mid[1], arc(-sin(.pi / 4), 1 + cos(.pi / 4), 0)))  // slerp halfway: 45°
         #expect(near(rig.pose(clip: nil, time: 1).positions[1], arc(0, 2, 0)))  // rest
+        // The GPU path (rest vertices × blended palette matrices) lands on the same points as `pose`.
+        #expect(!rig.hasMorphs)
+        let sv = rig.skinVertices()
+        for t in [Float(0), 0.5, 1] {
+            let pal = rig.palette(clip: 0, time: t), cpu = rig.pose(clip: 0, time: t).positions
+            for k in sv.positions.indices {
+                var m = simd_float4x4()
+                for c in 0..<4 { m = m + sv.weights[k][c] * pal[Int(sv.slots[k][c])] }
+                let p = m * SIMD4(sv.positions[k], 1)
+                #expect(near(SIMD3(p.x, p.y, p.z), cpu[k]))
+            }
+        }
     }
 
     @Test func shapeKeysBlendByWeight() throws {

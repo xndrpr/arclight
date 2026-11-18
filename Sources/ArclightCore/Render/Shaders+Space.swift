@@ -80,6 +80,29 @@ extension ShaderSource {
             return o;
         }
 
+        // A moving model: each vertex is carried by up to four matrices of the pose's palette.
+        struct SkinV { float4 pos; float4 normal; float4 uv; float4 slots; float4 weights; };
+
+        vertex MOut mesh_skin_vs(uint vid [[vertex_id]], constant MeshU& u [[buffer(0)]],
+                                 const device SkinV* v [[buffer(1)]], const device float4x4* pal [[buffer(2)]]) {
+            SkinV x = v[vid];
+            float4x4 m = pal[uint(x.slots.x)] * x.weights.x + pal[uint(x.slots.y)] * x.weights.y
+                       + pal[uint(x.slots.z)] * x.weights.z + pal[uint(x.slots.w)] * x.weights.w;
+            float3 p = (m * float4(x.pos.xyz, 1)).xyz;
+            // Inverse transpose (cofactors), so normals stay right under uneven scale.
+            float3 c0 = m[0].xyz, c1 = m[1].xyz, c2 = m[2].xyz;
+            float3 n = float3x3(cross(c1, c2), cross(c2, c0), cross(c0, c1)) * x.normal.xyz;
+            if (dot(c0, cross(c1, c2)) < 0) n = -n;
+            n = length(n) > 1e-12 ? normalize(n) : float3(0);
+            MOut o;
+            o.pos = u.mvp * float4(p, 1);
+            o.wpos = (u.world * float4(p, 1)).xyz;
+            o.n = (u.world * float4(n, 0)).xyz;
+            o.uv = x.uv.xy;
+            o.vz = o.pos.w;
+            return o;
+        }
+
         fragment FOut mesh_fs(MOut in [[stage_in]], constant MeshU& u [[buffer(0)]], constant FrameU& f [[buffer(1)]],
                               texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]]) {
             float4 base = u.color;

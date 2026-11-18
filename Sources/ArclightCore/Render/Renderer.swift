@@ -36,9 +36,11 @@ public final class Renderer {
     let reliefPSO, reliefDepthPSO: MTLRenderPipelineState
     /// Model layers: lit, opaque triangle meshes.
     let meshPSO: MTLRenderPipelineState
+    /// Moving models: the same, with the bones applied in the vertex shader (`mesh_skin_vs`).
+    let meshSkinPSO: MTLRenderPipelineState
     /// Loaded models by path#mtime (nil: the file couldn't be read, don't retry every frame).
     var meshes: [String: GPUMesh?] = [:]
-    /// Posed vertex buffers of moving models (`posedVertices`).
+    /// Vertex buffers posed on the CPU, for models with shape keys (`posedVertices`).
     var posedCache: [String: MTLBuffer] = [:]
     /// 1×1 white, the picture of a box face that only has a colour.
     let whiteTexture: MTLTexture
@@ -175,6 +177,7 @@ public final class Renderer {
         reliefPSO = try pipeline("relief_vs", "tex_fs", two, .premul, depth: true)
         reliefDepthPSO = try pipeline("relief_vs", "tex_depth_fs", two, .depthOnly, depth: true)
         meshPSO = try pipeline("mesh_vs", "mesh_fs", two, .premul, depth: true)
+        meshSkinPSO = try pipeline("mesh_skin_vs", "mesh_fs", two, .premul, depth: true)
         let wd = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false)
         guard let white = d.makeTexture(descriptor: wd) else { throw RenderError.setup("white texture") }

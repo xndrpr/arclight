@@ -30,9 +30,14 @@ final class GPUMesh {
     /// Bones, shape keys and clips, when the model can move (`uvs` go with the posed vertices).
     let rig: Rig?
     let uvs: [SIMD2<Float>]
+    /// Rest vertices with their bones (SkinV in the shader), when the model's poses can be made on the GPU.
+    let skin: MTLBuffer?
 
-    init(vertices: MTLBuffer, indices: MTLBuffer, parts: [(Int, Int, SIMD4<Float>, MTLTexture?)], mesh: Mesh) {
-        self.vertices = vertices; self.indices = indices
+    init(
+        vertices: MTLBuffer, indices: MTLBuffer, parts: [(Int, Int, SIMD4<Float>, MTLTexture?)], mesh: Mesh,
+        skin: MTLBuffer?
+    ) {
+        self.vertices = vertices; self.indices = indices; self.skin = skin
         rig = mesh.rig?.animated == true ? mesh.rig : nil
         uvs = rig == nil ? [] : mesh.vertices.map(\.uv)
         self.parts = parts.map { (start: $0.0, count: $0.1, color: $0.2, texture: $0.3) }
@@ -77,7 +82,23 @@ extension Renderer {
             }
             return (p.start, p.count, p.color, t)
         }
-        return GPUMesh(vertices: vb, indices: ib, parts: parts, mesh: mesh)
+        return GPUMesh(vertices: vb, indices: ib, parts: parts, mesh: mesh, skin: skinBuffer(mesh))
+    }
+
+    /// float4 position, normal, uv, palette slots, weights (80 bytes, SkinV in the shader). nil for a model that
+    /// stands still or has shape keys (those are posed on the CPU).
+    func skinBuffer(_ mesh: Mesh) -> MTLBuffer? {
+        guard let rig = mesh.rig, rig.animated, !rig.hasMorphs else { return nil }
+        let s = rig.skinVertices()
+        guard s.positions.count == mesh.vertices.count, !s.positions.isEmpty else { return nil }
+        var v = [SIMD4<Float>]()
+        v.reserveCapacity(s.positions.count * 5)
+        for k in s.positions.indices {
+            let uv = mesh.vertices[k].uv
+            v.append(SIMD4(s.positions[k], 1)); v.append(SIMD4(s.normals[k], 0)); v.append(SIMD4(uv.x, uv.y, 0, 0))
+            v.append(s.slots[k]); v.append(s.weights[k])
+        }
+        return device.makeBuffer(bytes: v, length: v.count * MemoryLayout<SIMD4<Float>>.stride)
     }
 
     /// float4 position, float4 normal, float4 uv (48 bytes, matches MeshV in the shader).
@@ -139,9 +160,22 @@ extension Renderer {
         toLight = simd_length(toLight) > 1e-6 ? simd_normalize(toLight) : SIMD3(0, -1, 0)
         let material: Float = ["matte": 0, "glossy": 1, "clay": 2][n.str("material", "matte")] ?? 0
         let tint = n.color("color")
-        enc.setRenderPipelineState(meshPSO)
         enc.setDepthStencilState(depthWrite)
-        enc.setVertexBuffer(posedVertices(m, n), offset: 0, index: 1)
+        if let skin = m.skin, let rig = m.rig, let ct = Renderer.clipTime(n, rig: rig) {
+            // The pose is a few dozen matrices; the vertex shader moves the vertices.
+            let palette = rig.palette(clip: ct.clip, time: ct.time)
+            let bytes = palette.count * MemoryLayout<simd_float4x4>.stride
+            enc.setRenderPipelineState(meshSkinPSO)
+            enc.setVertexBuffer(skin, offset: 0, index: 1)
+            if bytes <= 4096 {
+                palette.withUnsafeBytes { enc.setVertexBytes($0.baseAddress!, length: bytes, index: 2) }
+            } else if let b = device.makeBuffer(bytes: palette, length: bytes) {
+                enc.setVertexBuffer(b, offset: 0, index: 2)
+            }
+        } else {
+            enc.setRenderPipelineState(meshPSO)
+            enc.setVertexBuffer(posedVertices(m, n), offset: 0, index: 1)
+        }
         for p in m.parts {
             // The tint replaces a plain part's colour; a textured part keeps its picture, tinted.
             var base = p.color
