@@ -11,6 +11,9 @@ struct AIStatus: Equatable {
     /// The agent the text is about (nil for none / several).
     var agent: Int32?
 
+    /// How long after its last call an agent still counts as connected.
+    static let activeWindow: TimeInterval = 30 * 60
+
     /// `legacyActiveUntil`: AI calls seen in the activity log (servers without presence files) count as editing until then.
     static func compute(
         agents: [AgentPresence], project: URL, legacyActiveUntil: Date? = nil, now: Date = Date()
@@ -26,10 +29,16 @@ struct AIStatus: Equatable {
         if let until = legacyActiveUntil, until > now {
             return AIStatus(kind: .editing, text: "AI is editing…", agent: nil)
         }
-        switch agents.count {
+        // Every agent app on the Mac starts an Arclight server whether or not it is used: only one that has called
+        // a tool on this project lately counts as connected.
+        let active = agents.filter { a in
+            guard let d = a.lastCallDate, now.timeIntervalSince(d) < activeWindow else { return false }
+            return a.project == path || a.projects.contains(path)
+        }
+        switch active.count {
         case 0: return AIStatus(kind: .none, text: "No AI connected", agent: nil)
-        case 1: return AIStatus(kind: .connected, text: "\(agents[0].displayName) connected", agent: agents[0].pid)
-        default: return AIStatus(kind: .connected, text: "\(agents.count) AI agents connected", agent: nil)
+        case 1: return AIStatus(kind: .connected, text: "\(active[0].displayName) connected", agent: active[0].pid)
+        default: return AIStatus(kind: .connected, text: "\(active.count) AI agents connected", agent: nil)
         }
     }
 

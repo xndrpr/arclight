@@ -18,20 +18,27 @@ struct AIPanelTests {
             AIStatus.compute(agents: [], project: here, legacyActiveUntil: now.addingTimeInterval(2), now: now).text
                 == "AI is editing…")
 
+        // A server that was started but never used (every agent app starts one): not connected.
         var a = agent(1, "claude-code", project: here.path)
-        #expect(AIStatus.compute(agents: [a], project: here, now: now).text == "Claude Code connected")
+        #expect(AIStatus.compute(agents: [a], project: here, now: now).text == "No AI connected")
         a.begin("scene_get", writes: false)
         #expect(AIStatus.compute(agents: [a], project: here, now: now).text == "Claude Code is reading…")
         a.begin("scene_apply", writes: true)
         let s = AIStatus.compute(agents: [a], project: here, now: now)
         #expect(s.kind == .editing && s.text == "Claude Code is editing…" && s.agent == 1)
+        // Done working on this project: connected while its last call is recent, then not.
+        a.end(summary: "ok", wrote: true, ok: true, project: here.path, at: now)
+        #expect(AIStatus.compute(agents: [a], project: here, now: now.addingTimeInterval(60)).text == "Claude Code connected")
+        #expect(AIStatus.compute(agents: [a], project: here, now: now.addingTimeInterval(3600)).kind == .none)
 
-        // Busy on another project: just "connected" here.
+        // Busy on another project only: not connected here.
         var b = agent(2, "cursor", project: "/tmp/Other.arclight")
         b.begin("scene_apply", writes: true)
-        #expect(AIStatus.compute(agents: [b], project: here, now: now).kind == .connected)
+        #expect(AIStatus.compute(agents: [b], project: here, now: now).kind == .none)
+        var c = agent(3, "x", project: nil)
+        c.end(summary: "ok", wrote: false, ok: true, project: here.path, at: now)
         #expect(
-            AIStatus.compute(agents: [b, agent(3, "x", project: nil)], project: here, now: now).text
+            AIStatus.compute(agents: [a, b, c], project: here, now: now.addingTimeInterval(60)).text
                 == "2 AI agents connected")
     }
 
