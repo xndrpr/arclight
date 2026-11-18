@@ -151,4 +151,28 @@ import Testing
             scene: s, project: p, assets: nil, time: 0.1, to: dir.appendingPathComponent("still.png"))
         #expect(FileManager.default.fileExists(atPath: still.path))
     }
+
+    @Test(.requiresMetal) func videoExportWritesEveryFrameAndCanBeCancelled() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-mp4-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var s = Scene(id: "s", duration: 1)
+        s.nodes = [Node(id: "r", type: "shape", props: ["x": .value(50), "y": .value(50)])]
+        let p = Project(name: "p", size: [160, 90])
+        let ex = Exporter(renderer: try Renderer())
+        // Several frames in flight: every one is still written, in order, and reported once.
+        var seen: [Int] = []
+        let r = try ex.export(
+            scene: s, project: p, assets: nil, to: dir.appendingPathComponent("s.mp4"), options: ExportOptions()
+        ) { f, _ in seen.append(f) }
+        #expect(r.frames == 30 && seen == Array(1...30) && FileManager.default.fileExists(atPath: r.url.path))
+        // Cancelled part way: throws, and leaves no half-written file.
+        var asked = 0
+        ex.isCancelled = { asked += 1; return asked > 10 }
+        let out = dir.appendingPathComponent("cut.mp4")
+        #expect(throws: CancellationError.self) {
+            _ = try ex.export(scene: s, project: p, assets: nil, to: out, options: ExportOptions())
+        }
+        #expect(!FileManager.default.fileExists(atPath: out.path))
+    }
 }

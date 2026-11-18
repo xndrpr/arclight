@@ -68,6 +68,8 @@ final class EditorDocument: ObservableObject {
     @Published var cinema = false
     @Published var viewerOnly = false
     @Published var busy: String?
+    /// The video export running or last run (ExportSheet.swift).
+    let exportJob = ExportJob()
     var onCinemaChange: ((Bool) -> Void)?
 
     // Shared editor state used by several panels (activity, layers, canvas, inspector).

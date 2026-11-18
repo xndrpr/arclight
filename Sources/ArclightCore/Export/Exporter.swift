@@ -57,6 +57,14 @@ public final class Exporter {
     let renderer: Renderer
     public init(renderer: Renderer) { self.renderer = renderer }
 
+    /// Asked between frames: true stops the export (it throws `CancellationError`, and the unfinished file is
+    /// removed).
+    public var isCancelled: () -> Bool = { false }
+
+    /// Frames encoded ahead of the one being written: the CPU prepares the next frames while the GPU draws and
+    /// the hardware encoder compresses. They share one command queue, so the GPU still draws them in order.
+    static let framesInFlight = 3
+
     public func export(
         scene: Scene, project: Project, assets: URL?, to url: URL, options o: ExportOptions,
         progress: ((Int, Int) -> Void)? = nil
@@ -152,13 +160,34 @@ public final class Exporter {
         let targets = try renderer.makeTargets(width: w, height: h)
         let timescale = Int32((fps * 1000).rounded())
 
-        for i in 0..<frames {
-            let (scene, local) = segment(i)
-            let scale = Double(w) / Double(project.size(for: scene).0)
+        // Frames committed to the GPU and not yet written, oldest first. Each keeps its Metal view of the pixel
+        // buffer alive until the GPU is done with it.
+        var inFlight: [(cb: MTLCommandBuffer, pb: CVPixelBuffer, tex: CVMetalTexture, index: Int)] = []
+        func writeOldest() throws {
+            let f = inFlight.removeFirst()
+            f.cb.waitUntilCompleted()
+            if let e = f.cb.error { throw RenderError.setup("\(e)") }
+            if transparent {
+                CVBufferSetAttachment(
+                    f.pb, kCVImageBufferAlphaChannelModeKey, kCVImageBufferAlphaChannelMode_PremultipliedAlpha,
+                    .shouldPropagate)
+            }
             while !input.isReadyForMoreMediaData {
                 if writer.status == .failed { throw writer.error ?? RenderError.setup("writer failed") }
                 usleep(500)
             }
+            guard adaptor.append(f.pb, withPresentationTime: CMTime(value: Int64(f.index) * 1000, timescale: timescale))
+            else {
+                throw writer.error ?? RenderError.setup("append failed at frame \(f.index)")
+            }
+            progress?(f.index + 1, frames)
+        }
+        do {
+        for i in 0..<frames {
+            if isCancelled() { throw CancellationError() }
+            let (scene, local) = segment(i)
+            let scale = Double(w) / Double(project.size(for: scene).0)
+            if inFlight.count >= Self.framesInFlight { try writeOldest() }
             guard let pool = adaptor.pixelBufferPool else {
                 throw writer.error ?? RenderError.setup("no pixel buffer pool")
             }
@@ -175,16 +204,14 @@ public final class Exporter {
                 scene: scene, project: project, assets: assets, time: Double(local) / fps, scale: scale,
                 transparent: transparent, commandBuffer: cb, targets: targets, output: tex)
             cb.commit()
-            cb.waitUntilCompleted()
-            if transparent {
-                CVBufferSetAttachment(
-                    pb, kCVImageBufferAlphaChannelModeKey, kCVImageBufferAlphaChannelMode_PremultipliedAlpha,
-                    .shouldPropagate)
-            }
-            guard adaptor.append(pb, withPresentationTime: CMTime(value: Int64(i) * 1000, timescale: timescale)) else {
-                throw writer.error ?? RenderError.setup("append failed at frame \(i)")
-            }
-            progress?(i + 1, frames)
+            inFlight.append((cb, pb, cvTex, i))
+        }
+        while !inFlight.isEmpty { try writeOldest() }
+        } catch {
+            for f in inFlight { f.cb.waitUntilCompleted() }
+            writer.cancelWriting()
+            try? FileManager.default.removeItem(at: url)
+            throw error
         }
         input.markAsFinished()
         let done = DispatchSemaphore(value: 0)
@@ -265,6 +292,7 @@ public final class Exporter {
         let width = Double(project.size(for: segment(0).scene).0) * o.scale
         var size = (0, 0)
         for i in 0..<frames {
+            if isCancelled() { throw CancellationError() }
             let (scene, local) = segment(i)
             let img = try renderer.image(
                 scene: scene, project: project, assets: assets, time: Double(local) / fps,

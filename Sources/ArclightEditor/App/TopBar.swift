@@ -72,11 +72,20 @@ struct TopBar: View {
             AIStatusPill(doc: doc, compact: density == .compact)
             ProblemsButton(doc: doc)
             if let b = doc.busy {
-                HStack(spacing: 5) {
-                    ProgressView().controlSize(.small).scaleEffect(0.7)
-                    if density == .full { Text(b).font(UI.small).foregroundStyle(UI.dim).lineLimit(1) }
+                let exporting = doc.exportJob.running
+                Button {
+                    if exporting { export() }
+                } label: {
+                    HStack(spacing: 5) {
+                        ProgressView().controlSize(.small).scaleEffect(0.7)
+                        if density == .full { Text(b).font(UI.small).foregroundStyle(UI.dim).lineLimit(1) }
+                    }
+                    .padding(.horizontal, exporting ? 6 : 0).frame(height: 22)
+                    .background(Capsule().fill(exporting ? UI.raised : .clear))
+                    .contentShape(Capsule())
                 }
-                .help(b)
+                .buttonStyle(.plain).cursor(exporting ? .pointingHand : .arrow)
+                .help(exporting ? "\(b) — click to show the export" : b)
             }
             ThemeQuickButton(doc: doc)
             if !doc.isThumbnail {

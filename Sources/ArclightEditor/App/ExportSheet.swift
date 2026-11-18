@@ -2,8 +2,31 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
+/// The export that is running (or last ran) for a project. Kept by the document, so hiding the sheet doesn't lose
+/// it: the top bar's "Exporting…" brings the sheet back.
+final class ExportJob: ObservableObject {
+    @Published var progress: Double?
+    @Published var results: [URL] = []
+    @Published var error: String?
+    /// Set by Cancel; the exporter asks between frames.
+    private let stopFlag = StopFlag()
+    var running: Bool { progress.map { $0 < 1 } ?? false }
+
+    func start() { progress = 0; results = []; error = nil; stopFlag.set(false) }
+    func cancel() { stopFlag.set(true) }
+    var isCancelled: () -> Bool { { [stopFlag] in stopFlag.get() } }
+}
+
+final class StopFlag: @unchecked Sendable {
+    private var on = false
+    private let lock = NSLock()
+    func set(_ v: Bool) { lock.withLock { on = v } }
+    func get() -> Bool { lock.withLock { on } }
+}
+
 struct ExportSheet: View {
     @ObservedObject var doc: EditorDocument
+    @ObservedObject var job: ExportJob
     @Binding var isPresented: Bool
     @State private var format = ExportFormat.mp4
     @State private var scale = 1.0
@@ -11,14 +34,14 @@ struct ExportSheet: View {
     enum Which: Hashable { case current, joined, separate }
     @State private var which: Which
     private var allScenes: Bool { which != .current }
-    @State private var progress: Double?
-    @State private var results: [URL] = []
-    @State private var error: String?
+    private var progress: Double? { job.progress }
+    private var results: [URL] { job.results }
+    private var error: String? { job.error }
     @State private var dest: URL?
     @State private var transparent = false
 
     init(doc: EditorDocument, isPresented: Binding<Bool>, which: Which = .current) {
-        self.doc = doc; _isPresented = isPresented; _which = State(initialValue: which)
+        self.doc = doc; job = doc.exportJob; _isPresented = isPresented; _which = State(initialValue: which)
     }
 
     var body: some View {
@@ -101,8 +124,13 @@ struct ExportSheet: View {
                         PillButtonStyle())
                 }
                 Spacer()
+                if running {
+                    Button("Cancel Export") { job.cancel() }.buttonStyle(PillButtonStyle())
+                        .help("Stop the export; the unfinished file is removed")
+                }
                 Button(running ? "Hide" : "Close") { isPresented = false }.buttonStyle(PillButtonStyle())
                     .keyboardShortcut(.cancelAction)
+                    .help(running ? "Keeps exporting — click “Exporting…” in the top bar to come back here" : "")
                 Button("Save current frame as PNG") { still(outDir) }.buttonStyle(PillButtonStyle())
                     .help(
                         "Writes the frame at the playhead (\(String(format: "%.2f", doc.viewTime))s) as one PNG — e.g. for a thumbnail"
@@ -148,7 +176,8 @@ struct ExportSheet: View {
         doc.saveNow()
         let scene = doc.scene, project = doc.project, assets = doc.assets, t = doc.viewTime, sc = scale,
             alpha = transparent && format != .mp4
-        error = nil
+        job.error = nil
+        let job = job
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let u = try Exporter(renderer: try Renderer()).exportStill(
@@ -156,9 +185,9 @@ struct ExportSheet: View {
                     to: dir.appendingPathComponent("\(scene.id)@\(String(format: "%.2f", t))s.png"), scale: sc,
                     transparent: alpha)
                 DispatchQueue.main.async {
-                    results = [u]; progress = 1
+                    job.results = [u]; job.progress = 1
                 }
-            } catch { DispatchQueue.main.async { self.error = "\(error)" } }
+            } catch { DispatchQueue.main.async { job.error = "\(error)" } }
         }
     }
 
@@ -169,12 +198,13 @@ struct ExportSheet: View {
         let joinedName = Exporter.joinedName(project.name)
         var o = ExportOptions(); o.format = format; o.scale = scale
         if format == .prores || format == .png { o.transparent = transparent }
-        progress = 0; results = []; error = nil
+        job.start()
         doc.busy = "Exporting…"
-        let d = doc
+        let d = doc, job = job, stop = job.isCancelled
         DispatchQueue.global(qos: .userInitiated).async {
             do {
                 let ex = Exporter(renderer: try Renderer())
+                ex.isCancelled = stop
                 var out: [URL] = []
                 if joined {
                     let r = try ex.export(
@@ -183,12 +213,13 @@ struct ExportSheet: View {
                     ) { f, n in
                         if f % 5 == 0 || f == n {
                             let p = Double(f) / Double(n)
-                            DispatchQueue.main.async { progress = p; d.busy = "Exporting \(Int(p * 100))%" }
+                            DispatchQueue.main.async { job.progress = p; d.busy = "Exporting \(Int(p * 100))%" }
                         }
                     }
                     out.append(r.url)
                 }
                 for (i, s) in (joined ? [] : scenes).enumerated() {
+                    if stop() { throw CancellationError() }
                     let r = try ex.export(
                         scene: s, project: project, assets: assets,
                         to: dir.appendingPathComponent("\(s.id).\(format.ext)"), options: o
@@ -196,18 +227,22 @@ struct ExportSheet: View {
                         if f % 5 == 0 || f == n {
                             let p = (Double(i) + Double(f) / Double(n)) / Double(scenes.count)
                             DispatchQueue.main.async {
-                                progress = p; d.busy = "Exporting \(Int(p * 100))%"
+                                job.progress = p; d.busy = "Exporting \(Int(p * 100))%"
                             }
                         }
                     }
                     out.append(r.url)
                 }
                 DispatchQueue.main.async {
-                    results = out; progress = 1; d.busy = nil; d.flash("Export finished")
+                    job.results = out; job.progress = 1; d.busy = nil; d.flash("Export finished")
+                }
+            } catch is CancellationError {
+                DispatchQueue.main.async {
+                    job.error = "Export cancelled."; job.progress = nil; d.busy = nil; d.flash("Export cancelled")
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.error = "\(error)"; progress = nil; d.busy = nil
+                    job.error = "\(error)"; job.progress = nil; d.busy = nil
                 }
             }
         }
