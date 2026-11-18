@@ -65,4 +65,31 @@ import Testing
             if fmt == .prores { #expect(sub == kCMVideoCodecType_AppleProRes4444, "ProRes 4444 kept (alpha)") }
         }
     }
+
+    @Test(.requiresMetal) func joinedExportPlaysScenesBackToBack() throws {
+        let project = try TempProject("join")
+        let dir = project.url
+        defer { project.remove() }
+        try tone(dir.appendingPathComponent("tone.wav"), channels: 2, amplitude: { _ in 0.5 })
+        // The second scene has sound, the first is silent: its sound must start after the first scene.
+        let quiet = Scene(id: "a", duration: 1)
+        var loud = Scene(id: "b", duration: 1.5)
+        loud.audio = AudioRef(src: "tone.wav")
+        let p = Project(name: "Мой ролик", size: [320, 180])
+        #expect(Exporter.joinedName(p.name) == "moj-rolik")
+        let ex = Exporter(renderer: try Renderer())
+        let out = dir.appendingPathComponent("joined.mp4")
+        let r = try ex.export(scenes: [quiet, loud], project: p, assets: dir, to: out, options: ExportOptions())
+        #expect(r.frames == 30 + 45)
+        let mix = try Stereo.read(out)
+        #expect(abs(mix.duration - 2.5) < 0.1, "audio \(mix.duration)s")
+        let at = { (t: Double) in mix.l[Int(t * Stereo.rate)] }
+        #expect((0..<1000).allSatisfy { abs(at(0.2 + Double($0) / 10000)) < 0.001 }, "silent while scene a plays")
+        #expect((0..<1000).contains { abs(at(1.6 + Double($0) / 10000)) > 0.1 }, "tone during scene b")
+        // Scenes of different shapes can't share one video.
+        var tall = Scene(id: "c", duration: 1); tall.size = [180, 320]
+        #expect(throws: (any Error).self) {
+            try ex.export(scenes: [quiet, tall], project: p, assets: dir, to: out, options: ExportOptions())
+        }
+    }
 }

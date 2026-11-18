@@ -61,21 +61,52 @@ public final class Exporter {
         scene: Scene, project: Project, assets: URL?, to url: URL, options o: ExportOptions,
         progress: ((Int, Int) -> Void)? = nil
     ) throws -> ExportResult {
+        try export(scenes: [scene], project: project, assets: assets, to: url, options: o, progress: progress)
+    }
+
+    /// Several scenes played one after another into one file (video, or one PNG sequence), in the given order.
+    /// Each scene keeps its own sound mix and loudness; the output takes the first scene's canvas and frame rate.
+    /// The scenes must share an aspect ratio (a different size is scaled to fit the first).
+    public func export(
+        scenes: [Scene], project: Project, assets: URL?, to url: URL, options o: ExportOptions,
+        progress: ((Int, Int) -> Void)? = nil
+    ) throws -> ExportResult {
+        guard let first = scenes.first else { throw RenderError.setup("no scenes to export") }
         // Export draws every layer at full quality, whatever the editor viewport left set (draft preview, solo).
         let saved = (renderer.draft, renderer.only)
         renderer.draft = false; renderer.only = nil
         defer { renderer.draft = saved.0; renderer.only = saved.1 }
-        try Exporter.checkNumbers(scene: scene, project: project, options: o)
+        for sc in scenes { try Exporter.checkNumbers(scene: sc, project: project, options: o) }
+        let (cw, ch) = project.size(for: first)
+        for sc in scenes.dropFirst() {
+            let (w, h) = project.size(for: sc)
+            if abs(Double(w) / Double(h) - Double(cw) / Double(ch)) > 0.01 {
+                throw RenderError.setup(
+                    "can't join “\(sc.name ?? sc.id)” (\(w)×\(h)) after “\(first.name ?? first.id)” (\(cw)×\(ch)): "
+                        + "the scenes have different shapes")
+            }
+        }
+        let fps = o.fps ?? first.fps ?? project.fps
+        // Frames per scene, and the frame each one starts at.
+        let counts = scenes.map { max(1, Int(($0.duration * fps).rounded(.up))) }
+        let frames = counts.reduce(0, +)
+        func segment(_ i: Int) -> (scene: Scene, local: Int) {
+            var k = i
+            for (n, c) in counts.enumerated() {
+                if k < c { return (scenes[n], k) }
+                k -= c
+            }
+            return (scenes[scenes.count - 1], counts[counts.count - 1] - 1)
+        }
         if o.format == .png {
             return try exportPNGSequence(
-                scene: scene, project: project, assets: assets, to: url, options: o, progress: progress)
+                name: scenes.count == 1 ? first.id : url.deletingPathExtension().lastPathComponent,
+                frames: frames, segment: segment, fps: fps, project: project, assets: assets, to: url, options: o,
+                progress: progress)
         }
         let start = Date()
-        let (cw, ch) = project.size(for: scene)
         func even(_ v: Double) -> Int { max(2, Int((v / 2).rounded()) * 2) }
         let w = even(Double(cw) * o.scale), h = even(Double(ch) * o.scale)
-        let fps = o.fps ?? scene.fps ?? project.fps
-        let frames = max(1, Int((scene.duration * fps).rounded(.up)))
         let transparent = o.format == .prores ? (o.transparent ?? true) : false
 
         try? FileManager.default.removeItem(at: url)
@@ -119,10 +150,11 @@ public final class Exporter {
         CVMetalTextureCacheCreate(nil, nil, renderer.device, nil, &cacheRef)
         guard let cache = cacheRef else { throw RenderError.setup("texture cache") }
         let targets = try renderer.makeTargets(width: w, height: h)
-        let scale = Double(w) / Double(cw)
         let timescale = Int32((fps * 1000).rounded())
 
         for i in 0..<frames {
+            let (scene, local) = segment(i)
+            let scale = Double(w) / Double(project.size(for: scene).0)
             while !input.isReadyForMoreMediaData {
                 if writer.status == .failed { throw writer.error ?? RenderError.setup("writer failed") }
                 usleep(500)
@@ -140,7 +172,7 @@ public final class Exporter {
                 throw RenderError.setup("metal texture from pixel buffer")
             }
             renderer.encode(
-                scene: scene, project: project, assets: assets, time: Double(i) / fps, scale: scale,
+                scene: scene, project: project, assets: assets, time: Double(local) / fps, scale: scale,
                 transparent: transparent, commandBuffer: cb, targets: targets, output: tex)
             cb.commit()
             cb.waitUntilCompleted()
@@ -160,17 +192,29 @@ public final class Exporter {
         writer.finishWriting { done.signal() }
         done.wait()
         guard writer.status == .completed else { throw writer.error ?? RenderError.setup("export failed") }
-        // Reference audio and sound clips: mixed and muxed into the finished video (video copied as-is).
-        let clips = scene.audibleClips
-        if !clips.isEmpty {
-            let tmp = url.deletingLastPathComponent().appendingPathComponent(
-                ".\(url.lastPathComponent).audio.\(o.format.ext)")
-            // The same mix the editor plays and mix_check measures, through the master limiter.
-            let rendered = SceneMix.render(scene, assets: assets)
-            if !rendered.stems.isEmpty {
-                var mix = SceneMix.master(rendered.mix, loudness: scene.loudness)
-                let n = min(mix.count, Int((Double(frames) / fps * Stereo.rate).rounded()))
-                mix = Stereo(l: Array(mix.l[..<n]), r: Array(mix.r[..<n]))
+        // Reference audio and sound clips: each scene's mix (the same one the editor plays and mix_check
+        // measures, through its master limiter) laid end to end, then muxed into the finished video.
+        if scenes.contains(where: { !$0.audibleClips.isEmpty }) {
+            var mix = Stereo(count: 0)
+            var any = false
+            for (n, sc) in scenes.enumerated() {
+                let len = Int((Double(counts[n]) / fps * Stereo.rate).rounded())
+                var part = Stereo(count: len)
+                if !sc.audibleClips.isEmpty {
+                    let rendered = SceneMix.render(sc, assets: assets)
+                    if !rendered.stems.isEmpty {
+                        any = true
+                        let m = SceneMix.master(rendered.mix, loudness: sc.loudness)
+                        let k = min(len, m.count)
+                        part.l.replaceSubrange(0..<k, with: m.l[..<k])
+                        part.r.replaceSubrange(0..<k, with: m.r[..<k])
+                    }
+                }
+                mix.l += part.l; mix.r += part.r
+            }
+            if any {
+                let tmp = url.deletingLastPathComponent().appendingPathComponent(
+                    ".\(url.lastPathComponent).audio.\(o.format.ext)")
                 let wav = url.deletingLastPathComponent().appendingPathComponent(".\(url.lastPathComponent).mix.wav")
                 defer { try? FileManager.default.removeItem(at: wav) }
                 try SceneMix.write(mix, to: wav)
@@ -187,6 +231,13 @@ public final class Exporter {
             url: url, frames: frames, width: w, height: h, fps: fps, seconds: Date().timeIntervalSince(start))
     }
 
+    /// File-name base for all scenes joined into one video: the project's name in plain Latin letters.
+    public static func joinedName(_ projectName: String) -> String {
+        // slug() falls back to "sound" when nothing usable is left.
+        let base = AudioFiles.slug(projectName)
+        return base == "sound" && !projectName.lowercased().contains("sound") ? "all-scenes" : base
+    }
+
     /// A hand-edited project file can hold any number; the ones that become frame counts and pixel sizes are
     /// checked with the limits the CLI and MCP use, so a bad file fails with a clear error instead of a crash.
     static func checkNumbers(scene: Scene, project: Project, options o: ExportOptions) throws {
@@ -201,28 +252,25 @@ public final class Exporter {
         }
     }
 
-    /// Writes `<url without .png>_png/<scene>_00000.png …`. Motion blur and fades apply as in video export.
+    /// Writes `<url without .png>_png/<name>_00000.png …`. Motion blur and fades apply as in video export.
     func exportPNGSequence(
-        scene: Scene, project: Project, assets: URL?, to url: URL, options o: ExportOptions,
-        progress: ((Int, Int) -> Void)?
+        name: String, frames: Int, segment: (Int) -> (scene: Scene, local: Int), fps: Double, project: Project,
+        assets: URL?, to url: URL, options o: ExportOptions, progress: ((Int, Int) -> Void)?
     ) throws -> ExportResult {
         let start = Date()
         let folder = url.deletingPathExtension().deletingPathExtension()
         let dir = folder.deletingLastPathComponent().appendingPathComponent(folder.lastPathComponent + "_png")
         try? FileManager.default.removeItem(at: dir)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let fps = o.fps ?? scene.fps ?? project.fps
-        let frames = max(1, Int((scene.duration * fps).rounded(.up)))
-        let saved = (renderer.draft, renderer.only)
-        renderer.draft = false; renderer.only = nil
-        defer { renderer.draft = saved.0; renderer.only = saved.1 }
+        let width = Double(project.size(for: segment(0).scene).0) * o.scale
         var size = (0, 0)
         for i in 0..<frames {
+            let (scene, local) = segment(i)
             let img = try renderer.image(
-                scene: scene, project: project, assets: assets, time: Double(i) / fps,
-                scale: o.scale, transparent: o.transparent ?? false)
+                scene: scene, project: project, assets: assets, time: Double(local) / fps,
+                scale: width / Double(project.size(for: scene).0), transparent: o.transparent ?? false)
             size = (img.width, img.height)
-            try ImageFile.writePNG(img, to: dir.appendingPathComponent(String(format: "%@_%05d.png", scene.id, i)))
+            try ImageFile.writePNG(img, to: dir.appendingPathComponent(String(format: "%@_%05d.png", name, i)))
             progress?(i + 1, frames)
         }
         return ExportResult(

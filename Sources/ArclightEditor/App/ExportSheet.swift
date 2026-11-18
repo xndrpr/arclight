@@ -7,12 +7,19 @@ struct ExportSheet: View {
     @Binding var isPresented: Bool
     @State private var format = ExportFormat.mp4
     @State private var scale = 1.0
-    @State private var allScenes = false
+    /// Which scenes: the open one, all of them back to back in one file, or each in its own file.
+    enum Which: Hashable { case current, joined, separate }
+    @State private var which: Which
+    private var allScenes: Bool { which != .current }
     @State private var progress: Double?
     @State private var results: [URL] = []
     @State private var error: String?
     @State private var dest: URL?
     @State private var transparent = false
+
+    init(doc: EditorDocument, isPresented: Binding<Bool>, which: Which = .current) {
+        self.doc = doc; _isPresented = isPresented; _which = State(initialValue: which)
+    }
 
     var body: some View {
         let outDir = dest ?? doc.url.appendingPathComponent("exports")
@@ -40,8 +47,22 @@ struct ExportSheet: View {
                     }
                 }.pickerStyle(.segmented).labelsHidden()
             }
-            row("Scenes") {
-                Toggle("All \(doc.scenes.count) scenes", isOn: $allScenes).toggleStyle(.checkbox).font(UI.font)
+            if doc.scenes.count > 1 {
+                row("Scenes") {
+                    Picker("", selection: $which) {
+                        Text("This scene").tag(Which.current)
+                        Text("All \(doc.scenes.count), joined").tag(Which.joined)
+                        Text("All, separate files").tag(Which.separate)
+                    }.pickerStyle(.segmented).labelsHidden()
+                }
+                if which == .joined {
+                    Text(
+                        "One file: " + doc.scenes.map { $0.name ?? $0.id }.joined(separator: " → ")
+                            + ". Drag scenes in the Scenes list to change the order."
+                    )
+                    .font(UI.small).foregroundStyle(UI.dim).lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 68)
+                }
             }
             row("Folder") {
                 HStack {
@@ -107,9 +128,13 @@ struct ExportSheet: View {
     private var summary: String {
         let fps = doc.fps, d = allScenes ? doc.scenes.reduce(0) { $0 + $1.duration } : doc.scene.duration
         let frames = Int((d * fps).rounded(.up))
-        let what = allScenes ? "\(doc.scenes.count) scenes" : "“\(doc.scene.name ?? doc.scene.id)”"
+        let what =
+            which == .joined
+            ? "\(doc.scenes.count) scenes in one file"
+            : allScenes ? "\(doc.scenes.count) scenes" : "“\(doc.scene.name ?? doc.scene.id)”"
         return "\(what) · \(fmt((d * 100).rounded() / 100)) s · \(frames) frames at \(fmt(fps)) fps"
-            + (!doc.scene.audibleClips.isEmpty && format != .png ? " · with audio" : "")
+            + ((allScenes ? doc.scenes : [doc.scene]).contains { !$0.audibleClips.isEmpty } && format != .png
+                ? " · with audio" : "")
     }
 
     private func row<C: View>(_ label: String, @ViewBuilder _ c: () -> C) -> some View {
@@ -140,7 +165,8 @@ struct ExportSheet: View {
     private func run(_ dir: URL) {
         doc.saveNow()
         let scenes = allScenes ? doc.scenes : [doc.scene]
-        let project = doc.project, assets = doc.assets
+        let project = doc.project, assets = doc.assets, joined = which == .joined && scenes.count > 1
+        let joinedName = Exporter.joinedName(project.name)
         var o = ExportOptions(); o.format = format; o.scale = scale
         if format == .prores || format == .png { o.transparent = transparent }
         progress = 0; results = []; error = nil
@@ -150,7 +176,19 @@ struct ExportSheet: View {
             do {
                 let ex = Exporter(renderer: try Renderer())
                 var out: [URL] = []
-                for (i, s) in scenes.enumerated() {
+                if joined {
+                    let r = try ex.export(
+                        scenes: scenes, project: project, assets: assets,
+                        to: dir.appendingPathComponent("\(joinedName).\(format.ext)"), options: o
+                    ) { f, n in
+                        if f % 5 == 0 || f == n {
+                            let p = Double(f) / Double(n)
+                            DispatchQueue.main.async { progress = p; d.busy = "Exporting \(Int(p * 100))%" }
+                        }
+                    }
+                    out.append(r.url)
+                }
+                for (i, s) in (joined ? [] : scenes).enumerated() {
                     let r = try ex.export(
                         scene: s, project: project, assets: assets,
                         to: dir.appendingPathComponent("\(s.id).\(format.ext)"), options: o

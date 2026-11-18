@@ -43,7 +43,7 @@ extension MCPServer {
             Tool(
                 name: "export",
                 description:
-                    "Export scenes: mp4 (H.264), hevc, prores (ProRes 4444 .mov with transparency for overlays) or png (image sequence). Pass frame (seconds) for a single PNG still. Scene audio is mixed in. For a thumbnail page pass thumbnail (and optionally artboards): format png, jpg or youtube (1280x720 JPG under YouTube's 2 MB limit; the default). Returns file paths.",
+                    "Export scenes: mp4 (H.264), hevc, prores (ProRes 4444 .mov with transparency for overlays) or png (image sequence). Pass frame (seconds) for a single PNG still. Scene audio is mixed in. join:true plays the scenes one after another in a single file named after the project (the user orders scenes by dragging them in the editor's Scenes list; project order is the default). For a thumbnail page pass thumbnail (and optionally artboards): format png, jpg or youtube (1280x720 JPG under YouTube's 2 MB limit; the default). Returns file paths.",
                 schema: schema([
                     "scenes": prop(
                         "array", "Scene ids; default all in project order", extra: ["items": ["type": "string"]]),
@@ -60,6 +60,7 @@ extension MCPServer {
                     "transparent": prop(
                         "boolean", "ProRes/PNG: transparent background (ProRes default true, PNG default false)"),
                     "out_dir": prop("string", "Default <project>/exports"),
+                    "join": prop("boolean", "One file with all the scenes back to back, in the order given"),
                 ])
             ) { [unowned self] a in
                 let s = try requireStore()
@@ -90,6 +91,15 @@ extension MCPServer {
                         lines.append(u.path)
                     }
                     return text(lines.joined(separator: "\n"))
+                }
+                if a["join"]?.bool == true {
+                    let r = try exporter.export(
+                        scenes: try ids.map { try s.scene($0) }, project: s.project, assets: s.assetsURL,
+                        to: dir.appendingPathComponent("\(Exporter.joinedName(s.project.name)).\(o.format.ext)"),
+                        options: o)
+                    return text(
+                        "\(r.url.path)  \(r.width)x\(r.height)@\(String(format: "%g", r.fps))  \(r.frames) frames  \(ids.count) scenes  \(String(format: "%.1f", r.seconds))s"
+                    )
                 }
                 for id in ids {
                     let scene = try s.scene(id)

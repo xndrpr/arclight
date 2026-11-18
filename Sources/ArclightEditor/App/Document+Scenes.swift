@@ -56,6 +56,27 @@ extension EditorDocument {
         if id == scene.id, let first = store.orderedScenes.first { switchTo(first) }
     }
 
+    /// Moves a scene to position `index` among the project's scenes (drafts keep their places). The order is
+    /// the order "Export all scenes" joins them in.
+    func moveScene(_ id: String, to index: Int) {
+        var order = store.orderedScenes.map(\.id)
+        guard let from = order.firstIndex(of: id) else { return }
+        let to = max(0, min(index, order.count))
+        guard to != from, to != from + 1 else { return }
+        order.remove(at: from)
+        order.insert(id, at: to > from ? to - 1 : to)
+        var p = store.project
+        // Rewrite the non-draft slots in the new order; drafts stay where they were.
+        var next = order.makeIterator()
+        p.scenes = p.scenes.map { sid in
+            guard let sc = store.scenes[sid], !sc.isDraft else { return sid }
+            return next.next() ?? sid
+        }
+        try? store.update(project: p)
+        refreshProject()
+        objectWillChange.send()
+    }
+
     func refreshProject() { project = effectiveProject(); stamps = fileStamps() }
 
     // MARK: Canvas & frame rate

@@ -11,8 +11,9 @@ let usage = """
           Open the editor (no arguments: welcome window). Projects from Apogee (.apogee) open too.
       arclight render <project.arclight> [--scene ID | --thumbnail ID [--artboard ID]] [--time S]... [--scale F] [--transparent] [--out FILE.png]
           Render frames to PNG. Several --time values write FILE_0.png, FILE_1.png, ...
-      arclight export <project.arclight> [--scene ID]... [--format mp4|hevc|prores|png] [--scale F] [--fps N] [--out DIR]
+      arclight export <project.arclight> [--scene ID]... [--format mp4|hevc|prores|png] [--scale F] [--fps N] [--out DIR] [--join]
           Export scenes to video or a PNG sequence (default: all scenes, mp4, into <project>/exports).
+          --join plays the scenes one after another in a single file (named after the project).
       arclight mcp [--project <project.arclight>] [--chat]
           Run the MCP server on stdio (for Claude Code: claude mcp add arclight -- /path/to/arclight mcp).
       arclight docs [--out FILE.md]
@@ -39,7 +40,7 @@ struct Args {
     var positional: [String] = []
     var options: [String: [String]] = [:]
     var flags: Set<String> = []
-    static let flagNames: Set<String> = ["transparent", "chat"]
+    static let flagNames: Set<String> = ["transparent", "chat", "join"]
 
     init(_ argv: [String]) {
         var i = 0
@@ -146,6 +147,19 @@ case "export":
     let dir = args.one("out").map { URL(fileURLWithPath: $0) } ?? store.url.appendingPathComponent("exports")
     do {
         let exporter = Exporter(renderer: try Renderer())
+        if args.flags.contains("join") {
+            let scenes = try ids.map { try store.scene($0) }
+            let name = Exporter.joinedName(store.project.name)
+            let r = try exporter.export(
+                scenes: scenes, project: store.project, assets: store.assetsURL,
+                to: dir.appendingPathComponent("\(name).\(o.format.ext)"), options: o
+            ) { i, n in
+                if i % 15 == 0 || i == n { FileHandle.standardError.write("\r\(name): \(i)/\(n)".data(using: .utf8)!) }
+            }
+            FileHandle.standardError.write("\n".data(using: .utf8)!)
+            print(String(format: "%@  %dx%d  %d frames  %.2fs", r.url.path, r.width, r.height, r.frames, r.seconds))
+            exit(0)
+        }
         for id in ids {
             let scene = try store.scene(id)
             let r = try exporter.export(

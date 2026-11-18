@@ -76,6 +76,9 @@ public enum EditorSnapshot {
                     doc: doc, chat: doc.chat, frames: ChoiceFrames(), choice: c,
                     picked: .constant(o.select.map { [$0] } ?? []),
                     comment: .constant(""), waiting: true, index: i, toggle: { _ in }, confirm: {}))
+        case "export":
+            return AnyView(
+                ExportSheet(doc: doc, isPresented: .constant(true), which: o.select == "joined" ? .joined : .current))
         case "installhelp": return AnyView(InstallHelpView(close: {}))
         case "shortcuts": return AnyView(ShortcutsSheet(isPresented: .constant(true)))
         case "inspector": return AnyView(InspectorView(doc: doc).frame(width: CGFloat(o.width)))
