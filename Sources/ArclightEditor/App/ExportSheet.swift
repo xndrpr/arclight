@@ -5,6 +5,12 @@ import SwiftUI
 /// The export that is running (or last ran) for a project. Kept by the document, so hiding the sheet doesn't lose
 /// it: the top bar's "Exporting…" brings the sheet back.
 final class ExportJob: ObservableObject {
+    /// The sheet's choices, kept for the project while it is open: reopening the sheet shows them again.
+    @Published var format = ExportFormat.mp4
+    @Published var scale = 1.0
+    @Published var which = ExportSheet.Which.current
+    @Published var transparent = false
+    @Published var dest: URL?
     @Published var progress: Double?
     @Published var results: [URL] = []
     @Published var error: String?
@@ -28,20 +34,27 @@ struct ExportSheet: View {
     @ObservedObject var doc: EditorDocument
     @ObservedObject var job: ExportJob
     @Binding var isPresented: Bool
-    @State private var format = ExportFormat.mp4
-    @State private var scale = 1.0
+    private var format: ExportFormat {
+        get { job.format }
+        nonmutating set { job.format = newValue }
+    }
+    private var scale: Double { job.scale }
     /// Which scenes: the open one, all of them back to back in one file, or each in its own file.
     enum Which: Hashable { case current, joined, separate }
-    @State private var which: Which
+    private var which: Which { job.which }
     private var allScenes: Bool { which != .current }
     private var progress: Double? { job.progress }
     private var results: [URL] { job.results }
     private var error: String? { job.error }
-    @State private var dest: URL?
-    @State private var transparent = false
+    private var dest: URL? {
+        get { job.dest }
+        nonmutating set { job.dest = newValue }
+    }
+    private var transparent: Bool { job.transparent }
 
-    init(doc: EditorDocument, isPresented: Binding<Bool>, which: Which = .current) {
-        self.doc = doc; job = doc.exportJob; _isPresented = isPresented; _which = State(initialValue: which)
+    init(doc: EditorDocument, isPresented: Binding<Bool>, which: Which? = nil) {
+        self.doc = doc; job = doc.exportJob; _isPresented = isPresented
+        if let which { doc.exportJob.which = which }
     }
 
     var body: some View {
@@ -59,12 +72,12 @@ struct ExportSheet: View {
             }
             if format == .prores || format == .png {
                 row("Alpha") {
-                    Toggle("Transparent background (for overlaying in your video editor)", isOn: $transparent)
+                    Toggle("Transparent background (for overlaying in your video editor)", isOn: $job.transparent)
                         .toggleStyle(.checkbox).font(UI.font)
                 }
             }
             row("Size") {
-                Picker("", selection: $scale) {
+                Picker("", selection: $job.scale) {
                     ForEach([0.5, 1.0, 2.0], id: \.self) { s in
                         Text("\(Int(doc.canvasSize.width * s))×\(Int(doc.canvasSize.height * s))").tag(s)
                     }
@@ -72,7 +85,7 @@ struct ExportSheet: View {
             }
             if doc.scenes.count > 1 {
                 row("Scenes") {
-                    Picker("", selection: $which) {
+                    Picker("", selection: $job.which) {
                         Text("This scene").tag(Which.current)
                         Text("All \(doc.scenes.count), joined").tag(Which.joined)
                         Text("All, separate files").tag(Which.separate)
@@ -143,7 +156,15 @@ struct ExportSheet: View {
         }
         .padding(20).frame(width: 540).background(UI.panel)
         .themedRoot()  // a sheet is its own window: follow theme changes while it's open
-        .onChange(of: format) { _, f in transparent = f == .prores }
+        .onChange(of: job.format) { _, f in job.transparent = f == .prores }
+    }
+
+    /// A scene's file when each scene gets its own: numbered in the Scenes list's order when there are several,
+    /// so Finder and video editors list them in that order ("03 scene-2b").
+    static func fileName(_ s: Scene, at i: Int, of n: Int) -> String {
+        guard n > 1 else { return s.id }
+        let digits = String(n).count
+        return String(repeating: "0", count: max(0, max(2, digits) - String(i + 1).count)) + "\(i + 1) \(s.id)"
     }
 
     private static let formats: [(format: ExportFormat, title: String, detail: String)] = [
@@ -222,7 +243,8 @@ struct ExportSheet: View {
                     if stop() { throw CancellationError() }
                     let r = try ex.export(
                         scene: s, project: project, assets: assets,
-                        to: dir.appendingPathComponent("\(s.id).\(format.ext)"), options: o
+                        to: dir.appendingPathComponent("\(Self.fileName(s, at: i, of: scenes.count)).\(format.ext)"),
+                        options: o
                     ) { f, n in
                         if f % 5 == 0 || f == n {
                             let p = (Double(i) + Double(f) / Double(n)) / Double(scenes.count)
