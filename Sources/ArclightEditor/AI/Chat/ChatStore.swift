@@ -13,6 +13,7 @@ final class ChatStore: ObservableObject {
     /// Scene revisions now, and putting scenes back to an earlier set (the document's; see `Document+Chat`).
     var checkpoint: () -> [String: Int] = { [:] }
     var revert: ([String: Int]) -> [String] = { _ in [] }
+    var frame: () -> URL? = { nil }
     /// Called when another chat comes to the front (the views showing "the chat" follow it).
     var onActiveChange: () -> Void = {}
 
@@ -42,6 +43,7 @@ final class ChatStore: ObservableObject {
         c.note = { [weak self] in self?.note() }
         c.checkpoint = { [weak self] in self?.checkpoint() ?? [:] }
         c.revert = { [weak self] in self?.revert($0) ?? [] }
+        c.frame = { [weak self] in self?.frame() }
         c.onChange = { [weak self, weak c] in
             guard let self, let c else { return }
             if !c.transcript.items.isEmpty { self.index.note(c.transcript.summary) }

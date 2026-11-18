@@ -212,6 +212,13 @@ public enum ChatPrompt {
     }
 
     /// The project's sound notes (what the user wants it to sound like), sent with each user message.
+    /// The user's standing notes on the project (`ProjectNotes`), as sent with each message.
+    public static func projectNote(_ notes: String?) -> String? {
+        notes.map {
+            "<project_notes>\nThe user's standing notes for this project. Follow them in every reply.\n\($0)\n</project_notes>"
+        }
+    }
+
     public static func soundNote(_ notes: String?) -> String? {
         notes.map { "<sound>\n\($0)\n</sound>" }
     }

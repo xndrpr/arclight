@@ -67,6 +67,7 @@ struct ChatView: View {
             }
             Spacer()
             ChatModelMenu()
+            ProjectNotesButton(project: chat.project)
             historyMenu
             IconButton(symbol: "square.and.pencil", help: "New chat (this one stays in the list and keeps working)") {
                 doc.chats.newChat()
@@ -442,7 +443,7 @@ private struct ChatWorking: View {
     var body: some View {
         HStack(spacing: 6) {
             ProgressView().controlSize(.mini)
-            Text((label ?? "Working") + "…").font(UI.small).foregroundStyle(UI.dim)
+            Text((label ?? "Working") + "…").font(UI.small).foregroundStyle(UI.dim).shimmering()
         }
     }
 }
@@ -458,6 +459,13 @@ private struct ChatEmptyState: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if chat.kind == .cli, CLILocator.locate(custom: ChatSettings.cliPath) == nil {
+                Label(
+                    "The command-line agent wasn't found. Set its path in Settings ▸ AI ▸ Experimental, or switch back to the API there.",
+                    systemImage: "exclamationmark.triangle.fill"
+                )
+                .font(UI.small).foregroundStyle(UI.warning).fixedSize(horizontal: false, vertical: true)
+            }
             if chat.hasCredentials {
                 Text(
                     "Ask the AI to build or change anything in this project. You'll see each change live, and can revert it in Activity."
@@ -654,5 +662,87 @@ enum ChatImageCache {
         guard let img = NSImage(data: d) else { return nil }
         cache.setObject(img, forKey: item.id as NSString)
         return img
+    }
+}
+
+/// The header's Notes button: what every chat of this project should know (`ProjectNotes`).
+struct ProjectNotesButton: View {
+    let project: URL
+    @State private var open = false
+    @State private var text = ""
+    @State private var has = false
+
+    var body: some View {
+        IconButton(
+            symbol: has ? "note.text" : "note.text.badge.plus",
+            help: "Project notes: the script, rules, models to use — sent to the AI with every message, in every chat",
+            active: has
+        ) {
+            text = ProjectNotes.read(project) ?? ""
+            open = true
+        }
+        .onAppear { has = ProjectNotes.read(project) != nil }
+        .popover(isPresented: $open, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Project notes").font(.system(size: 13, weight: .semibold)).foregroundStyle(UI.text)
+                Text(
+                    "The AI reads this with every message, in every chat of this project. Put here what you would otherwise paste again: the script, the rules of the piece, which models to use."
+                )
+                .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
+                TextEditor(text: $text).font(UI.font).scrollContentBackground(.hidden)
+                    .padding(6).frame(height: 260)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(UI.field))
+                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(UI.fieldBorder))
+                HStack {
+                    Text("\(text.count) / \(ProjectNotes.maxLength)").font(UI.monoSmall)
+                        .foregroundStyle(text.count > ProjectNotes.maxLength ? UI.danger : UI.faint)
+                    Spacer()
+                    Button("Done") { open = false }.keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(14).frame(width: 440)
+            .onDisappear {
+                try? ProjectNotes.write(text, project: project)
+                has = ProjectNotes.read(project) != nil
+            }
+        }
+    }
+}
+
+/// A band of light passing over a label while the thing it names is happening.
+private struct Shimmer: ViewModifier {
+    @State private var phase: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        if Motion.reduce {
+            content
+        } else {
+            content
+                .overlay {
+                    GeometryReader { g in
+                        LinearGradient(
+                            colors: [.clear, UI.text.opacity(0.85), .clear], startPoint: .leading, endPoint: .trailing
+                        )
+                        .frame(width: 56)
+                        .offset(x: phase * (g.size.width + 56) - 56)
+                    }
+                    .mask(content)
+                    .allowsHitTesting(false)
+                }
+                .onAppear {
+                    withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) { phase = 1 }
+                }
+        }
+    }
+}
+
+extension View {
+    func shimmering(_ on: Bool = true) -> some View { modifier(ShimmerIf(on: on)) }
+}
+
+private struct ShimmerIf: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        if on { content.modifier(Shimmer()) } else { content }
     }
 }

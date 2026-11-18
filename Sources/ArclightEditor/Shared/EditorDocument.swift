@@ -89,6 +89,7 @@ final class EditorDocument: ObservableObject {
         s.note = { [weak self] in self?.chatNote() }
         s.checkpoint = { [weak self] in self?.chatCheckpoint() ?? [:] }
         s.revert = { [weak self] in self?.revertChat(to: $0) ?? [] }
+        s.frame = { [weak self] in self?.chatFrame() }
         s.onActiveChange = { [weak self] in self?.objectWillChange.send() }
         return s
     }()

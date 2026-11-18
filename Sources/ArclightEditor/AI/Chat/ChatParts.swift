@@ -57,6 +57,7 @@ struct ChatToolGroup: View, Equatable {
                     .font(.system(size: 9, weight: .bold)).frame(width: 12)
                     Text(summary(running: running, failed: failed)).font(UI.small).foregroundStyle(UI.label2)
                         .lineLimit(1).truncationMode(.tail)
+                        .shimmering(running != nil)
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right").font(.system(size: 7, weight: .bold)).foregroundStyle(UI.dim)
                         .rotationEffect(.degrees(open ? 90 : 0))

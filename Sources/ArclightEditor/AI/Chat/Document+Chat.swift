@@ -46,4 +46,15 @@ extension EditorDocument {
         flash(done.isEmpty ? "Nothing to put back" : "Put back \(done.count) scene\(done.count == 1 ? "" : "s")")
         return done
     }
+
+    /// The frame under the playhead as a PNG in the temporary folder, named after the scene and time.
+    func chatFrame() -> URL? {
+        guard let img = preview(scene, time: viewTime, width: 1280) else { return nil }
+        let name = workspace == .motion ? String(format: "%@ at %.2fs.png", scene.id, viewTime) : "\(scene.id).png"
+        let u = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            .appendingPathComponent(name)
+        try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard (try? ImageFile.writePNG(img, to: u)) != nil else { return nil }
+        return u
+    }
 }

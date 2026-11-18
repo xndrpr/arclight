@@ -49,6 +49,10 @@ struct ChatInput: View {
                         pickFiles()
                     }
                     .disabled(!chat.hasCredentials)
+                    IconButton(symbol: "camera.viewfinder", help: "Attach the frame the viewer shows now") {
+                        chat.attachFrame()
+                    }
+                    .disabled(!chat.hasCredentials)
                     ChatBrainMenu()
                     Spacer()
                     if chat.running {

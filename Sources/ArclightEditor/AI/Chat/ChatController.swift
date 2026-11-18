@@ -20,6 +20,16 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     /// Scene revisions now, and putting scenes back to an earlier set (set by `ChatStore`).
     var checkpoint: () -> [String: Int] = { [:] }
     var revert: ([String: Int]) -> [String] = { _ in [] }
+    /// The frame the viewer shows now, as a PNG file (set by `ChatStore`): the composer's "attach this frame".
+    var frame: () -> URL? = { nil }
+
+    /// Attaches what the viewer shows right now.
+    func attachFrame() {
+        guard let u = frame() else { say("Couldn't render the current frame."); return }
+        attach(files: [u])
+        try? FileManager.default.removeItem(at: u)
+    }
+
     /// Something the AI must be told with the next message (the user went back on its work).
     private var aside: String?
 
@@ -201,7 +211,8 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         let told = aside
         aside = nil
         let context = [
-            told, note(), ChatPrompt.directionNote(ChatSettings.directionStages),
+            told, note(), ChatPrompt.projectNote(ProjectNotes.read(project)),
+            ChatPrompt.directionNote(ChatSettings.directionStages),
             ChatPrompt.soundNote(SoundNotes.read(project)),
         ].compactMap { $0 }
             .joined(separator: "\n")
