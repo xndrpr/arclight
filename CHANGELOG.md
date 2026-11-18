@@ -8,7 +8,27 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-11-19
+
 ### Added
+
+- Several chats per project: each is kept in its own file, listed newest first with its status (working, waiting
+  for an answer, failed), and can be renamed or deleted. A chat keeps working while another is in front. The single
+  chat of an older project becomes one of its chats.
+- A Chats window (⇧⌘A, or the window button in the AI panel): the chat list on the left, the chat on the right, ⌘1…9
+  to switch, so the chat can sit on another screen while the editor plays.
+- Messages written while the AI is working go into a queue and are sent when it finishes; "Send now" stops the
+  current turn and sends them at once.
+- Going back: under a message, "Edit from here" puts the scenes back to how they were when it was sent, removes the
+  messages after it and puts its text back in the field; "Revert this turn" puts the scenes back and keeps the
+  conversation. Both work for messages sent from this version on.
+- Project notes (the note button in the chat header): the script, the rules of the piece, which models to use — sent
+  to the AI with every message, in every chat of the project.
+- The composer picks the chat model and how hard it thinks, and attaches the frame the viewer shows.
+- The thumbnail Generate bar picks the image model, with prices.
+- Export can be cancelled, and Hide keeps it running: "Exporting…" in the top bar brings the export back.
+- `arclight bench <project> --scene ID` (frame times of a scene played as the editor plays it) and `arclight uibench
+  <project>` (how long the editor takes to answer common actions).
 
 - The AI measures sound instead of guessing. `mix_check` renders the scene's whole mix and reports overall loudness
   (LUFS) and true peak, every clip against what plays with it and against the voice, and the problems: distortion, a
@@ -40,8 +60,31 @@ project format; older projects keep loading.
   exports; processed copies are rendered once into `~/Library/Caches/Arclight/fx`. In the inspector, `scene_apply`
   (`{"op":"sound","id":"x","pitch":-3}`) and the place options of the sound tools.
 
+### Changed
+
+- Playback is much smoother: animated models are posed on the GPU (a scene with 17 animated models went from about
+  57 ms to 12 ms a frame), the playhead moves without redrawing the rest of the editor, and the viewer draws at the
+  scene's frame rate and size while playing.
+- Video export is about twice as fast: the next frames are prepared while the GPU draws the previous ones.
+- The chat stays responsive on long conversations and while the AI edits: an AI edit re-reads only the scene it
+  changed and only the new lines of the activity log; a streaming reply re-parses only its last paragraph.
+- Scrolling up while the AI writes stays where you scrolled; a button jumps back to the latest.
+- Stop also ends a tool call that is running, and the button says "Stopping…" until it has.
+- A click on a sound clip or the scene audio selects it (Delete removes it) instead of moving the playhead.
+- The export sheet remembers its choices while the project is open. Exporting every scene to separate files numbers
+  them in the order of the Scenes list ("03 scene-2b"), so editors list them in that order.
+- The AI pill counts an agent as connected only once it has used this project in the last 30 minutes (every agent app
+  starts an Arclight server, used or not).
+- Toggling Performance no longer redraws the whole editor; the chat stays built while Activity is shown; the chat's
+  tabs slide like the other tab strips; the chat's model picker opens with an animation.
+
+### Removed
+
+- Support for projects, folders and settings from before the app had its current name.
+
 ### Fixed
 
+- The thumbnail Generate button no longer overflows its bar.
 - The release build with warnings as errors failed on a deprecated FFT call in the audio analysis.
 
 ## [0.1.3] - 2026-11-16
@@ -246,7 +289,8 @@ Found while preparing the release and fixed before it:
 - Requires macOS 14 or later on a Mac with Metal.
 - The project format may still change before 1.0. Old projects will keep loading.
 
-[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.4...HEAD
+[0.1.4]: https://github.com/xndrpr/arclight/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/xndrpr/arclight/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/xndrpr/arclight/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/xndrpr/arclight/compare/v0.1.0...v0.1.1
