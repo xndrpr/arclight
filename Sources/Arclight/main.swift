@@ -89,7 +89,7 @@ let argv = Array(CommandLine.arguments.dropFirst()).filter { !$0.hasPrefix("-psn
 let first = argv.first ?? ""
 let usesLibrary =
     first.isEmpty || first == "open" || first.hasSuffix(".arclight") || first.hasSuffix(".apogee")
-    || ["mcp", "render", "export", "check"].contains(first)
+    || ["mcp", "render", "export", "check", "bench"].contains(first)
 if usesLibrary { LegacyMigration.migrateUserFolders() }
 guard let command = argv.first else { EditorApp.run(open: nil); exit(0) }
 if command == "open" { EditorApp.run(open: argv.count > 1 ? argv[1] : nil); exit(0) }
@@ -133,6 +133,24 @@ case "render":
         FileHandle.standardError.write(
             String(format: "rendered %d frame(s) in %.0f ms\n", times.count, Date().timeIntervalSince(t0) * 1000).data(
                 using: .utf8)!)
+    } catch { fail("\(error)") }
+
+case "bench":
+    // Frame times of a scene played as the editor plays it: arclight bench <project> [--scene ID] [--frames N] [--scale F]
+    let store = openStore(args.positional.first)
+    do {
+        let scene = try store.scene(args.one("scene"))
+        let frames = Int(args.one("frames") ?? "") ?? 120
+        let scale = args.one("scale").map(scaleOption) ?? 1
+        let r = try Renderer().bench(
+            scene: scene, project: store.project, assets: store.assetsURL, frames: frames,
+            fps: Double(store.project.fps), scale: scale)
+        print(
+            String(
+                format:
+                    "%@: %d frames at %.0f fps, scale %.2f\n  first frame (loading) %.0f ms\n  cpu   mean %.1f ms  p95 %.1f ms\n  total mean %.1f ms  p95 %.1f ms  (budget %.1f ms)",
+                scene.id, r.result.frames, Double(store.project.fps), scale, r.first, r.result.cpuMean,
+                r.result.cpuP95, r.result.totalMean, r.result.totalP95, 1000 / Double(store.project.fps)))
     } catch { fail("\(error)") }
 
 case "export":
