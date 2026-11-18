@@ -41,15 +41,26 @@ struct AIPanelContent: View {
         VStack(spacing: 0) {
             tabs
             Hairline()
-            if tab == "chat" {
+            ZStack {
+                // The chat stays built while Activity is shown (it doesn't follow the document, so it costs nothing
+                // there): coming back is instant instead of laying out a long transcript again.
                 ChatView(doc: doc, chat: doc.chat).id(doc.chat.id)
-            } else {
-                connection
-                Hairline()
-                NotesSection(doc: doc)
-                Hairline()
-                ActivityPanel(doc: doc)
+                    .opacity(tab == "chat" ? 1 : 0)
+                    .offset(x: tab == "chat" ? 0 : -18)
+                    .allowsHitTesting(tab == "chat")
+                    .accessibilityHidden(tab != "chat")
+                if tab != "chat" {
+                    VStack(spacing: 0) {
+                        connection
+                        Hairline()
+                        NotesSection(doc: doc)
+                        Hairline()
+                        ActivityPanel(doc: doc)
+                    }
+                    .transition(Motion.page(forward: true))
+                }
             }
+            .clipped()
         }
         .frame(maxHeight: .infinity, alignment: .top)
         .background(UI.panel)
