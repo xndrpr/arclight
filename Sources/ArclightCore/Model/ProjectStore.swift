@@ -3,12 +3,12 @@ import Foundation
 
 /// A project on disk:
 /// ```
-/// Name.arclight/        (or Name.apogee/, the old extension)
+/// Name.arclight/
 ///   project.json
 ///   scenes/<id>.json
 ///   thumbnails/<id>.json  (thumbnail pages; optional)
 ///   assets/
-///   .arclight/          activity log and notes (copied once from an old .apogee/)
+///   .arclight/          activity log, notes, chats
 /// ```
 public final class ProjectStore {
     public let url: URL
@@ -25,7 +25,6 @@ public final class ProjectStore {
         project = Project(name: "")
         scenes = [:]
         try reload()
-        LegacyMigration.migrateHiddenFolder(in: url)
     }
 
     /// Fonts in `<project>/fonts` are registered for this process so projects render the same on any Mac.

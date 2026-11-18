@@ -36,7 +36,7 @@ The engine. No UI code; everything the editor, the MCP server and the CLI share.
 | `Audio/` | Waveforms and muxing the scene's audio into exports |
 | `Library/` | Symbol packs (`Symbols`, `ChessPack`), templates (`Templates`, `BuiltInTemplates`), `ThemePresets`, `AssetWriter` (`symbol_save` / `asset_write`), `SymbolPreview` |
 | `Chat/` | The AI panel's chat: `MCPStdioClient` (an MCP client for a child `arclight mcp`), `MessagesAPIClient` + `MessageAssembler` (streaming Messages API), `APIChatBackend` (the tool loop), `CLIChatBackend` (experimental: the user's own command-line agent), `ChatPrompt`, `ChatTypes` (`ChatTranscript`, `ChatSettings`) |
-| `Support/` | Small shared pieces: `AppPaths`, `JSONFormat` (`JSONFile`, `JSONL`), `Timestamp`, `Format`, `ChangeSource`, `Version`, `LegacyMigration` (the one-time carry-over from Apogee), `AssetPath`, `URL+ExpandingPath` |
+| `Support/` | Small shared pieces: `AppPaths`, `JSONFormat` (`JSONFile`, `JSONL`), `Timestamp`, `Format`, `ChangeSource`, `Version`, `ProjectLayout`, `AssetPath`, `URL+ExpandingPath` |
 
 ### ArclightMCP (`Sources/ArclightMCP`)
 

@@ -20,9 +20,9 @@ import UniformTypeIdentifiers
         }
     }
 
-    @Test func projectTypesCoverBothExtensions() {
+    @Test func projectTypesAreTheProjectPackageAndFolders() {
         let ids = FilePicker.projectTypes.map(\.identifier)
         #expect(ids.contains(UTType.folder.identifier))
-        #expect(FilePicker.projectTypes.count == 3)
+        #expect(FilePicker.projectTypes.count == 2)
     }
 }

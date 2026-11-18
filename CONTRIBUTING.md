@@ -46,9 +46,7 @@ Scripts/verify.sh --smoke                                           # renders ev
 ### Keeping the CLI off your ~/Library
 
 Every `arclight` command uses your real user folders unless told otherwise: `~/Library/Application Support/Arclight`
-(templates, themes, symbols, presence files), `~/Library/Logs/Arclight` and `~/Library/Caches/Arclight`, and the
-commands that use the library (the editor, `mcp`, `render`, `export`, `check`) first copy the old Apogee folders
-there once. To run the CLI against an empty home instead, set:
+(templates, themes, symbols, presence files), `~/Library/Logs/Arclight` and `~/Library/Caches/Arclight`. To run the CLI against an empty home instead, set:
 
 | Variable | Effect |
 |---|---|
@@ -133,8 +131,8 @@ The code follows one way of doing each thing. New code should match it, and revi
 - Timestamps come from `Timestamp`, paths outside projects from `AppPaths`, numbers in output text from
   `Format.number`.
 - Keep error types and their messages stable: MCP output is part of the interface, and `Scripts/verify.sh` diffs it.
-- File-format changes must keep old projects loading (old names such as `instancer` and `piece`, the `.apogee`
-  extension and folder, and the stored activity source `"claude"` are all still read).
+- File-format changes must keep old projects loading (old names such as `instancer` and `piece`, and the stored
+  activity source `"claude"` are still read).
 
 **Editor**
 

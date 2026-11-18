@@ -150,33 +150,6 @@ private struct CLIFixture {
         #expect(help.stdout.contains("--format mp4|hevc|prores|png"), "usage line")
     }
 
-    /// The one-time Apogee → Arclight library copy runs only for commands that use the user library (editor, mcp,
-    /// render, export, check), never for one-shot commands like docs, validate, info, new, --version or --help.
-    @Test func legacyLibraryIsCopiedOnlyByCommandsThatUseIt() throws {
-        let fx = try CLIFixture()
-        defer { fx.remove() }
-        let home = fx.root.appendingPathComponent("home")
-        let support = home.appendingPathComponent("Library/Application Support")
-        let old = support.appendingPathComponent("Apogee/library/templates")
-        try FileManager.default.createDirectory(at: old, withIntermediateDirectories: true)
-        try Data("{}".utf8).write(to: old.appendingPathComponent("t.json"))
-        let migrated = support.appendingPathComponent("Arclight/library/templates/t.json")
-        let readOnly: [[String]] = [
-            ["docs"], ["validate", fx.project.path], ["info", fx.project.path], ["--version"], ["--help"],
-            ["new", fx.root.appendingPathComponent("n.arclight").path],
-        ]
-        for args in readOnly {
-            let r = try CLIChild.run(args, home: home)
-            #expect(r.status == 0, "\(args): exit \(r.status) \(r.stderr)")
-            #expect(!FileManager.default.fileExists(atPath: migrated.path), "\(args) copied the library")
-        }
-        #expect(!FileManager.default.fileExists(atPath: support.appendingPathComponent("Arclight").path))
-        // The MCP server uses the library, so it copies it (stdin is empty, so it exits at once).
-        let r = try CLIChild.run(["mcp"], home: home)
-        #expect(r.status == 0, "mcp: exit \(r.status) \(r.stderr)")
-        #expect(FileManager.default.fileExists(atPath: migrated.path), "mcp copied the library")
-    }
-
     /// CLI-4: `remove` returns the removed ids in a deterministic order (the order requested), not Set order.
     @Test func cli4_removeReturnsIdsInRequestOrder() throws {
         var s = ArclightCore.Scene(id: "s", duration: 1)

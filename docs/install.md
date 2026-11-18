@@ -89,29 +89,6 @@ Projects are folders wherever you save them (new ones default to `~/Movies/Arcli
 
 To remove Arclight completely, delete the app and these folders, and run `defaults delete com.xndrpr.arclight`.
 
-## Upgrading from Apogee
-
-Arclight was called Apogee before 0.1.0. Nothing is lost when you switch:
-
-- **Your library and logs are copied once.** The first time Arclight runs the app, or an `arclight` command that
-  uses your library (`mcp`, `render`, `export` or `check`), it copies everything from `~/Library/Application Support/Apogee`
-  and `~/Library/Logs/Apogee` into the Arclight folders. It never overwrites a file that already exists, leaves the
-  Apogee folders where they are, and writes a `.migrated-from-apogee` marker so it doesn't copy again. You can delete
-  the Apogee folders once you're happy.
-- **Your settings are read once.** When the app starts and has no settings of its own yet, it copies them from the
-  old `com.xndrpr.apogee` domain.
-- **`.apogee` projects still open** in the app, the command line and the MCP server. The first time a project is
-  opened, its hidden `.apogee/` folder (activity log and notes) is copied to `.arclight/`. You can rename the
-  project folder to `.arclight` whenever you like.
-- **Replace the MCP registration**, since the server's name and path changed:
-
-  ```bash
-  claude mcp remove -s user apogee
-  claude mcp add -s user arclight -- /Applications/Arclight.app/Contents/MacOS/arclight mcp
-  ```
-
-  In other clients, rename the `apogee` server entry to `arclight` and point it at the new path.
-
 ## For maintainers: signed and notarized releases (planned)
 
 Releases are currently ad-hoc signed. The plan is to sign them with an Apple **Developer ID** (Apple Developer

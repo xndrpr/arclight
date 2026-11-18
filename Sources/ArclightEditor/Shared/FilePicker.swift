@@ -12,14 +12,14 @@ enum FilePicker {
         return p.runModal() == .OK ? p.urls : []
     }
 
-    /// The file types a project can have in an open panel. The installed app declares `.arclight` (and the older
-    /// `.apogee`) as packages, which Finder and open panels show as files, so a folders-only panel can't pick one.
+    /// The file types a project can have in an open panel. The installed app declares `.arclight` as a package,
+    /// which Finder and open panels show as a file, so a folders-only panel can't pick one.
     /// Plain folders stay allowed for a build that isn't bundled, where nothing declares the package types.
     static var projectTypes: [UTType] {
-        ["arclight", "apogee"].compactMap { UTType(filenameExtension: $0, conformingTo: .package) } + [.folder]
+        ["arclight"].compactMap { UTType(filenameExtension: $0, conformingTo: .package) } + [.folder]
     }
 
-    /// Asks for one project (a `.arclight` or `.apogee` folder, shown as a file once the app is installed); nil
+    /// Asks for one project (a `.arclight` folder, shown as a file once the app is installed); nil
     /// when cancelled.
     static func project(message: String? = nil) -> URL? {
         let p = NSOpenPanel()

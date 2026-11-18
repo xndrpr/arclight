@@ -128,14 +128,14 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
 
     /// A project's chats: `<project>/.arclight/chats/<id>.json`, one file each, with `index.json` beside them.
     public static func folder(_ project: URL) -> URL {
-        project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chats")
+        project.appendingPathComponent(ProjectLayout.hiddenFolder).appendingPathComponent("chats")
     }
 
     public static func file(_ id: String, project: URL) -> URL { folder(project).appendingPathComponent("\(id).json") }
 
     /// The single chat file of projects made before a project could hold several chats.
     static func legacyURL(_ project: URL) -> URL {
-        project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chat.json")
+        project.appendingPathComponent(ProjectLayout.hiddenFolder).appendingPathComponent("chat.json")
     }
 
     /// One chat in the list.

@@ -38,7 +38,7 @@ public struct Note: Codable, Equatable, Identifiable, Sendable {
 /// Notes for the AI agent at `<project>/.arclight/notes.json` (oldest first), shared by the editor and the MCP server.
 public enum Notes {
     static func url(_ project: URL) -> URL {
-        project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("notes.json")
+        project.appendingPathComponent(ProjectLayout.hiddenFolder).appendingPathComponent("notes.json")
     }
 
     public static func load(project: URL) -> [Note] {

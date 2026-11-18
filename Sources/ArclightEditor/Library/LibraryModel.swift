@@ -17,7 +17,7 @@ enum LibraryModel {
         let clean =
             name.trimmingCharacters(in: .whitespaces).isEmpty ? "Untitled" : name.trimmingCharacters(in: .whitespaces)
         let url = dir.appendingPathComponent(
-            clean.hasSuffix(".arclight") || clean.hasSuffix(".apogee") ? clean : clean + ".arclight")
+            clean.hasSuffix(".arclight") ? clean : clean + ".arclight")
         let fm = FileManager.default
         if fm.fileExists(atPath: url.path) {
             throw ModelError.invalid("\(url.lastPathComponent) already exists in \(dir.path)")

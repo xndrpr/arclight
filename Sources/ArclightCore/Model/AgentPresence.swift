@@ -110,11 +110,10 @@ public struct EditorPresence: Codable, Equatable, Sendable {
 
 /// Presence files shared by `arclight mcp` processes and the editor.
 public enum Presence {
-    /// `~/Library/Application Support/Arclight` (override with `ARCLIGHT_PRESENCE_DIR`, e.g. for tests). The old
-    /// `APOGEE_PRESENCE_DIR` is still read, so setups from before the rename keep working.
+    /// `~/Library/Application Support/Arclight` (override with `ARCLIGHT_PRESENCE_DIR`, e.g. for tests).
     static var root: URL {
         let env = ProcessInfo.processInfo.environment
-        if let o = env["ARCLIGHT_PRESENCE_DIR"] ?? env["APOGEE_PRESENCE_DIR"], !o.isEmpty {
+        if let o = env["ARCLIGHT_PRESENCE_DIR"], !o.isEmpty {
             return URL(fileURLWithPath: o)
         }
         return AppPaths.support
@@ -169,14 +168,13 @@ public enum Presence {
         return kill(pid, 0) == 0 || errno == EPERM
     }
 
-    /// The process exists and is an `arclight` binary, or an `apogee` one from before the rename (guards against pid
-    /// reuse and against signalling anything else).
+    /// The process exists and is an `arclight` binary (guards against pid reuse and against signalling anything else).
     public static func isArclightProcess(_ pid: Int32) -> Bool {
         guard isAlive(pid) else { return false }
         var buf = [CChar](repeating: 0, count: 4096)
         guard proc_pidpath(pid, &buf, UInt32(buf.count)) > 0 else { return true }  // can't tell: trust liveness
         let name = URL(fileURLWithPath: String(cString: buf)).lastPathComponent.lowercased()
-        return name.hasPrefix("arclight") || name.hasPrefix("apogee")
+        return name.hasPrefix("arclight")
     }
 
     // MARK: Helpers

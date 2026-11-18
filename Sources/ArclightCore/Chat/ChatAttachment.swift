@@ -39,7 +39,7 @@ public struct ChatAttachment: Codable, Equatable, Identifiable, Sendable {
     }
 
     public static func folder(_ project: URL) -> URL {
-        project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("chat-files")
+        project.appendingPathComponent(ProjectLayout.hiddenFolder).appendingPathComponent("chat-files")
     }
 
     /// Copies `url` into the project's chat files.

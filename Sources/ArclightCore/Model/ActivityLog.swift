@@ -55,7 +55,7 @@ public struct ActivityEntry: Codable, Equatable, Identifiable, Sendable {
 /// Append-only activity feed at `<project>/.arclight/activity.jsonl`, shared by the MCP server and the editor.
 public enum ActivityLog {
     public static func url(_ project: URL) -> URL {
-        project.appendingPathComponent(LegacyMigration.hiddenFolder).appendingPathComponent("activity.jsonl")
+        project.appendingPathComponent(ProjectLayout.hiddenFolder).appendingPathComponent("activity.jsonl")
     }
 
     /// Appends one entry (best effort; logging never fails the caller). Keeps the file under ~2 MB.

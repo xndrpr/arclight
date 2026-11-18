@@ -253,9 +253,6 @@ Launch.arclight/
   .state.json           what the editor last showed (scene, selection, playhead), for the agent
 ```
 
-Arclight was called Apogee before 0.1.0. Projects with the old `.apogee` extension still open in the app, the
-command line and the MCP server; the first time, their hidden `.apogee/` folder is copied to `.arclight/`.
-
 The full property reference is generated from the engine's schema: [docs/scene-format.md](docs/scene-format.md).
 
 ## Building from source

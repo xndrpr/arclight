@@ -8,7 +8,7 @@ let usage = """
 
     USAGE
       arclight [open <project.arclight>]
-          Open the editor (no arguments: welcome window). Projects from Apogee (.apogee) open too.
+          Open the editor (no arguments: welcome window).
       arclight render <project.arclight> [--scene ID | --thumbnail ID [--artboard ID]] [--time S]... [--scale F] [--transparent] [--out FILE.png]
           Render frames to PNG. Several --time values write FILE_0.png, FILE_1.png, ...
       arclight export <project.arclight> [--scene ID]... [--format mp4|hevc|prores|png] [--scale F] [--fps N] [--out DIR] [--join]
@@ -83,17 +83,9 @@ func openStore(_ path: String?) -> ProjectStore {
 
 // Finder/LaunchServices may pass -psn_… or -NSDocumentRevisionsDebugMode; those mean "GUI".
 let argv = Array(CommandLine.arguments.dropFirst()).filter { !$0.hasPrefix("-psn_") && !$0.hasPrefix("-NS") }
-// Copy the old Apogee folders once, only for commands that use the user library (templates, themes, symbols):
-// the editor, the MCP server, render/export (user-library symbols) and check (reports missing symbols). One-shot
-// commands that don't (docs, validate, info, new, --version, help) and the off-screen dev tools leave it alone.
-let first = argv.first ?? ""
-let usesLibrary =
-    first.isEmpty || first == "open" || first.hasSuffix(".arclight") || first.hasSuffix(".apogee")
-    || ["mcp", "render", "export", "check", "bench"].contains(first)
-if usesLibrary { LegacyMigration.migrateUserFolders() }
 guard let command = argv.first else { EditorApp.run(open: nil); exit(0) }
 if command == "open" { EditorApp.run(open: argv.count > 1 ? argv[1] : nil); exit(0) }
-if command.hasSuffix(".arclight") || command.hasSuffix(".apogee") { EditorApp.run(open: command); exit(0) }
+if command.hasSuffix(".arclight") { EditorApp.run(open: command); exit(0) }
 let args = Args(Array(argv.dropFirst()))
 
 switch command {

@@ -198,19 +198,6 @@ made to be driven by AI agents over MCP. It's early software. Expect rough edges
 - No third-party dependencies: Swift, Metal, AVFoundation and JavaScriptCore. Builds with the Command Line Tools;
   Xcode isn't needed.
 
-### Changed
-
-- The project was previously developed under the name Apogee. Upgrading keeps everything:
-  - `.apogee` projects still open in the app, the command line and the MCP server. The first time one is opened, its
-    hidden `.apogee/` folder (activity log and notes) is copied to `.arclight/`.
-  - The first time the app, or an `arclight` command that uses your library (`mcp`, `render`, `export`, `check`),
-    runs, it copies `~/Library/Application Support/Apogee` and `~/Library/Logs/Apogee` into the Arclight folders,
-    without overwriting anything, and leaves the old folders in place. One-shot commands such as `docs`,
-    `validate`, `info` and `new` don't.
-  - The app reads the old `com.xndrpr.apogee` settings once, if it has none of its own yet.
-  - The MCP server is now called `arclight`. Re-register it in your agent; see
-    [docs/install.md](docs/install.md#upgrading-from-apogee).
-
 ### Fixed
 
 Found while preparing the release and fixed before it:

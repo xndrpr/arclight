@@ -46,7 +46,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
       <key>CFBundleTypeName</key><string>Arclight Project</string>
       <key>CFBundleTypeRole</key><string>Editor</string>
       <key>LSHandlerRank</key><string>Owner</string>
-      <key>LSItemContentTypes</key><array><string>com.xndrpr.arclight.project</string><string>com.xndrpr.apogee.project</string></array>
+      <key>LSItemContentTypes</key><array><string>com.xndrpr.arclight.project</string></array>
     </dict>
   </array>
   <key>UTExportedTypeDeclarations</key>
@@ -56,16 +56,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
       <key>UTTypeDescription</key><string>Arclight Project</string>
       <key>UTTypeConformsTo</key><array><string>com.apple.package</string><string>public.directory</string></array>
       <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>arclight</string></array></dict>
-    </dict>
-  </array>
-  <!-- Projects from before the rename (Apogee) still open. -->
-  <key>UTImportedTypeDeclarations</key>
-  <array>
-    <dict>
-      <key>UTTypeIdentifier</key><string>com.xndrpr.apogee.project</string>
-      <key>UTTypeDescription</key><string>Apogee Project</string>
-      <key>UTTypeConformsTo</key><array><string>com.apple.package</string><string>public.directory</string></array>
-      <key>UTTypeTagSpecification</key><dict><key>public.filename-extension</key><array><string>apogee</string></array></dict>
     </dict>
   </array>
 </dict>
