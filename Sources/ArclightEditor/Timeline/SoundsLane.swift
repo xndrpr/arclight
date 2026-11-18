@@ -11,13 +11,14 @@ struct SoundsLaneHeader: View {
         let sounds = doc.scene.sounds ?? []
         let missing = sounds.filter { doc.soundClip($0) == nil }.count
         let allMuted = !sounds.isEmpty && sounds.allSatisfy { $0.mute == true }
+        let rows = doc.soundRowCount
         HStack(spacing: 6) {
             Image(systemName: missing > 0 ? "exclamationmark.triangle" : "speaker.badge.exclamationmark")
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(missing > 0 ? UI.warning : UI.dim).frame(width: 16)
             VStack(alignment: .leading, spacing: 1) {
                 Text("Sounds").font(UI.small).foregroundStyle(UI.text)
-                Text(missing > 0 ? "\(missing) file\(missing == 1 ? "" : "s") not found" : "\(sounds.count) clip\(sounds.count == 1 ? "" : "s")")
+                Text(missing > 0 ? "\(missing) file\(missing == 1 ? "" : "s") not found" : "\(sounds.count) clip\(sounds.count == 1 ? "" : "s")" + (rows > 1 ? " · \(rows) rows" : ""))
                     .font(UI.monoSmall).foregroundStyle(UI.faint).lineLimit(1)
             }
             Spacer(minLength: 2)
@@ -33,13 +34,14 @@ struct SoundsLaneHeader: View {
             }
         }
         .padding(.leading, 12).padding(.trailing, 6)
-        .frame(height: TL.soundsH)
+        .frame(height: TL.soundsRowH + 4)
+        .frame(height: TL.soundsH(rows: rows), alignment: .top)
         .background(UI.raised.opacity(0.5))
         .help("Sound effects and extra clips mixed over the scene audio. Drag a clip to move it; right-click for more.")
     }
 }
 
-/// Sound clips on one lane: small waveform boxes at their times (overlapping clips share the lane in two rows).
+/// Sound clips: small waveform boxes at their times, each overlapping clip on a row of its own (the lane grows).
 /// Drag a clip to move it; right-click for mute, gain and remove; click empty space to move the playhead.
 struct SoundsLane: View {
     @ObservedObject var doc: EditorDocument
@@ -55,34 +57,21 @@ struct SoundsLane: View {
 
     private static let pad: CGFloat = 3
 
-    /// Clips with their row (0 or 1) so overlapping ones don't cover each other.
-    private func layout(_ map: TimeMap) -> [(ref: AudioRef, clip: AudioClip, peaks: [Float]?, row: Int)] {
-        var out: [(AudioRef, AudioClip, [Float]?, Int)] = []
-        var rowEnd = [-Double.infinity, -Double.infinity]
-        for r in doc.scene.sounds ?? [] {
-            guard let (c, e) = doc.soundClip(r, onLoad: { loads += 1 }) else { continue }
-            let row = c.start >= rowEnd[0] ? 0 : (c.start >= rowEnd[1] ? 1 : 0)
-            rowEnd[row] = max(rowEnd[row], c.end)
-            out.append((r, c, e.peaks, row))
-        }
-        return out
-    }
-
-    private static func box(_ c: AudioClip, row: Int, rows: Int, _ map: TimeMap, height: CGFloat) -> CGRect {
-        let h = (height - pad * 2) / CGFloat(rows)
+    private static func box(_ c: AudioClip, row: Int, _ map: TimeMap) -> CGRect {
+        let h = TL.soundsRowH
         let a = map.x(c.start), b = map.x(c.end)
-        return CGRect(x: a, y: pad + CGFloat(row) * h, width: max(b - a, 3), height: h - (rows > 1 ? 1 : 0))
+        return CGRect(x: a, y: pad + CGFloat(row) * h, width: max(b - a, 3), height: h - 2)
     }
 
     var body: some View {
         let map = TimeMap(doc: doc, width: width)
-        let items = layout(map)
-        let rows = items.contains { $0.row == 1 } ? 2 : 1
+        let items = doc.soundRows(onLoad: { loads += 1 })
+        let rows = (items.map(\.row).max() ?? 0) + 1
         Canvas { ctx, size in
             _ = loads
             ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(UI.raised.opacity(0.35)))
             for it in items {
-                let b = Self.box(it.clip, row: it.row, rows: rows, map, height: size.height)
+                let b = Self.box(it.clip, row: it.row, map)
                 draw(ctx, it.ref, it.clip, it.peaks, b, selected: it.ref.id == dragId || it.ref.id == hoverId)
             }
             let ex = map.x(doc.scene.duration)
@@ -95,7 +84,7 @@ struct SoundsLane: View {
             }
             TimelineInk.drawPlayhead(ctx, size, x: map.x(doc.time))
         }
-        .frame(width: width, height: TL.soundsH)
+        .frame(width: width, height: TL.soundsH(rows: rows))
         .clipped()
         .contentShape(Rectangle())
         .onContinuousHover { phase in
@@ -132,13 +121,11 @@ struct SoundsLane: View {
                 .onEnded { _ in ended() })
     }
 
-    private func hit(_ p: CGPoint, _ items: [(ref: AudioRef, clip: AudioClip, peaks: [Float]?, row: Int)], _ rows: Int, _ map: TimeMap)
-        -> AudioRef?
-    {
-        items.last { Self.box($0.clip, row: $0.row, rows: rows, map, height: TL.soundsH).insetBy(dx: -3, dy: 0).contains(p) }?.ref
+    private func hit(_ p: CGPoint, _ items: [EditorDocument.SoundRow], _ rows: Int, _ map: TimeMap) -> AudioRef? {
+        items.last { Self.box($0.clip, row: $0.row, map).insetBy(dx: -3, dy: -1).contains(p) }?.ref
     }
 
-    private func changed(_ g: DragGesture.Value, _ items: [(ref: AudioRef, clip: AudioClip, peaks: [Float]?, row: Int)], _ rows: Int, _ map: TimeMap) {
+    private func changed(_ g: DragGesture.Value, _ items: [EditorDocument.SoundRow], _ rows: Int, _ map: TimeMap) {
         let tol = map.snapTolerance
         if dragId == nil && !scrubbing {
             press.begin()
@@ -225,6 +212,31 @@ extension TimeMap {
 }
 
 extension EditorDocument {
+    struct SoundRow { let ref: AudioRef; let clip: AudioClip; let peaks: [Float]?; let row: Int }
+
+    /// Sound clips with their row: sorted by start, each on the first row that is free by then, so no two clips
+    /// on a row overlap. Clips whose file can't be read are left out.
+    func soundRows(onLoad: @escaping () -> Void = {}) -> [SoundRow] {
+        var placed: [(AudioRef, AudioClip, AudioFileCache.Entry)] = []
+        for r in scene.sounds ?? [] {
+            if let (c, e) = soundClip(r, onLoad: onLoad) { placed.append((r, c, e)) }
+        }
+        let order = placed.indices.sorted { (placed[$0].1.start, $0) < (placed[$1].1.start, $1) }
+        var rowEnd: [Double] = []
+        var rowOf = [Int](repeating: 0, count: placed.count)
+        for i in order {
+            let c = placed[i].1
+            let row = rowEnd.firstIndex { c.start >= $0 - 1e-6 } ?? rowEnd.count
+            if row == rowEnd.count { rowEnd.append(c.end) } else { rowEnd[row] = c.end }
+            rowOf[i] = row
+        }
+        // List order keeps the draw / hit order the user knows (later clips on top).
+        return placed.indices.map { SoundRow(ref: placed[$0].0, clip: placed[$0].1, peaks: placed[$0].2.peaks, row: rowOf[$0]) }
+    }
+
+    /// How many rows the sounds lane needs (at least 1).
+    var soundRowCount: Int { (soundRows().map(\.row).max() ?? 0) + 1 }
+
     /// A sound's placement, or nil when its file can't be read.
     func soundClip(_ r: AudioRef, onLoad: @escaping () -> Void = {}) -> (AudioClip, AudioFileCache.Entry)? {
         guard let e = AudioFileCache.shared.entry(SceneAudio.url(r, assets: assets), onLoad: onLoad) else { return nil }

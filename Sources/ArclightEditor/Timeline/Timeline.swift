@@ -23,8 +23,10 @@ enum TL {
     static let markerBandH: CGFloat = 14
     /// Reference-audio lane under the ruler (persisted; ⇧ + scroll over it changes it).
     static var audioH: CGFloat { laneHeight(Pref.audioLaneHeight, default: 46) }
-    /// Sound-clips lane under the audio lane (persisted; ⇧ + scroll over it changes it).
-    static var soundsH: CGFloat { laneHeight(Pref.soundsLaneHeight, default: 34) }
+    /// Height of one row of the sound-clips lane under the audio lane (persisted; ⇧ + scroll over it changes it).
+    static var soundsRowH: CGFloat { laneHeight(Pref.soundsLaneHeight, default: 34) }
+    /// The whole sound-clips lane: one row per stack of overlapping clips.
+    static func soundsH(rows: Int) -> CGFloat { soundsRowH * CGFloat(max(rows, 1)) + 4 }
     static let laneRange: ClosedRange<CGFloat> = 28...240
 
     private static func clamp(_ v: CGFloat, _ r: ClosedRange<CGFloat>) -> CGFloat {
@@ -41,7 +43,7 @@ enum TL {
     static func resize(_ key: String, by delta: CGFloat) {
         let row = key == Pref.layerRowHeight
         let stored = Pref.store.double(forKey: key)
-        let now = stored > 0 ? CGFloat(stored) : row ? rowH : key == Pref.audioLaneHeight ? audioH : soundsH
+        let now = stored > 0 ? CGFloat(stored) : row ? rowH : key == Pref.audioLaneHeight ? audioH : soundsRowH
         let h = clamp(now + delta, row ? rowRange : laneRange)
         guard h != now else { return }
         Pref.store.set(Double(h), forKey: key)
@@ -91,6 +93,7 @@ struct TimelineView: View {
 
     var body: some View {
         let rows = doc.layerRows()
+        let soundsH = TL.soundsH(rows: doc.soundRowCount)
         VStack(spacing: 0) {
             TransportBar(doc: doc)
             Hairline()
@@ -101,7 +104,7 @@ struct TimelineView: View {
                 let viewH = max(geo.size.height - TL.rulerH - 1, 60)
                 let lanesH =
                     (doc.scene.audio != nil ? TL.audioH + 1 : 0)
-                    + (doc.scene.sounds?.isEmpty == false ? TL.soundsH + 1 : 0)
+                    + (doc.scene.sounds?.isEmpty == false ? soundsH + 1 : 0)
                 let rowsH = max(viewH - lanesH, 60)
                 VStack(spacing: 0) {
                     HStack(spacing: 0) {
@@ -129,7 +132,7 @@ struct TimelineView: View {
                                     Hairline(vertical: true)
                                     SoundsLane(doc: doc, width: trackW)
                                 }
-                                .frame(height: TL.soundsH)
+                                .frame(height: soundsH)
                                 .reportsLane(Pref.soundsLaneHeight, to: scroll)
                                 Hairline()
                             }
