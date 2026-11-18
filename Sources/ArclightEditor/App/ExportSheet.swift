@@ -62,11 +62,17 @@ struct ExportSheet: View {
             }
             if let error { Text(error).font(UI.small).foregroundStyle(UI.danger).textSelection(.enabled) }
             if !results.isEmpty {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(results, id: \.self) { u in
-                        Text(u.lastPathComponent).font(UI.monoSmall).foregroundStyle(UI.text)
+                // Exporting every scene lists dozens of files: scroll them instead of growing the sheet past the
+                // window.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(results, id: \.self) { u in
+                            Text(u.lastPathComponent).font(UI.monoSmall).foregroundStyle(UI.text)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .frame(height: min(CGFloat(results.count) * 17, 140))
             }
             HStack {
                 if !results.isEmpty {

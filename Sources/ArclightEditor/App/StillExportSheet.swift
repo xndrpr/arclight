@@ -57,6 +57,7 @@ struct StillExportSheet: View {
             }
             if let error { Text(error).font(UI.small).foregroundStyle(UI.danger).textSelection(.enabled) }
             if !results.isEmpty {
+                ScrollView {
                 VStack(alignment: .leading, spacing: 2) {
                     ForEach(results, id: \.url) { r in
                         HStack(spacing: 8) {
@@ -67,6 +68,9 @@ struct StillExportSheet: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: min(CGFloat(results.count) * 17, 140))
             }
             HStack {
                 if !results.isEmpty {

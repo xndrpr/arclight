@@ -27,9 +27,21 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         w.delegate = self
         w.collectionBehavior.insert(.fullScreenPrimary)
         AppWindows.configure(w, content: EditorView(doc: doc))
+        // NSHostingView would otherwise set the window's content min size from the SwiftUI layout's (tiny) minimum,
+        // which overrides `minSize`: the window could be dragged down to almost nothing, and a tall sheet could
+        // push it around. The window, not the SwiftUI tree, owns its size.
+        (w.contentView as? NSHostingView<EditorView>)?.sizingOptions = []
+        w.contentMinSize = NSSize(width: 1100, height: 640)
         AppWindows.addTitlebarToolbar(to: w, identifier: "arclight.editor")
         doc.onCinemaChange = { [weak self] on in self?.setCinema(on) }
         if !w.setFrameUsingName("arclight.editor") { w.center() }
+        // A frame saved while the minimum wasn't enforced can be tiny: grow it back to the minimum.
+        let f = w.frame, minF = w.frameRect(forContentRect: NSRect(origin: .zero, size: w.contentMinSize)).size
+        if f.width < minF.width || f.height < minF.height {
+            w.setFrame(
+                NSRect(origin: f.origin, size: NSSize(width: max(f.width, minF.width), height: max(f.height, minF.height))),
+                display: false)
+        }
         if let out = ProcessInfo.processInfo.environment["ARCLIGHT_SNAPSHOT"] { scheduleSnapshot(out) }
     }
 

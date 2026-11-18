@@ -45,12 +45,14 @@ struct EditorView: View {
         .themedRoot()
         .sheet(isPresented: $showExport) {
             if doc.isThumbnail {
-                StillExportSheet(doc: doc, isPresented: $showExport)
+                StillExportSheet(doc: doc, isPresented: $showExport).dismissOnOutsideClick($showExport)
             } else {
-                ExportSheet(doc: doc, isPresented: $showExport)
+                ExportSheet(doc: doc, isPresented: $showExport).dismissOnOutsideClick($showExport)
             }
         }
-        .sheet(isPresented: $showShortcuts) { ShortcutsSheet(isPresented: $showShortcuts, thumbnail: doc.isThumbnail) }
+        .sheet(isPresented: $showShortcuts) { ShortcutsSheet(isPresented: $showShortcuts, thumbnail: doc.isThumbnail)
+                .dismissOnOutsideClick($showShortcuts)
+        }
         .onReceive(NotificationCenter.default.publisher(for: .showExport)) { n in
             if (n.object as? EditorDocument) === doc { showExport = true }
         }
