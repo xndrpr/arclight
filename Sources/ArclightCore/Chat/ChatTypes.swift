@@ -44,6 +44,11 @@ public enum ChatEvent: Sendable, Equatable {
     case choice(ChatChoice)
     /// The model's plan for the request changed (`update_plan`).
     case plan(ChatPlan)
+    /// Tokens and cost: one model request's, or the backend's account of the whole turn (see `ChatUsage.Scope`).
+    case usage(ChatUsage)
+    /// The provider reported how close the account is to its usage limits. Not part of the transcript: the chat
+    /// controller keeps the latest.
+    case limits(ChatLimits)
 }
 
 /// One row of the chat as the user sees it. The model's own history lives in `ChatTranscript.history`.
@@ -63,8 +68,12 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
     /// User rows: the files sent with the message.
     public var attachments: [ChatAttachment]?
     /// Thinking rows: when the thinking started, and how long it took once it ended (nil while it runs).
+    /// Tool rows: `duration` is how long the call took, once it ended.
     public var started: Date?
     public var duration: Double?
+    /// When the row appeared: a user message when it was sent, the AI's rows when they started. Nil for rows saved
+    /// before rows had times.
+    public var created: Date?
     /// User rows: where the project stood when the message was sent — each scene's revision, and how long the
     /// model's own history was. Going back to the message ("Edit from here", "Revert this turn") restores these.
     public var checkpoint: [String: Int]?
@@ -72,15 +81,17 @@ public struct ChatItem: Codable, Equatable, Identifiable, Sendable {
 
     public init(
         id: String = UUID().uuidString, kind: Kind, text: String, tool: String? = nil, input: String? = nil,
-        ok: Bool? = nil, choice: ChatChoice? = nil, attachments: [ChatAttachment]? = nil
+        ok: Bool? = nil, choice: ChatChoice? = nil, attachments: [ChatAttachment]? = nil, created: Date? = Date()
     ) {
         self.id = id; self.kind = kind; self.text = text; self.tool = tool; self.input = input; self.ok = ok
         self.choice = choice
         self.attachments = attachments
+        self.created = created
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, kind, text, tool, input, ok, choice, attachments, started, duration, checkpoint, historyCount
+        case id, kind, text, tool, input, ok, choice, attachments, started, duration, created, checkpoint
+        case historyCount
     }
 }
 
@@ -101,10 +112,12 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
     /// When it was last saved with something new, and the name the user gave it (nil: `title` makes one).
     public var updated: Date?
     public var name: String?
+    /// Every turn's time, tokens and cost, in order (none for chats saved before turns were recorded).
+    public var turns: [ChatTurn] = []
 
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case items, history, cliSession, plan, id, created, updated, name }
+    enum CodingKeys: String, CodingKey { case items, history, cliSession, plan, id, created, updated, name, turns }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -116,6 +129,8 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
         created = try c.decodeIfPresent(Date.self, forKey: .created) ?? Date()
         updated = try c.decodeIfPresent(Date.self, forKey: .updated)
         name = try c.decodeIfPresent(String.self, forKey: .name)
+        // Usage is a nicety: a chat whose turns don't read still opens.
+        turns = (try? c.decodeIfPresent([ChatTurn].self, forKey: .turns)) ?? []
     }
 
     /// The chat's name in the list: the one the user gave it, else the first thing they said.
@@ -170,26 +185,97 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
         try? FileManager.default.removeItem(at: file(id, project: project))
     }
 
-    /// Folds one event into the visible rows: text and thinking deltas extend the last row of their kind.
+    /// Folds one event into the visible rows: text and thinking deltas extend the last row of their kind. Tool calls
+    /// and usage count toward the running turn (`beginTurn`; one is opened if none is).
     public mutating func apply(_ e: ChatEvent, now: Date = Date()) {
-        if case .thinking = e {} else { endThinking(now: now) }
         switch e {
-        case .text(let s): extend(.assistant, s)
+        case .thinking, .usage, .limits: break
+        default: endThinking(now: now)
+        }
+        switch e {
+        case .text(let s): extend(.assistant, s, now: now)
         case .thinking(let s):
-            extend(.thinking, s)
+            extend(.thinking, s, now: now)
             if items[items.count - 1].started == nil { items[items.count - 1].started = now }
         case .toolStart(let id, let name, let input):
-            items.append(ChatItem(id: id, kind: .tool, text: "", tool: name, input: input))
+            items.append(ChatItem(id: id, kind: .tool, text: "", tool: name, input: input, created: now))
+            turns[openTurn(now)].tools += 1
         case .toolEnd(let id, let ok, let summary, let image):
             if let i = items.lastIndex(where: { $0.id == id }) {
                 items[i].ok = ok; items[i].text = summary; items[i].image = image
+                if let t = items[i].created { items[i].duration = max(0, now.timeIntervalSince(t)) }
             }
-        case .notice(let s): items.append(ChatItem(kind: .notice, text: s))
+        case .notice(let s): items.append(ChatItem(kind: .notice, text: s, created: now))
         case .choice(let c):
-            items.append(ChatItem(id: c.id, kind: .choice, text: c.question, choice: c))
+            items.append(ChatItem(id: c.id, kind: .choice, text: c.question, choice: c, created: now))
             plan?.waiting = true
         case .plan(let p): plan = p
+        case .usage(let u):
+            let i = openTurn(now)
+            turns[i].add(u)
+            if u.scope == .turn, u.cost == nil, let total = u.sessionCost {
+                // An agent that reports only its running total: this turn cost what the total grew by.
+                let before = turns[..<i].last { $0.backend == turns[i].backend && $0.sessionCost != nil }?.sessionCost
+                turns[i].cost = before.map { total >= $0 ? total - $0 : total } ?? total
+            }
+        case .limits: break  // the controller keeps them; they aren't this chat's
         }
+    }
+
+    // MARK: Turns
+
+    /// Starts a turn: `item` is the row it answers (the user's message, or the choice card they answered).
+    public mutating func beginTurn(item: String?, backend: ChatBackendKind, model: String, now: Date = Date()) {
+        endTurn(.stopped, now: now)
+        turns.append(ChatTurn(item: item, backend: backend, model: model, started: now))
+    }
+
+    /// Ends the running turn, if one is.
+    public mutating func endTurn(_ outcome: ChatTurn.Outcome, now: Date = Date()) {
+        guard let i = turns.indices.last, turns[i].finished == nil else { return }
+        turns[i].finished = max(now, turns[i].started)
+        turns[i].outcome = outcome
+    }
+
+    /// A turn left running by an app that quit mid-reply ends when the chat was last saved.
+    public mutating func closeAbandonedTurn() {
+        guard let t = turns.last, t.finished == nil else { return }
+        endTurn(.stopped, now: max(t.started, updated ?? t.started))
+    }
+
+    /// The turn running now.
+    public var currentTurn: ChatTurn? { turns.last.flatMap { $0.finished == nil ? $0 : nil } }
+
+    /// The turn that answered this row (a user message or a choice card), the latest if it was answered more than once.
+    public func turn(for item: String) -> ChatTurn? { turns.last { $0.item == item } }
+
+    /// Everything the chat has used, all turns together.
+    public var totalTokens: ChatTokens { turns.reduce(ChatTokens()) { $0 + $1.tokens } }
+
+    /// What the chat has cost so far, in US dollars (an estimate), from the turns whose cost is known; nil if none is.
+    public var totalCost: Double? {
+        let known = turns.compactMap(\.cost)
+        return known.isEmpty ? nil : known.reduce(0, +)
+    }
+
+    /// How full the context is: the prompt of the latest request, against its model's window (the backend's word for
+    /// it, else the price list's).
+    public var context: ChatContext? {
+        guard let t = turns.last(where: { $0.context != nil }), let used = t.context else { return nil }
+        let window =
+            t.contextWindow
+            ?? turns.last(where: { $0.model == t.model && $0.backend == t.backend && $0.contextWindow != nil })?
+            .contextWindow
+            ?? t.model.flatMap(ChatPricing.contextWindow)
+        return ChatContext(used: used, window: window, model: t.model)
+    }
+
+    /// The running turn's index, opening one (answering the last user message) if none is running.
+    private mutating func openTurn(_ now: Date) -> Int {
+        if let i = turns.indices.last, turns[i].finished == nil { return i }
+        let item = items.last { $0.kind == .user }?.id
+        turns.append(ChatTurn(item: item, backend: nil, model: nil, started: now))
+        return turns.count - 1
     }
 
     /// The question still waiting for the user, if the last turn ended on one.
@@ -212,11 +298,11 @@ public struct ChatTranscript: Codable, Equatable, Sendable {
         items[i].duration = max(0, now.timeIntervalSince(items[i].started ?? now))
     }
 
-    private mutating func extend(_ kind: ChatItem.Kind, _ s: String) {
+    private mutating func extend(_ kind: ChatItem.Kind, _ s: String, now: Date) {
         if let last = items.last, last.kind == kind {
             items[items.count - 1].text += s
         } else {
-            items.append(ChatItem(kind: kind, text: s))
+            items.append(ChatItem(kind: kind, text: s, created: now))
         }
     }
 }
