@@ -42,7 +42,7 @@ public enum ClickProbe {
     public static func run() -> Int32 {
         Offscreen.startApp()
         let c = Counter()
-        let w = Offscreen.window(NSSize(width: 300, height: 400))
+        let w = Offscreen.window(NSSize(width: 300, height: 560))
         let host = Offscreen.host(Probe(c: c), in: w)
         w.orderFrontRegardless()
         Offscreen.pump(0.5)
@@ -105,7 +105,7 @@ public enum ClickProbe {
     public static func scrollCancel() -> Int32 {
         Offscreen.startApp()
         let c = Counter()
-        let size = NSSize(width: 300, height: 400)
+        let size = NSSize(width: 300, height: 560)
         let w = Offscreen.window(size)
         Offscreen.host(Probe(c: c), in: w)
         w.orderFrontRegardless()

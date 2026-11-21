@@ -23,9 +23,19 @@ enum Offscreen {
         // the user for their password on every run. Keys in the environment still count.
         KeychainStore.backend = NoKeychain()
         // A synthetic click on a menu button opens the menu on the real screen (menus are their own windows):
-        // close any menu the moment it opens.
+        // close any menu the moment it opens. A pop-up button's menu (SwiftUI's `Menu`) ignores that cancel, so
+        // off-screen its button doesn't open the menu at all. (A click there still waits for a real mouse-up in the
+        // button's own tracking loop: probes keep away from menus.)
         NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) {
             ($0.object as? NSMenu)?.cancelTrackingWithoutAnimation()
+        }
+        if let m = class_getInstanceMethod(
+            NSPopUpButtonCell.self, #selector(NSPopUpButtonCell.trackMouse(with:in:of:untilMouseUp:)))
+        {
+            let ignore: @convention(block) (NSPopUpButtonCell, NSEvent, NSRect, NSView, Bool) -> Bool = { _, _, _, _, _ in
+                false
+            }
+            method_setImplementation(m, imp_implementationWithBlock(ignore))
         }
         // Off-screen commands never read or write the user's settings: a throwaway domain, removed at exit.
         if !usesThrowawayStore {

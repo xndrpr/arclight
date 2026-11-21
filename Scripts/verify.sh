@@ -317,8 +317,8 @@ if want clickprobe; then
   # row, which maps the icon's left edge. The settings gear opens nothing off-screen: one grid up to just before Export.
   : > "$C/grid-topbar.txt"
   for y in 2 8 14 20 26 32 38; do
-    fresh; probe "$WORK/grid.txt" grid "$E" $y $y 1250 1290 2
-    print -r -- "-- y=$y x=1250..1290" >> "$C/grid-topbar.txt"; grep -v "^x from" "$WORK/grid.txt" >> "$C/grid-topbar.txt"
+    fresh; probe "$WORK/grid.txt" grid "$E" $y $y 1256 1290 2
+    print -r -- "-- y=$y x=1256..1290" >> "$C/grid-topbar.txt"; grep -v "^x from" "$WORK/grid.txt" >> "$C/grid-topbar.txt"
   done
   fresh; probe "$WORK/grid.txt" grid "$E" 2 38 1290 1318 2
   print -r -- "-- y=2..38 x=1290..1318" >> "$C/grid-topbar.txt"; grep -v "^x from" "$WORK/grid.txt" >> "$C/grid-topbar.txt"
