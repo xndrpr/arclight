@@ -126,6 +126,36 @@ import Testing
             }.buttonStyle(.plain))
     }
 
+    /// `on` (Performance on, an armed Revert, a primary Copy): accent fill, no border.
+    @Test func hoverButtonStyleOn() {
+        same(
+            Button {
+            } label: {
+                Text("Copy").font(.system(size: 11, weight: .medium))
+            }.buttonStyle(HoverButtonStyle(on: true, padding: 9, height: 24, cornerRadius: 6)),
+            Button {
+            } label: {
+                Text("Copy").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(UI.onAccent)
+                    .padding(.horizontal, 9).frame(height: 24)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(UI.accent))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.clear, lineWidth: 1))
+                    .hitArea()
+            }.buttonStyle(.plain))
+    }
+
+    /// The canvas menu's label (a menu, so the look without the style).
+    @Test func outlinedChipAtRest() {
+        same(
+            Text("1920×1080").font(UI.monoSmall).outlinedChip(hover: false, height: 26, cornerRadius: 6),
+            Text("1920×1080").font(UI.monoSmall)
+                .foregroundStyle(UI.label2)
+                .padding(.horizontal, 8).frame(height: 26)
+                .background(RoundedRectangle(cornerRadius: 6).fill(UI.raised))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(UI.border))
+                .barHit())
+    }
+
     /// The tab label as the sidebar, Settings and activity filters built it by hand.
     private struct HandBuiltTab: View {
         let selected: Bool

@@ -37,7 +37,6 @@ struct CopyButton: View {
     var help = ""
     var primary = false
     @State private var copied = false
-    @State private var hover = false
 
     var body: some View {
         Button {
@@ -49,13 +48,9 @@ struct CopyButton: View {
                 Image(systemName: copied ? "checkmark" : symbol).font(.system(size: 9.5, weight: .semibold))
                 Text(copied ? "Copied" : title).font(.system(size: 11, weight: .medium)).lineLimit(1)
             }
-            .foregroundStyle(primary ? UI.onAccent : (hover ? UI.text : UI.label2))
-            .padding(.horizontal, 9).frame(height: 24)
-            .background(RoundedRectangle(cornerRadius: 6).fill(primary ? UI.accent : (hover ? UI.hover : UI.raised)))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(primary ? .clear : UI.border, lineWidth: 1))
-            .hitArea()
         }
-        .buttonStyle(.plain).onHover { hover = $0 }.cursor(.pointingHand).help(help)
+        .buttonStyle(HoverButtonStyle(name: "copy \(title)", on: primary, padding: 9, height: 24, cornerRadius: 6))
+        .help(help)
     }
 }
 

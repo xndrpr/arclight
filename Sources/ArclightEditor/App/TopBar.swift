@@ -132,35 +132,23 @@ struct TopBar: View {
 private struct PerformanceToggle: View {
     let doc: EditorDocument
     var label = true
-    @State private var hover = false
 
-    var body: some View { Inner(view: doc.view, label: label, hover: $hover) }
-
-    private struct Inner: View {
-        let view: ViewOptions
-        let label: Bool
-        @Binding var hover: Bool
-
-        var body: some View {
-        let on = view.performance
+    var body: some View {
+        let on = doc.view.performance
         Button {
-            view.performance.toggle()
+            doc.view.performance.toggle()
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: "bolt.fill").font(.system(size: 10))
                 if label { Text("Performance").font(UI.small).lineLimit(1) }
             }
-            .foregroundStyle(on ? UI.onAccent : (hover ? UI.text : UI.label2))
-            .padding(.horizontal, label ? 9 : 8).frame(height: 26)
-            .background(RoundedRectangle(cornerRadius: 6).fill(on ? UI.accent : hover ? UI.hover : UI.raised))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(on ? .clear : UI.border))
-            .barHit()
         }
-        .buttonStyle(.plain).onHover { hover = $0 }.cursor(.pointingHand)
+        .buttonStyle(
+            HoverButtonStyle(name: "performance", on: on, padding: label ? 9 : 8, height: 26, cornerRadius: 6)
+        )
         .help(
             "Performance mode is \(on ? "on" : "off"): preview at half resolution if playback lags. Export is always full quality. (⇧⌘P)"
         )
-        }
     }
 }
 
@@ -212,11 +200,7 @@ private struct CanvasMenu: View {
                 Text("\(w)×\(h)" + (showFPS ? " · \(fmt(doc.fps)) fps" : "")).font(UI.monoSmall).lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 8))
             }
-            .foregroundStyle(hover ? UI.text : UI.label2)
-            .padding(.horizontal, 8).frame(height: 26)
-            .background(RoundedRectangle(cornerRadius: 6).fill(hover ? UI.hover : UI.raised))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(UI.border))
-            .barHit()
+            .outlinedChip(hover: hover, height: 26, cornerRadius: 6)
         }
         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().cursor(.pointingHand)
         .onHover { hover = $0 }

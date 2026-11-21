@@ -55,7 +55,6 @@ struct ConfirmButton: View {
     var help: String = ""
     let action: () -> Void
     @State private var armed = false
-    @State private var hover = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -70,14 +69,9 @@ struct ConfirmButton: View {
                     Image(systemName: armed ? "checkmark" : symbol).font(.system(size: 9, weight: .semibold))
                     Text(armed ? confirmTitle : title).font(.system(size: 11, weight: .medium))
                 }
-                .foregroundStyle(armed ? UI.onAccent : (hover ? UI.text : UI.label2))
-                .padding(.horizontal, 8).frame(height: 22)
-                .background(RoundedRectangle(cornerRadius: 5).fill(armed ? UI.accent : hover ? UI.hover : UI.raised))
-                .overlay(RoundedRectangle(cornerRadius: 5).stroke(armed ? .clear : UI.border, lineWidth: 1))
-                .hitArea()
             }
-            .buttonStyle(.plain).onHover { hover = $0 }.cursor(.pointingHand).help(
-                armed ? "Click again to confirm" : help)
+            .buttonStyle(HoverButtonStyle(name: "confirm \(title)", on: armed))
+            .help(armed ? "Click again to confirm" : help)
             if armed {
                 Button {
                     armed = false
