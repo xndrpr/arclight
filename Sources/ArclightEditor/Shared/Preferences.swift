@@ -42,12 +42,8 @@ enum Pref {
     // AI panel
     static let aiPanel = "ui.aiPanel"
     static let aiFloat = "ui.aiFloat"
-    /// Width of the docked AI panel before it floated; read once by `AIPanelLayout.load`, then removed.
-    static let legacyAIWidth = "ui.aiWidth"
     /// The AI panel's tab: "chat" or "activity".
     static let aiPanelTab = "ui.aiPanel.tab"
-    /// Experimental: lets the chat run through the user's own command-line agent (`ChatSettings.cliAllowed`).
-    static let experimentalCLIChat = ChatSettings.cliFlagKey
     /// The last activity entry seen in this project (unread badge).
     static func activitySeen(_ project: URL) -> String { "ui.activitySeen." + project.standardizedFileURL.path }
 
@@ -77,20 +73,11 @@ enum Pref {
     /// Thumbnail workspace: YouTube's timestamp badge over the bottom-right corner, and the feed-size thumbnail.
     static let timestampBadge = "thumbnail.timestampBadge"
     static let feedThumbnail = "thumbnail.feedThumbnail"
-    /// Old canvas-only snapping switch. The canvas follows `snapping` now; read once by `storedSnapping`, then removed.
-    static let canvasSnap = "canvas.snap"
 
     // Other
     static let recentProjects = "recentProjects"
     static let clickTrace = "debug.clickTrace"
 
-    /// The stored `snapping` setting (default on). An old `canvas.snap` is read once: it becomes `snapping` when
-    /// that was never set (an explicit `snapping` wins), and is removed.
-    static func storedSnapping(_ d: UserDefaults = Pref.store) -> Bool {
-        if let old = d.object(forKey: canvasSnap) as? Bool {
-            if d.object(forKey: snapping) == nil { d.set(old, forKey: snapping) }
-            d.removeObject(forKey: canvasSnap)
-        }
-        return d.object(forKey: snapping) as? Bool ?? true
-    }
+    /// The stored `snapping` setting (default on).
+    static func storedSnapping(_ d: UserDefaults = Pref.store) -> Bool { d.object(forKey: snapping) as? Bool ?? true }
 }

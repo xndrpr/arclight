@@ -180,14 +180,13 @@ private func twoSceneDoc() throws -> (doc: EditorDocument, project: TempProject)
 
     // MARK: B15h
 
-    /// B15h: the canvas drag snaps only while Settings > snapping (`ui.snapping`) is on; `canvas.snap` follows it.
+    /// B15h: the canvas drag snaps only while Settings > snapping (`ui.snapping`) is on.
     @Test(.requiresMetal) @MainActor func b15h_canvasSnapFollowsUiSnapping() throws {
         _ = NSApplication.shared  // `begin` calls endEditing(), which needs NSApp (no window is created)
         let d = Pref.store
-        let keys = [Pref.snapping, Pref.canvasSnap]
-        let saved = keys.map { d.object(forKey: $0) }
-        defer { for (k, v) in zip(keys, saved) { if let v { d.set(v, forKey: k) } else { d.removeObject(forKey: k) } } }
-        for k in keys { d.removeObject(forKey: k) }
+        let saved = d.object(forKey: Pref.snapping)
+        defer { if let saved { d.set(saved, forKey: Pref.snapping) } else { d.removeObject(forKey: Pref.snapping) } }
+        d.removeObject(forKey: Pref.snapping)
 
         var s = ArclightCore.Scene(id: "a", duration: 4)
         s.nodes = [shape("r", x: 900, y: 300)]
@@ -220,26 +219,5 @@ private func twoSceneDoc() throws -> (doc: EditorDocument, project: TempProject)
         #expect(!(try dragLines(snapping: true)).isEmpty)  // setup: snapping on does snap
         let off = try dragLines(snapping: false)
         #expect(off.isEmpty)
-    }
-
-    /// B15h: an old `canvas.snap` is read once: it becomes `ui.snapping` when that was never set, and is removed.
-    @Test func b15h_oldCanvasSnapIsReadOnce() {
-        let d = Pref.store
-        let keys = [Pref.snapping, Pref.canvasSnap]
-        let saved = keys.map { d.object(forKey: $0) }
-        defer { for (k, v) in zip(keys, saved) { if let v { d.set(v, forKey: k) } else { d.removeObject(forKey: k) } } }
-
-        for k in keys { d.removeObject(forKey: k) }
-        #expect(Pref.storedSnapping(d))  // default on
-
-        d.set(false, forKey: Pref.canvasSnap)  // canvas snapping was turned off, Settings never touched
-        #expect(!Pref.storedSnapping(d))
-        #expect(d.object(forKey: Pref.canvasSnap) == nil)
-        #expect(d.object(forKey: Pref.snapping) as? Bool == false)
-
-        d.set(true, forKey: Pref.snapping)  // an explicit ui.snapping wins over an old canvas.snap
-        d.set(false, forKey: Pref.canvasSnap)
-        #expect(Pref.storedSnapping(d))
-        #expect(d.object(forKey: Pref.canvasSnap) == nil)
     }
 }

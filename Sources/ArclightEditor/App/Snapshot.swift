@@ -97,7 +97,7 @@ public enum EditorSnapshot {
 
     /// Settings that must not leak in from the user's real preferences.
     static func volatile(theme: String?, aiOpen: Bool, layout: String = "") -> [String: Any] {
-        var d: [String: Any] = [Pref.aiPanel: aiOpen, Pref.aiFloat: layout, Pref.legacyAIWidth: 0]
+        var d: [String: Any] = [Pref.aiPanel: aiOpen, Pref.aiFloat: layout]
         if let theme { d[Pref.theme] = theme }
         return d
     }
