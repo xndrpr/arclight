@@ -1,47 +1,6 @@
 import ArclightCore
 import SwiftUI
 
-/// Wraps children onto multiple lines (layer chips).
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 4
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(proposal.width ?? .infinity, subviews)
-        return CGSize(width: rows.map(\.width).max() ?? 0, height: rows.last.map { $0.y + $0.height } ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        for row in arrange(bounds.width, subviews) {
-            for (i, x) in zip(row.items, row.xs) {
-                subviews[i].place(at: CGPoint(x: bounds.minX + x, y: bounds.minY + row.y), proposal: .unspecified)
-            }
-        }
-    }
-
-    private struct Row {
-        var items: [Int] = []; var xs: [CGFloat] = []; var width: CGFloat = 0; var height: CGFloat = 0;
-        var y: CGFloat = 0
-    }
-
-    private func arrange(_ maxWidth: CGFloat, _ subviews: Subviews) -> [Row] {
-        var rows: [Row] = [Row()]
-        for (i, v) in subviews.enumerated() {
-            let s = v.sizeThatFits(.unspecified)
-            var r = rows[rows.count - 1]
-            let x = r.items.isEmpty ? 0 : r.width + spacing
-            if !r.items.isEmpty && x + s.width > maxWidth {
-                let y = r.y + r.height + spacing
-                rows.append(Row(y: y)); r = rows[rows.count - 1]
-                r.items = [i]; r.xs = [0]; r.width = s.width; r.height = s.height
-            } else {
-                r.items.append(i); r.xs.append(x); r.width = x + s.width; r.height = max(r.height, s.height)
-            }
-            rows[rows.count - 1] = r
-        }
-        return rows.filter { !$0.items.isEmpty }
-    }
-}
-
 /// A layer id that selects the layer when clicked (switching scene first if needed).
 struct LayerChip: View {
     let doc: EditorDocument

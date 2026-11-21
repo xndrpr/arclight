@@ -303,7 +303,7 @@ struct ChatRow: View, Equatable {
         case .user:
             VStack(alignment: .trailing, spacing: 6) {
                 if let files = item.attachments, !files.isEmpty {
-                    FlowRow(spacing: 6) {
+                    FlowLayout(spacing: 6, alignment: .trailing) {
                         ForEach(files) { a in
                             if a.kind == .image {
                                 AttachmentThumb(attachment: a, side: 72)
@@ -562,50 +562,6 @@ private struct ChatThinkingRow: View {
         if live { return "Thinking…" }
         guard let d = item.duration else { return "Thought" }
         return d < 1 ? "Thought briefly" : "Thought for \(Int(d.rounded()))s"
-    }
-}
-
-/// Lays children left to right, wrapping to new lines, aligned to the trailing edge.
-private struct FlowRow: Layout {
-    var spacing: CGFloat = 6
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let rows = arrange(proposal.width ?? .infinity, subviews)
-        let w = rows.map(\.width).max() ?? 0
-        let h = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(0, rows.count - 1))
-        return CGSize(width: w, height: h)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        var y = bounds.minY
-        for r in arrange(bounds.width, subviews) {
-            var x = bounds.maxX - r.width
-            for i in r.items {
-                let s = subviews[i].sizeThatFits(.unspecified)
-                subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
-                x += s.width + spacing
-            }
-            y += r.height + spacing
-        }
-    }
-
-    private struct Row { var items: [Int] = []; var width: CGFloat = 0; var height: CGFloat = 0 }
-
-    private func arrange(_ maxWidth: CGFloat, _ subviews: Subviews) -> [Row] {
-        var rows: [Row] = [Row()]
-        for i in subviews.indices {
-            let s = subviews[i].sizeThatFits(.unspecified)
-            var r = rows[rows.count - 1]
-            if !r.items.isEmpty, r.width + spacing + s.width > maxWidth {
-                rows.append(Row())
-                r = Row()
-            }
-            r.width += (r.items.isEmpty ? 0 : spacing) + s.width
-            r.height = max(r.height, s.height)
-            r.items.append(i)
-            rows[rows.count - 1] = r
-        }
-        return rows
     }
 }
 
