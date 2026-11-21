@@ -99,6 +99,7 @@ public enum UIBench {
                 default: doc.performance.toggle()
                 }
                 draw()
+                if let p = Double(ProcessInfo.processInfo.environment["UIBENCH_PAUSE"] ?? "") { Offscreen.pump(p) }
             }
             return 0
         }

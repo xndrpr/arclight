@@ -1,5 +1,6 @@
 import ArclightCore
 import Foundation
+import SwiftUI
 
 /// The two things a project can hold. A project may have only one of them.
 enum Workspace: String, CaseIterable, Identifiable {
@@ -68,13 +69,19 @@ extension EditorDocument {
         guard ws != workspace else { return }
         saveNow()
         lastTargets[workspace] = target
-        workspace = ws
-        var p = store.project
-        p.workspace = ws.rawValue
-        try? store.update(project: p)
-        notedProjectWrite()
-        let (s, t, rev) = returnTarget(ws)
-        open(s, target: t, rev: rev)
+        // One change, not animated: the lists' selection slides (both lists, one of them hidden) redrew the whole
+        // window for a quarter of a second after every switch. The incoming panels still fade in.
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t) {
+            workspace = ws
+            var p = store.project
+            p.workspace = ws.rawValue
+            try? store.update(project: p)
+            notedProjectWrite()
+            let (s, target, rev) = returnTarget(ws)
+            open(s, target: target, rev: rev)
+        }
     }
 
     /// What a workspace opens when the user comes back to it: what was open there last, if it still exists.

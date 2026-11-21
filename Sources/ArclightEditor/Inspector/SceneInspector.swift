@@ -32,7 +32,7 @@ struct SceneInspector: View {
 
     var body: some View {
         let s = doc.scene
-        LazyVStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             InspectorHeader(
                 icon: doc.isThumbnail ? "photo" : "film", title: s.name ?? doc.target.artboardId ?? s.id,
                 subtitle: doc.isThumbnail ? "Artboard" : "Scene",

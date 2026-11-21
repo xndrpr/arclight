@@ -91,7 +91,7 @@ struct EditorView: View {
                 let showTimeline = !doc.isThumbnail && !doc.isEmptyWorkspace
                 if showTimeline { ResizeHandle(height: $timelineH) }
                 if !doc.isEmptyWorkspace {
-                    TimelineView(doc: doc)
+                    Parked(parked: !showTimeline) { TimelineView(doc: doc) }
                         .frame(height: showTimeline ? timelineH : 0)
                         .opacity(showTimeline ? 1 : 0)
                         .allowsHitTesting(showTimeline)
