@@ -124,17 +124,9 @@ public struct AssetLibrary: Sendable {
     // MARK: HTTP
 
     func get(_ url: URL) async throws -> Data {
-        var r = URLRequest(url: url)
-        r.setValue("Arclight", forHTTPHeaderField: "User-Agent")
-        r.timeoutInterval = 60
-        let (data, resp) = try await session.data(for: r)
-        let code = (resp as? HTTPURLResponse)?.statusCode ?? 200
-        guard (200..<300).contains(code) else {
-            throw ImageAIError.failed(
-                code == 404
-                    ? "asset library: not found (check the id with library_search)" : "asset library: HTTP \(code)")
+        try await LibraryHTTP.get(url, session: session) { code in
+            code == 404 ? "asset library: not found (check the id with library_search)" : "asset library: HTTP \(code)"
         }
-        return data
     }
 
     func json(_ url: URL) async throws -> JSONValue {
