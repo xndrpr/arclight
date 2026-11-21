@@ -147,6 +147,20 @@ extension MCPServer {
         return lines
     }
 
+    /// The sound a tool reads: `sound` (a clip id) or the audio of `scene`, else the file `src` in assets/.
+    func audioSource(_ a: [String: JSONValue], store s: ProjectStore) throws -> (ref: AudioRef, scene: Scene?) {
+        guard let sid = a["scene"]?.string else { return (AudioRef(src: try a.str("src")), nil) }
+        let sc = try s.scene(sid)
+        if let id = a["sound"]?.string {
+            guard let r = sc.sound(id) else { throw ToolError("no sound '\(id)' in \(sid)") }
+            return (r, sc)
+        }
+        guard let r = sc.audio else {
+            throw ToolError("\(sid) has no audio — pass sound (a clip id) or src (a file)")
+        }
+        return (r, sc)
+    }
+
     func info(_ asset: String, store s: ProjectStore) -> String {
         guard let i = SceneAudio.info(s.assetsURL.appendingPathComponent(asset)) else { return asset }
         return "\(asset) (\(Format.number((i.duration * 100).rounded() / 100))s)"
@@ -389,23 +403,7 @@ extension MCPServer {
                     ])
             ) { [unowned self] a in
                 let s = try requireStore()
-                var ref: AudioRef
-                var scene: Scene?
-                if let sid = a["scene"]?.string {
-                    let sc = try s.scene(sid)
-                    scene = sc
-                    if let id = a["sound"]?.string {
-                        guard let r = sc.sound(id) else { throw ToolError("no sound '\(id)' in \(sid)") }
-                        ref = r
-                    } else {
-                        guard let r = sc.audio else {
-                            throw ToolError("\(sid) has no audio — pass sound (a clip id) or src (a file)")
-                        }
-                        ref = r
-                    }
-                } else {
-                    ref = AudioRef(src: try a.str("src"))
-                }
+                let (ref, scene) = try audioSource(a, store: s)
                 let url = SceneAudio.url(ref, assets: s.assetsURL)
                 guard FileManager.default.fileExists(atPath: url.path) else {
                     throw ToolError("'\(ref.src)' not found in assets/")
@@ -493,23 +491,7 @@ extension MCPServer {
                     ])
             ) { [unowned self] a in
                 let s = try requireStore()
-                var ref: AudioRef
-                var scene: Scene?
-                if let sid = a["scene"]?.string {
-                    let sc = try s.scene(sid)
-                    scene = sc
-                    if let id = a["sound"]?.string {
-                        guard let r = sc.sound(id) else { throw ToolError("no sound '\(id)' in \(sid)") }
-                        ref = r
-                    } else {
-                        guard let r = sc.audio else {
-                            throw ToolError("\(sid) has no audio — pass sound (a clip id) or src (a file)")
-                        }
-                        ref = r
-                    }
-                } else {
-                    ref = AudioRef(src: try a.str("src"))
-                }
+                let (ref, scene) = try audioSource(a, store: s)
                 // The original file: effects don't change the words, and stretching is undone below.
                 let file = AssetPath.url(ref.src, assets: s.assetsURL)
                 guard FileManager.default.fileExists(atPath: file.path) else {

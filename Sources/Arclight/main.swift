@@ -31,8 +31,10 @@ let usage = """
           Print the version.
     """
 
+func writeStderr(_ s: String) { FileHandle.standardError.write(Data(s.utf8)) }
+
 func fail(_ msg: String) -> Never {
-    FileHandle.standardError.write((msg + "\n").data(using: .utf8)!)
+    writeStderr(msg + "\n")
     exit(1)
 }
 
@@ -122,9 +124,8 @@ case "render":
             try ImageFile.writePNG(img, to: URL(fileURLWithPath: path))
             print(path)
         }
-        FileHandle.standardError.write(
-            String(format: "rendered %d frame(s) in %.0f ms\n", times.count, Date().timeIntervalSince(t0) * 1000).data(
-                using: .utf8)!)
+        let ms = Date().timeIntervalSince(t0) * 1000
+        writeStderr(String(format: "rendered %d frame(s) in %.0f ms\n", times.count, ms))
     } catch { fail("\(error)") }
 
 case "bench":
@@ -156,32 +157,24 @@ case "export":
     o.fps = args.one("fps").map { number($0, "fps") { try SafeNumber.positive($0, "fps", max: SafeNumber.maxFPS) } }
     let dir =
         args.one("out").map { URL(fileURLWithPath: $0) } ?? store.url.appendingPathComponent(ProjectLayout.exports)
+    // Exports `scenes` into `<dir>/<name>.<ext>`, with a progress line on stderr and the result on stdout.
+    func export(_ scenes: [Scene], as name: String, with exporter: Exporter) throws {
+        let r = try exporter.export(
+            scenes: scenes, project: store.project, assets: store.assetsURL,
+            to: dir.appendingPathComponent("\(name).\(o.format.ext)"), options: o
+        ) { i, n in
+            if i % 15 == 0 || i == n { writeStderr("\r\(name): \(i)/\(n)") }
+        }
+        writeStderr("\n")
+        print(String(format: "%@  %dx%d  %d frames  %.2fs", r.url.path, r.width, r.height, r.frames, r.seconds))
+    }
     do {
         let exporter = Exporter(renderer: try Renderer())
         if args.flags.contains("join") {
-            let scenes = try ids.map { try store.scene($0) }
-            let name = Exporter.joinedName(store.project.name)
-            let r = try exporter.export(
-                scenes: scenes, project: store.project, assets: store.assetsURL,
-                to: dir.appendingPathComponent("\(name).\(o.format.ext)"), options: o
-            ) { i, n in
-                if i % 15 == 0 || i == n { FileHandle.standardError.write("\r\(name): \(i)/\(n)".data(using: .utf8)!) }
-            }
-            FileHandle.standardError.write("\n".data(using: .utf8)!)
-            print(String(format: "%@  %dx%d  %d frames  %.2fs", r.url.path, r.width, r.height, r.frames, r.seconds))
+            try export(ids.map { try store.scene($0) }, as: Exporter.joinedName(store.project.name), with: exporter)
             exit(0)
         }
-        for id in ids {
-            let scene = try store.scene(id)
-            let r = try exporter.export(
-                scene: scene, project: store.project, assets: store.assetsURL,
-                to: dir.appendingPathComponent("\(id).\(o.format.ext)"), options: o
-            ) { i, n in
-                if i % 15 == 0 || i == n { FileHandle.standardError.write("\r\(id): \(i)/\(n)".data(using: .utf8)!) }
-            }
-            FileHandle.standardError.write("\n".data(using: .utf8)!)
-            print(String(format: "%@  %dx%d  %d frames  %.2fs", r.url.path, r.width, r.height, r.frames, r.seconds))
-        }
+        for id in ids { try export([try store.scene(id)], as: id, with: exporter) }
     } catch { fail("\(error)") }
 
 case "mcp":
