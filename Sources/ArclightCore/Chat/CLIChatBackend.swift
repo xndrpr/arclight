@@ -145,10 +145,14 @@ final class LockedText: @unchecked Sendable {
     var text: String { lock.lock(); defer { lock.unlock() }; return String(decoding: data, as: UTF8.self) }
 }
 
-/// Reads the agent's `stream-json` output: text and thinking deltas, tool calls and their results, the final result.
+/// Reads the agent's `stream-json` output: text and thinking deltas, tool calls and their results, usage (each
+/// request's from its stream, the turn's from the final result) and usage-limit reports.
 struct CLIStreamParser {
     private(set) var sessionId: String?
     private(set) var error: String?
+    /// The model the agent runs (`system`/`init`).
+    private(set) var model: String?
+    private var meter = UsageMeter()
     /// Anything came back from the model (so a failure isn't a rejected flag).
     private(set) var started = false
     private var toolNames: [String: String] = [:]
@@ -158,7 +162,7 @@ struct CLIStreamParser {
     private var plans: Set<String> = []
     static let prefix = "mcp__arclight__"
 
-    mutating func feed(_ line: Data) -> [ChatEvent] {
+    mutating func feed(_ line: Data, now: Date = Date()) -> [ChatEvent] {
         guard let v = try? JSONDecoder().decode(JSONValue.self, from: line), let type = v["type"]?.string else {
             return []
         }
@@ -166,10 +170,29 @@ struct CLIStreamParser {
         if type != "system" { started = true }
         switch type {
         case "system":
+            if v["subtype"]?.string == "init", let m = v["model"]?.string { model = m }
             // Thinking without its text (an agent that doesn't send summaries): still show that it's thinking.
             return v["subtype"]?.string == "thinking_tokens" ? [.thinking("")] : []
+        case "rate_limit_event":
+            return v["rate_limit_info"].flatMap { ChatLimits(cli: $0, now: now) }.map { [.limits($0)] } ?? []
         case "stream_event":
             guard let ev = v["event"] else { return [] }
+            // The agent's own requests, as the API streamed them (a subagent's are counted in the turn's result).
+            if v["parent_tool_use_id"]?.string == nil {
+                switch ev["type"]?.string {
+                case "message_start":
+                    let unfinished = takeUsage()
+                    meter.feed(ev)
+                    return unfinished
+                case "message_delta":
+                    meter.feed(ev)
+                    return []
+                case "message_stop":
+                    return takeUsage()
+                default:
+                    break
+                }
+            }
             if ev["type"]?.string == "content_block_start", ev["content_block"]?["type"]?.string == "thinking" {
                 return [.thinking("")]
             }
@@ -233,10 +256,54 @@ struct CLIStreamParser {
             if v["is_error"]?.bool == true {
                 error = v["result"]?.string ?? (v["subtype"]?.string).map { "the agent stopped: \($0)" }
             }
-            return []
+            return takeUsage() + (Self.turnUsage(v, model: model).map { [.usage($0)] } ?? [])
         default:
             return []
         }
+    }
+
+    /// The last request's usage, if it hasn't been reported.
+    private mutating func takeUsage() -> [ChatEvent] {
+        meter.take(fallbackModel: model).map { [.usage($0)] } ?? []
+    }
+
+    /// The agent's account of the turn, from its `result`. Tokens and cost: `model_usage_since_last_result` (newer
+    /// agents; this process runs one turn, so that is exactly the turn), else `usage` (the main loop's, per turn) with
+    /// the cost left to `total_cost_usd`, the session's running total. Also `num_turns` (model requests),
+    /// `duration_api_ms`, and the model's `contextWindow` from its per-model entry.
+    static func turnUsage(_ v: JSONValue, model: String?) -> ChatUsage? {
+        func int(_ x: JSONValue?) -> Int? { x?.double.map { Int($0) } }
+        let since = v["model_usage_since_last_result"]?.object
+        let all = v["modelUsage"]?.object
+        var u = ChatUsage(scope: .turn, model: model)
+        if let since {
+            for (_, m) in since.sorted(by: { $0.key < $1.key }) {
+                u.tokens += ChatTokens(cliModelUsage: m)
+                u.webSearches += int(m["webSearchRequests"]) ?? 0
+                if let c = m["costUSD"]?.double { u.cost = (u.cost ?? 0) + c }
+            }
+        } else if let usage = v["usage"], usage.object != nil {
+            u.tokens.merge(api: usage)
+            u.webSearches = int(usage["server_tool_use"]?["web_search_requests"]) ?? 0
+        }
+        u.sessionCost = v["total_cost_usd"]?.double
+        u.requests = int(v["num_turns"])
+        u.modelTime = v["duration_api_ms"]?.double.map { $0 / 1000 }
+        if let main = mainModel(since ?? [:], model: model) ?? mainModel(all ?? [:], model: model) {
+            if u.model == nil { u.model = main.id }
+            u.contextWindow = int(main.usage["contextWindow"])
+        }
+        guard !u.tokens.isEmpty || u.cost != nil || u.sessionCost != nil || u.requests != nil else { return nil }
+        return u
+    }
+
+    /// The entry of `model` in a per-model usage table (keys may carry a suffix such as `[1m]`), else the one that
+    /// wrote the most.
+    static func mainModel(_ entries: [String: JSONValue], model: String?) -> (id: String, usage: JSONValue)? {
+        let hit =
+            model.flatMap { m in entries[m].map { (m, $0) } ?? entries.first { $0.key.hasPrefix(m) } }
+            ?? entries.max { ($0.value["outputTokens"]?.double ?? 0) < ($1.value["outputTokens"]?.double ?? 0) }
+        return hit.map { (id: $0.0, usage: $0.1) }
     }
 }
 
