@@ -134,3 +134,38 @@ Performance toggle, an AI tab switch, a layer group fold, a panel resize step, o
 seen while an agent works. The editor window's settings now go through `@Preference` (`PrefChanges`), which tracks
 each key on its own; the timeline's row and lane heights are read through it too, which replaces eleven
 `@AppStorage` properties that existed only to force redraws.
+
+### 6. Trackpad taps that never clicked
+
+Reported: taps on the trackpad (tap to click) often did nothing unless the pointer stopped first; a physical press
+always worked. The click log (`ClickTrace`) showed why: a finger on the trackpad also sends zero-movement scroll
+events ("may begin", then "cancelled"), and when one lands between mouse-down and mouse-up, SwiftUI cancels the
+press. `ScrollClickGuard` now holds a "may begin" for up to 0.2 s and drops the zero-movement ones that arrive while
+a button is down; real scrolls pass through untouched. It tracks the button from mouse-down/up events, because
+`NSEvent.pressedMouseButtons` reports only physical presses. `arclight clickprobe taps` replays these sequences
+through the app's event queue: without the guard most taps are lost, with it every one registers.
+
+### 7. Scrubbing, and the end of Performance mode
+
+Performance mode (lower preview resolution) changed nothing a user could feel: the cost of a scrub step was not the
+render but the whole window following the playhead. A drag on the ruler now moves the time without publishing it to
+every view; the viewer redraws directly, and the rest of the window catches up at most every 0.15 s. Two hot spots
+in the renderer went too: each frame asked `FileManager` for every asset's attributes (now one `stat`), and the
+expression engine parsed the same expressions every frame (now cached). Result: a scrub step on a big scene
+25–51 → 12 ms (a 60 fps drag), so the mode and its toggle were removed.
+
+### 8. The workspace switch behind a curtain
+
+Even at 160–200 ms the switch showed half-done frames (panels appearing before the viewer resized). It now fades a
+curtain in (90 ms), switches under it, and fades it out (200 ms): the user sees one clean change instead of the
+intermediate layouts.
+
+### 9. Chat: what a turn cost, and a calmer look
+
+Each turn now records its tokens (input, output, cache), cost, duration, model, tool calls and context size, from
+the command-line agent's stream (`result`, `rate_limit_event`) and from the API's usage and rate-limit headers.
+The chat shows it where it is needed: the time on every message, a line under each reply (`16s · 46k tokens ·
+$0.09`, details on hover), and a usage ring in the header that opens into the plan's 5-hour and weekly limits with
+their reset times, the context window, and this chat's totals. Tool calls and thinking fold into one line per turn
+("Worked for 21m · 18 steps: …"), replies carry an author line, days are divided, and the composer is a card.
+Every clickable shows the pointer.
