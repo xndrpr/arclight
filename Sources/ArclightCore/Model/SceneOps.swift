@@ -164,7 +164,7 @@ public enum SceneOps {
             switch k {
             case "type":
                 guard let t = v.string else { throw ModelError.invalid("type must be a string") };
-                n.type = Node.typeAliases[t] ?? t
+                n.type = t
             case "parent": n.parent = v.string
             case "name": n.name = v.string
             case "in": n.start = v.double

@@ -77,11 +77,6 @@ public final class ProjectStore {
         let known = Set(scenes.keys)
         project.scenes = project.scenes.filter(known.contains) + known.subtracting(project.scenes).sorted()
         thumbnails = [:]
-        // Projects made before the rename keep their pages in previews/: move them to thumbnails/.
-        let legacy = url.appendingPathComponent("previews")
-        if fm.fileExists(atPath: legacy.path), !fm.fileExists(atPath: thumbnailsURL.path) {
-            try? fm.moveItem(at: legacy, to: thumbnailsURL)
-        }
         for f in (try? fm.contentsOfDirectory(at: thumbnailsURL, includingPropertiesForKeys: nil)) ?? []
         where f.pathExtension == "json" {
             do {

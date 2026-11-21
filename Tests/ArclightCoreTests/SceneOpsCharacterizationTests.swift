@@ -38,9 +38,6 @@ import Testing
             ])
         #expect(ids(try apply([["op": "add", "node": ["id": "n", "type": "shape"], "index": -3]]).scene).first == "n")
         #expect(ids(try apply([["op": "add", "node": ["id": "n", "type": "shape"], "index": 99]]).scene).last == "n")
-        // Old type names are rewritten on the way in.
-        #expect(
-            try apply([["op": "add", "node": ["id": "r", "type": "instancer"]]]).scene.node("r")?.type == "repeater")
     }
 
     @Test func moveByIndexBeforeAfter() throws {
@@ -56,7 +53,7 @@ import Testing
     @Test func setMergesPropsAndMeta() throws {
         let s = try apply([
             ["op": "set", "ids": ["a", "d"], "y": 7, "name": "Named", "in": 0.5, "out": 3],
-            ["op": "set", "id": "a", "x": .null, "type": "instancer", "parent": .null],
+            ["op": "set", "id": "a", "x": .null, "type": "repeater", "parent": .null],
         ]).scene
         #expect(s.node("d")?.props["y"] == .value(7) && s.node("d")?.name == "Named")
         #expect(s.node("d")?.start == 0.5 && s.node("d")?.end == 3)

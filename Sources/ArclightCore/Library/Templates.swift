@@ -34,7 +34,7 @@ public struct Template: Codable, Equatable, Sendable {
     /// "scene" (default: a motion scene) or "thumbnail" (a thumbnail artboard; `scene.size` is its size).
     public var kind: String?
 
-    public var isThumbnail: Bool { kind == "thumbnail" || kind == "preview" }  // "preview": saved before the rename
+    public var isThumbnail: Bool { kind == "thumbnail" }
 
     public init(
         id: String, name: String, description: String? = nil, category: String? = nil, params: [Param],

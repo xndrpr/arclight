@@ -17,11 +17,8 @@ public struct Node: Codable, Equatable, Sendable {
     public static let types: Set<String> = [
         "group", "text", "shape", "symbol", "image", "repeater", "light", "box", "model",
     ]
-    /// Old names still accepted when loading (rewritten on save).
-    public static let typeAliases: [String: String] = ["instancer": "repeater"]
-
     public init(id: String, type: String, parent: String? = nil, props: [String: Prop] = [:]) {
-        self.id = id; self.type = Node.typeAliases[type] ?? type; self.parent = parent; self.props = props
+        self.id = id; self.type = type; self.parent = parent; self.props = props
     }
 
     struct Key: CodingKey {
@@ -35,8 +32,7 @@ public struct Node: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Key.self)
         id = try c.decode(String.self, forKey: Key("id"))
-        let rawType = try c.decode(String.self, forKey: Key("type"))
-        type = Node.typeAliases[rawType] ?? rawType
+        type = try c.decode(String.self, forKey: Key("type"))
         parent = try c.decodeIfPresent(String.self, forKey: Key("parent"))
         name = try c.decodeIfPresent(String.self, forKey: Key("name"))
         start = try c.decodeIfPresent(Double.self, forKey: Key("in"))
@@ -217,7 +213,6 @@ public struct Project: Codable, Equatable, Sendable {
     ]
 
     enum CodingKeys: String, CodingKey { case name, size, fps, theme, scenes, thumbnails, workspace }
-    enum LegacyKeys: String, CodingKey { case previews }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "Untitled"
@@ -225,12 +220,8 @@ public struct Project: Codable, Equatable, Sendable {
         fps = try c.decodeIfPresent(Double.self, forKey: .fps) ?? 30
         theme = try c.decodeIfPresent([String: JSONValue].self, forKey: .theme) ?? Project.defaultTheme
         scenes = try c.decodeIfPresent([String].self, forKey: .scenes) ?? []
-        // Before the rename, thumbnails were "previews" (key, folder and workspace name).
-        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
-        thumbnails =
-            try c.decodeIfPresent([String].self, forKey: .thumbnails)
-            ?? legacy.decodeIfPresent([String].self, forKey: .previews) ?? []
-        workspace = try c.decodeIfPresent(String.self, forKey: .workspace).map { $0 == "preview" ? "thumbnail" : $0 }
+        thumbnails = try c.decodeIfPresent([String].self, forKey: .thumbnails) ?? []
+        workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
     }
 
     /// Old projects have no thumbnails: leave the key out so their project.json is rewritten unchanged.

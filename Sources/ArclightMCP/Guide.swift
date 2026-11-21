@@ -30,7 +30,7 @@ enum Guide {
         ]
     }
 
-    /// Old topic names still answered.
+    /// Other names agents try for a topic. They are listed in the guide tool's schema, so they are MCP surface.
     static let aliases: [String: [String]] = [
         "nodes": ["common", "text", "shape", "symbol", "image", "group"],
         "3d": ["space", "box", "model", "repeater", "light", "scene"],

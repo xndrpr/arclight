@@ -165,7 +165,7 @@ import simd
 
     func node(_ props: [String: JSONValue]) -> EvalNode {
         EvalNode(
-            node: Node(id: "c", type: "instancer"), world: matrix_identity_float4x4, opacity: 1, t: 1, props: props)
+            node: Node(id: "c", type: "repeater"), world: matrix_identity_float4x4, opacity: 1, t: 1, props: props)
     }
 
     @Test func layouts() {
@@ -231,7 +231,7 @@ import simd
         s.post = .value(["vignette": 0.5, "grain": 0.03, "bloom": 0.5, "saturation": 0])
         s.nodes = [
             Node(
-                id: "c", type: "instancer",
+                id: "c", type: "repeater",
                 props: [
                     "x": .value(960), "y": .value(800), "z": .value(1200), "cols": .value(12), "rows": .value(12),
                     "spacing": .value(80),
@@ -269,7 +269,7 @@ import simd
         var s = Scene(id: "s", duration: 5)
         s.nodes = [
             Node(
-                id: "crowd", type: "instancer",
+                id: "crowd", type: "repeater",
                 props: [
                     "cols": .value(10), "rows": .value(10),
                     "instance": .value(["lit": ["expr": "i < t * 20 ? 1 : 0"]]),
