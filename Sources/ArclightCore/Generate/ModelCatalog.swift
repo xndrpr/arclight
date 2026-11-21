@@ -37,8 +37,6 @@ public enum ModelCatalog {
 
         /// Over this a single result counts as expensive and the AI should ask first.
         public var expensive: Bool { kind == .image ? price > 0.06 : price > 0.35 }
-
-        public var menuLabel: String { "\(label) · \(priceNote)" }
     }
 
     /// Lets Arclight choose per request (see `pick`).

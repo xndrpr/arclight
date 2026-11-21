@@ -85,40 +85,29 @@ public enum KeychainStore {
             }
         }
     }
-
-    /// In-memory backend for tests.
-    public final class MemoryBackend: Backend {
-        public var values: [String: String] = [:]
-        public init() {}
-        public func read(_ account: String) -> String? { values[account] }
-        public func write(_ account: String, _ value: String?) throws { values[account] = value }
-    }
 }
 
-/// Non-secret image settings shared by the editor and the MCP server (UserDefaults suite `app.arclight.shared`
-/// would need an app group; a small JSON file in Application Support works for both processes).
+/// Non-secret image settings shared by the editor and the MCP server: a small JSON file in Application Support,
+/// which both processes can read (a shared UserDefaults suite would need an app group).
 public enum ImageSettings {
     static var url: URL { AppPaths.support.appendingPathComponent("image-settings.json") }
 
     struct Stored: Codable { var models: FalProvider.Models?; var enabled: Bool? }
-
-    nonisolated(unsafe) static var overrideURL: URL?
 
     /// Read once per process (and after each write); Settings is the only writer.
     nonisolated(unsafe) private static var memo: Stored?
 
     static func read() -> Stored {
         if let m = memo { return m }
-        let s = JSONFile.read(Stored.self, from: overrideURL ?? url) ?? Stored()
+        let s = JSONFile.read(Stored.self, from: url) ?? Stored()
         memo = s
         return s
     }
 
     static func write(_ s: Stored) {
         memo = s
-        let u = overrideURL ?? url
-        try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? JSONEncoder().encode(s).write(to: u, options: .atomic)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? JSONEncoder().encode(s).write(to: url, options: .atomic)
     }
 
     public static var models: FalProvider.Models {

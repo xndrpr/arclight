@@ -3,7 +3,7 @@ import Foundation
 
 /// fal.ai through its queue API: POST `https://queue.fal.run/<model>` with `Authorization: Key <key>`, poll the
 /// returned `status_url` until `COMPLETED`, then GET `response_url` and download the first image.
-/// Model ids are defaults that Settings (and `ARCLIGHT_FAL_MODELS`) can override.
+/// Model ids are defaults that Settings can override.
 public struct FalProvider: ImageProvider {
     public struct Models: Codable, Equatable, Sendable {
         /// "auto" lets `ModelCatalog.pick` choose per request.
