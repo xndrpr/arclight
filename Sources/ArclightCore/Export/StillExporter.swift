@@ -37,8 +37,8 @@ extension ImageFile {
     }
 }
 
-/// Exports thumbnail artboards as PNG or JPG. The YouTube preset renders 1280×720 (or the artboard's own size scaled
-/// to 720p height for other ratios) as a JPG under YouTube's 2 MB thumbnail limit.
+/// Exports thumbnail artboards as PNG or JPG, always with the artboard's own aspect ratio. The YouTube preset is a JPG
+/// under YouTube's 2 MB thumbnail limit at 1280×720 turned to the artboard's orientation (see `youtubeScale`).
 public struct StillExporter {
     public static let youtubeMaxBytes = 2 * 1024 * 1024
 
@@ -103,10 +103,16 @@ public struct StillExporter {
         }
     }
 
-    /// Export scale for the YouTube preset: 16:9 artboards come out at exactly 1280×720 (YouTube's recommended
-    /// thumbnail size); other ratios (Shorts covers, squares) keep their own size.
+    /// Export scale for the YouTube preset: YouTube's 1280×720 thumbnail size turned to the artboard's orientation, so
+    /// 16:9 comes out at exactly 1280×720 and 9:16 (a Shorts cover) at 720×1280; other ratios fit inside that frame
+    /// with their own aspect (a square at 720×720, 4:5 at 720×900). Never stretched or letterboxed.
     public static func youtubeScale(for a: Artboard) -> Double {
-        let ratio = Double(a.width) / Double(max(a.height, 1))
-        return abs(ratio - 16.0 / 9.0) < 0.01 ? 1280 / Double(max(a.width, 1)) : 1
+        let long = Double(max(a.width, a.height, 1)), short = Double(max(min(a.width, a.height), 1))
+        return min(Double(Artboard.youtubeSize[0]) / long, Double(Artboard.youtubeSize[1]) / short)
+    }
+
+    /// The pixel size `export` writes `a` at with `scale`.
+    public static func pixelSize(of a: Artboard, scale: Double) -> (width: Int, height: Int) {
+        Renderer.pixelSize(width: a.width, height: a.height, scale: scale)
     }
 }

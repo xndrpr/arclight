@@ -17,19 +17,45 @@ struct StillExportSheet: View {
     enum Kind: String, CaseIterable { case youtube, jpg, png }
 
     private static let kinds: [(kind: Kind, title: String, detail: String)] = [
-        (.youtube, "YouTube thumbnail", "1280×720 JPG under YouTube's 2 MB limit, ready to upload. Best default."),
+        (.youtube, "YouTube thumbnail", "JPG under YouTube's 2 MB limit, ready to upload. Best default."),
         (.jpg, "JPG · full size", "The artboard at its own size, high quality."),
         (.png, "PNG", "Lossless, optionally with a transparent background."),
     ]
 
+    /// What `kind` writes for `a`: YouTube at 1280×720 turned to the artboard's orientation, JPG and PNG at its size.
+    static func options(_ kind: Kind, for a: Artboard, transparent: Bool = false) -> StillExporter.Options {
+        var o: StillExporter.Options
+        switch kind {
+        case .youtube: o = .youtube; o.scale = StillExporter.youtubeScale(for: a)
+        case .jpg: o = .init(); o.format = .jpg
+        case .png: o = .init(); o.format = .png; o.transparent = transparent
+        }
+        return o
+    }
+
+    /// A card's line, led by the pixel size(s) it writes for `boards`: "720×1280 · JPG under…".
+    static func detail(_ kind: Kind, boards: [Artboard]) -> String {
+        let line = kinds.first { $0.kind == kind }?.detail ?? ""
+        var sizes: [String] = []
+        for a in boards {
+            let (w, h) = StillExporter.pixelSize(of: a, scale: options(kind, for: a).scale)
+            if !sizes.contains("\(w)×\(h)") { sizes.append("\(w)×\(h)") }
+        }
+        guard !sizes.isEmpty else { return line }
+        return sizes.prefix(3).joined(separator: ", ") + (sizes.count > 3 ? "…" : "") + " · " + line
+    }
+
     var body: some View {
         let outDir = dest ?? doc.url.appendingPathComponent("exports")
         let page = doc.openThumbnail
+        let boards = page.map(exported) ?? []
         VStack(alignment: .leading, spacing: 16) {
             ExportParts.header(summary(page))
             VStack(spacing: 6) {
                 ForEach(Self.kinds, id: \.kind) { k in
-                    FormatCard(title: k.title, detail: k.detail, on: kind == k.kind) { kind = k.kind }
+                    FormatCard(title: k.title, detail: Self.detail(k.kind, boards: boards), on: kind == k.kind) {
+                        kind = k.kind
+                    }
                 }
             }
             if kind == .png {
@@ -81,11 +107,15 @@ struct StillExportSheet: View {
         return "“\(a?.name ?? a?.id ?? "")” · \(a?.width ?? 0)×\(a?.height ?? 0)"
     }
 
+    /// The artboards Export writes: the open one, or all of the page's.
+    private func exported(_ page: ArclightCore.Thumbnail) -> [Artboard] {
+        allArtboards ? page.artboards : page.artboards.filter { $0.id == doc.target.artboardId }
+    }
 
     private func run(_ dir: URL) {
         doc.saveNow()
         guard let page = doc.openThumbnail else { return }
-        let boards = allArtboards ? page.artboards : page.artboards.filter { $0.id == doc.target.artboardId }
+        let boards = exported(page)
         let project = doc.store.project, assets = doc.assets, kind = kind, alpha = transparent
         running = true; results = []; error = nil
         doc.busy = "Exporting…"
@@ -95,12 +125,7 @@ struct StillExportSheet: View {
                 let ex = StillExporter(renderer: try Renderer())
                 var out: [StillExporter.Result] = []
                 for a in boards {
-                    var o: StillExporter.Options
-                    switch kind {
-                    case .youtube: o = .youtube; o.scale = StillExporter.youtubeScale(for: a)
-                    case .jpg: o = .init(); o.format = .jpg
-                    case .png: o = .init(); o.format = .png; o.transparent = alpha
-                    }
+                    let o = Self.options(kind, for: a, transparent: alpha)
                     let name = "\(page.id)_\(a.id).\(o.format.ext)"
                     out.append(
                         try ex.export(

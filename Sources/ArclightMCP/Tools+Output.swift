@@ -43,7 +43,7 @@ extension MCPServer {
             Tool(
                 name: "export",
                 description:
-                    "Export scenes: mp4 (H.264), hevc, prores (ProRes 4444 .mov with transparency for overlays) or png (image sequence). Pass frame (seconds) for a single PNG still. Scene audio is mixed in. join:true plays the scenes one after another in a single file named after the project (the user orders scenes by dragging them in the editor's Scenes list; project order is the default). For a thumbnail page pass thumbnail (and optionally artboards): format png, jpg or youtube (1280x720 JPG under YouTube's 2 MB limit; the default). Returns file paths.",
+                    "Export scenes: mp4 (H.264), hevc, prores (ProRes 4444 .mov with transparency for overlays) or png (image sequence). Pass frame (seconds) for a single PNG still. Scene audio is mixed in. join:true plays the scenes one after another in a single file named after the project (the user orders scenes by dragging them in the editor's Scenes list; project order is the default). For a thumbnail page pass thumbnail (and optionally artboards): format png or jpg (the artboard's own size) or youtube (the default: a JPG under YouTube's 2 MB limit at 1280x720 turned to the artboard's orientation, so 720x1280 for a Shorts cover; other shapes fit inside with their own aspect). Returns file paths.",
                 schema: schema([
                     "scenes": prop(
                         "array", "Scene ids; default all in project order", extra: ["items": ["type": "string"]]),

@@ -225,7 +225,7 @@ public final class Renderer {
         scene: Scene, project: Project, assets: URL?, time T: Double, scale: Double = 1, transparent: Bool = false
     ) throws -> CGImage {
         let (cw, ch) = project.size(for: scene)
-        let w = max(1, Int((Double(cw) * scale).rounded())), h = max(1, Int((Double(ch) * scale).rounded()))
+        let (w, h) = Renderer.pixelSize(width: cw, height: ch, scale: scale)
         let t = try imageTargets(width: w, height: h)
         let od = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: Renderer.outFormat, width: w, height: h, mipmapped: false)
@@ -240,6 +240,11 @@ public final class Renderer {
         cb.waitUntilCompleted()
         if let e = cb.error { throw RenderError.setup("\(e)") }
         return try Renderer.cgImage(from: out)
+    }
+
+    /// The pixel size `image` renders a `width`×`height` canvas at with `scale`.
+    public static func pixelSize(width: Int, height: Int, scale: Double) -> (width: Int, height: Int) {
+        (max(1, Int((Double(width) * scale).rounded())), max(1, Int((Double(height) * scale).rounded())))
     }
 
     /// Target sets for `image`, by size. Small ones are kept (thumbnails of several sizes alternate); a large one

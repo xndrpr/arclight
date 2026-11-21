@@ -134,4 +134,32 @@ import Testing
         doc.reveal(scene: "s", layer: nil)
         #expect(doc.workspace == .motion && doc.target == .scene("s"))
     }
+
+    /// The Export sheet's options write each artboard with its own aspect and orientation, and each card says the
+    /// pixel size that will be written: YouTube is 1280×720 turned upright for a Shorts cover (720×1280).
+    @Test func stillExportOptionsKeepTheArtboardsShapeAndSayTheSize() throws {
+        let tp = try TempProject("pv-export")
+        defer { tp.remove() }
+        let cases: [(size: [Int], youtube: [Int])] = [
+            ([1280, 720], [1280, 720]), ([1920, 1080], [1280, 720]), ([1080, 1920], [720, 1280]),
+            ([1080, 1080], [720, 720]), ([1080, 1350], [720, 900]),
+        ]
+        let page = ArclightCore.Thumbnail(
+            id: "shapes", artboards: cases.map { Artboard(id: "a\($0.size[0])x\($0.size[1])", size: $0.size) })
+        try tp.store.save(thumbnail: page)
+        let ex = StillExporter(renderer: try Renderer())
+        for (a, c) in zip(page.artboards, cases) {
+            for kind in StillExportSheet.Kind.allCases {
+                let o = StillExportSheet.options(kind, for: a)
+                let r = try ex.export(
+                    artboard: a, thumbnail: page, project: tp.store.project, assets: tp.store.assetsURL,
+                    to: tp.url.appendingPathComponent("exports/\(a.id)-\(kind).\(o.format.ext)"), options: o)
+                #expect([r.width, r.height] == (kind == .youtube ? c.youtube : c.size), "\(kind) \(a.id)")
+                #expect(StillExportSheet.detail(kind, boards: [a]).hasPrefix("\(r.width)×\(r.height) · "))
+            }
+        }
+        // All artboards: every distinct size, in page order.
+        #expect(StillExportSheet.detail(.youtube, boards: page.artboards).hasPrefix("1280×720, 720×1280, 720×720… · "))
+        #expect(StillExportSheet.detail(.png, boards: []) == "Lossless, optionally with a transparent background.")
+    }
 }
