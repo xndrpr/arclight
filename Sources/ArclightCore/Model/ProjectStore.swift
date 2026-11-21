@@ -16,9 +16,9 @@ public final class ProjectStore {
     public private(set) var scenes: [String: Scene]
     public internal(set) var thumbnails: [String: Thumbnail] = [:]
 
-    public var assetsURL: URL { url.appendingPathComponent("assets") }
-    var scenesURL: URL { url.appendingPathComponent("scenes") }
-    var thumbnailsURL: URL { url.appendingPathComponent("thumbnails") }
+    public var assetsURL: URL { url.appendingPathComponent(ProjectLayout.assets) }
+    var scenesURL: URL { url.appendingPathComponent(ProjectLayout.scenes) }
+    var thumbnailsURL: URL { url.appendingPathComponent(ProjectLayout.thumbnails) }
 
     public init(url: URL) throws {
         self.url = url
@@ -52,13 +52,11 @@ public final class ProjectStore {
     /// Re-reads everything from disk (the editor and the MCP server both write).
     public func reload() throws {
         ProjectStore.registerFonts(in: url)
-        let pdata = try Data(contentsOf: url.appendingPathComponent("project.json"))
+        let pdata = try Data(contentsOf: url.appendingPathComponent(ProjectLayout.projectFile))
         project = try JSONDecoder().decode(Project.self, from: pdata)
         scenes = [:]
         let fm = FileManager.default
-        let files =
-            (try? fm.contentsOfDirectory(at: url.appendingPathComponent("scenes"), includingPropertiesForKeys: nil))
-            ?? []
+        let files = (try? fm.contentsOfDirectory(at: scenesURL, includingPropertiesForKeys: nil)) ?? []
         for f in files where f.pathExtension == "json" {
             do {
                 let st = ProjectStore.fileState(f)
@@ -100,9 +98,9 @@ public final class ProjectStore {
 
     public static func create(at url: URL, name: String) throws -> ProjectStore {
         let fm = FileManager.default
-        try fm.createDirectory(at: url.appendingPathComponent("scenes"), withIntermediateDirectories: true)
-        try fm.createDirectory(at: url.appendingPathComponent("assets"), withIntermediateDirectories: true)
-        try ProjectStore.write(Project(name: name), to: url.appendingPathComponent("project.json"))
+        try fm.createDirectory(at: url.appendingPathComponent(ProjectLayout.scenes), withIntermediateDirectories: true)
+        try fm.createDirectory(at: url.appendingPathComponent(ProjectLayout.assets), withIntermediateDirectories: true)
+        try ProjectStore.write(Project(name: name), to: url.appendingPathComponent(ProjectLayout.projectFile))
         return try ProjectStore(url: url)
     }
 
@@ -163,7 +161,9 @@ public final class ProjectStore {
 
     static let historyLimit = 200
 
-    func historyDir(_ id: String) -> URL { url.appendingPathComponent(".history").appendingPathComponent(id) }
+    func historyDir(_ id: String) -> URL {
+        url.appendingPathComponent(ProjectLayout.history).appendingPathComponent(id)
+    }
     func historyFile(_ id: String, _ rev: Int) -> URL { historyDir(id).appendingPathComponent("\(rev).json") }
 
     /// History logs keep the default encoder and whole-second times: existing logs must stay readable and uniform.
@@ -251,7 +251,9 @@ public final class ProjectStore {
 
     public func update(project p: Project) throws { project = p; try saveProject() }
 
-    func saveProject() throws { try ProjectStore.write(project, to: url.appendingPathComponent("project.json")) }
+    func saveProject() throws {
+        try ProjectStore.write(project, to: url.appendingPathComponent(ProjectLayout.projectFile))
+    }
 
     static func write<T: Encodable>(_ value: T, to url: URL) throws {
         try JSONFormat.pretty().encode(value).write(to: url, options: .atomic)

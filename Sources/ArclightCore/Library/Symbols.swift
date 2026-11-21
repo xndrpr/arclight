@@ -149,7 +149,7 @@ public enum Symbols {
 
     static func defs(project: URL?) -> [Def] {
         var out = builtIn + packs(in: userLibrary)
-        if let project { out += packs(in: project.appendingPathComponent("symbols")) }
+        if let project { out += packs(in: project.appendingPathComponent(ProjectLayout.symbols)) }
         return out
     }
 

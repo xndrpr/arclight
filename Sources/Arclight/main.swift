@@ -154,7 +154,8 @@ case "export":
     }
     o.scale = args.one("scale").map(scaleOption) ?? 1
     o.fps = args.one("fps").map { number($0, "fps") { try SafeNumber.positive($0, "fps", max: SafeNumber.maxFPS) } }
-    let dir = args.one("out").map { URL(fileURLWithPath: $0) } ?? store.url.appendingPathComponent("exports")
+    let dir =
+        args.one("out").map { URL(fileURLWithPath: $0) } ?? store.url.appendingPathComponent(ProjectLayout.exports)
     do {
         let exporter = Exporter(renderer: try Renderer())
         if args.flags.contains("join") {

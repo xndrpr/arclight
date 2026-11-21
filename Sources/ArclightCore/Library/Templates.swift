@@ -61,7 +61,7 @@ public enum Templates {
 
     public static func all(project: URL?) -> [Template] {
         var list = BuiltInTemplates.all + load(dir: userDir)
-        if let project { list += load(dir: project.appendingPathComponent("templates")) }
+        if let project { list += load(dir: project.appendingPathComponent(ProjectLayout.templates)) }
         var seen = Set<String>()
         return list.reversed().filter { seen.insert($0.id).inserted }.reversed()
     }
@@ -209,7 +209,7 @@ public enum Templates {
         case .user: dir = userDir
         case .project:
             guard let project else { throw ModelError.invalid("no project open") }
-            dir = project.appendingPathComponent("templates")
+            dir = project.appendingPathComponent(ProjectLayout.templates)
         }
         let url = dir.appendingPathComponent("\(t.id).json")
         try JSONFile.write(t, to: url)

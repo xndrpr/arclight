@@ -55,7 +55,7 @@ extension MCPServer {
                     ], required: ["path"])
             ) { [unowned self] a in
                 let url = URL(expandingPath: try a.str("path"))
-                if FileManager.default.fileExists(atPath: url.appendingPathComponent("project.json").path) {
+                if FileManager.default.fileExists(atPath: url.appendingPathComponent(ProjectLayout.projectFile).path) {
                     throw ToolError("a project already exists there — use project_open")
                 }
                 // Validate before anything is created on disk.

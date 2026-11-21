@@ -108,7 +108,7 @@ public enum AssetWriter {
         switch scope {
         case .project:
             guard let project else { throw Failure.bad("no project open") }
-            dir = project.appendingPathComponent("symbols")
+            dir = project.appendingPathComponent(ProjectLayout.symbols)
         case .library: dir = Symbols.userLibrary
         }
         let file = dir.appendingPathComponent("\(p).json")

@@ -78,7 +78,9 @@ extension MCPServer {
                 o.scale = try SafeNumber.positive(a["scale"]?.double ?? 1, "scale", max: SafeNumber.maxScale)
                 o.fps = try a["fps"]?.double.map { try SafeNumber.positive($0, "fps", max: SafeNumber.maxFPS) }
                 o.transparent = a["transparent"]?.bool
-                let dir = a["out_dir"]?.string.map(URL.init(expandingPath:)) ?? s.url.appendingPathComponent("exports")
+                let dir =
+                    a["out_dir"]?.string.map(URL.init(expandingPath:))
+                    ?? s.url.appendingPathComponent(ProjectLayout.exports)
                 let exporter = Exporter(renderer: try renderer())
                 var lines: [String] = []
                 if let t = a["frame"]?.double {
@@ -183,7 +185,8 @@ extension MCPServer {
         }
         o.transparent = a["transparent"]?.bool ?? false
         let userScale = try a["scale"]?.double.map { try SafeNumber.positive($0, "scale", max: SafeNumber.maxScale) }
-        let dir = a["out_dir"]?.string.map(URL.init(expandingPath:)) ?? s.url.appendingPathComponent("exports")
+        let dir =
+            a["out_dir"]?.string.map(URL.init(expandingPath:)) ?? s.url.appendingPathComponent(ProjectLayout.exports)
         let ex = StillExporter(renderer: try renderer())
         var lines: [String] = []
         for aid in ids {
