@@ -5,7 +5,7 @@ import SwiftUI
 /// Colour swatch (opens the system colour panel) + hex field + theme colour menu. A value that uses a theme
 /// token (`$fg`) shows as a chip: click it to edit the token itself (every layer using it changes) or unlink.
 struct ColorField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let value: String
     /// Offer the theme colour menu (off when editing a token's own value).
     var tokens = true
@@ -68,7 +68,7 @@ private struct ColorSwatch: View {
 
 /// A value linked to a theme token. Click to edit that token in place.
 private struct TokenChip: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let key: String
     let unlink: () -> Void
     var use: ((String) -> Void)? = nil
@@ -111,7 +111,7 @@ private struct TokenChip: View {
 
 /// Edits one theme colour token from a layer's property.
 private struct TokenPopover: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let key: String
     let unlink: () -> Void
     var use: ((String) -> Void)? = nil

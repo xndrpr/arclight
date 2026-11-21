@@ -34,27 +34,31 @@ enum LayerDensity: String {
 
 /// Per-document layer-list state that isn't scene data: collapsed groups (persisted per project + scene),
 /// filter text, ⇧-click anchor and the current drop indicator.
-final class LayerUIState: ObservableObject {
-    weak var doc: EditorDocument?
+@Observable final class LayerUIState {
+    @ObservationIgnored weak var doc: EditorDocument?
     init(doc: EditorDocument) { self.doc = doc }
 
-    /// Changing these re-lays out the timeline, which observes the document.
-    var filter = "" { willSet { doc?.objectWillChange.send() } }
-    var anchor: String?
-    var dragging: [String] = []
+    var filter = ""
+    @ObservationIgnored var anchor: String?
+    @ObservationIgnored var dragging: [String] = []
     /// Time used for thumbnails (frozen while playing).
-    var thumbTime: Double = 0
-    @Published var drop: LayerTree.Drop?
+    @ObservationIgnored var thumbTime: Double = 0
+    var drop: LayerTree.Drop?
+    /// Collapsed groups live in the preferences; this tells the views reading them that they changed.
+    private var collapsedVersion = 0
 
     private func key(_ scene: String) -> String { Pref.layersCollapsed(projectPath: doc?.url.path ?? "", scene: scene) }
 
-    func collapsed(_ scene: String) -> Set<String> { Set(Pref.store.stringArray(forKey: key(scene)) ?? []) }
+    func collapsed(_ scene: String) -> Set<String> {
+        _ = collapsedVersion
+        return Set(Pref.store.stringArray(forKey: key(scene)) ?? [])
+    }
 
     func toggleCollapsed(_ id: String, scene: String) {
         var c = collapsed(scene)
         if c.contains(id) { c.remove(id) } else { c.insert(id) }
-        doc?.objectWillChange.send()
         Pref.store.set(Array(c).sorted(), forKey: key(scene))
+        collapsedVersion += 1
     }
 }
 

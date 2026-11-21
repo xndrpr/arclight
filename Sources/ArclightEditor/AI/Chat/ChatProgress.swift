@@ -54,7 +54,7 @@ extension String {
 /// Pinned under the chat header: the AI's plan as a progress bar (goal, step n of m, what's happening now), opening
 /// into the full step list. Without a plan, a running turn still shows what it is doing.
 struct ChatProgress: View {
-    @ObservedObject var chat: ChatController
+    let chat: ChatController
     @AppStorage("chat.planOpen") private var open = false
 
     var body: some View {

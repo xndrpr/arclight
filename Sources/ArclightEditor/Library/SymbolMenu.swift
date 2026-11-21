@@ -5,7 +5,7 @@ import SwiftUI
 /// "+ Layer ▸ Symbol ▸ pack ▸ symbol": adds one symbol as its own layer. Also offers a crowd of it (a repeater) and,
 /// when a repeater is selected, adding it to that repeater's items.
 struct SymbolsMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         let all = Symbols.all(project: doc.url)

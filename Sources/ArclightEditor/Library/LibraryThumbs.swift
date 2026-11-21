@@ -2,18 +2,27 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// Renders scene pictures off the main thread with its own `Renderer` (the editor's renderer stays on the main
-/// thread for the viewport). Requests run one at a time inside the actor.
-fileprivate actor ThumbWorker {
+/// Renders scene and layer pictures off the main thread with its own `Renderer` (the editor's renderer stays on the
+/// main thread for the viewport). Requests run one at a time inside the actor.
+actor ThumbWorker {
     static let shared = ThumbWorker()
     private var renderer: Renderer?
 
-    func render(_ scene: Scene, project: Project, assets: URL?, time: Double, width: Int) -> CGImage? {
+    private func ready() -> Renderer? {
         if renderer == nil { renderer = try? Renderer(); renderer?.draft = true }
-        guard let r = renderer else { return nil }
+        return renderer
+    }
+
+    func render(_ scene: Scene, project: Project, assets: URL?, time: Double, width: Int) -> CGImage? {
+        guard let r = ready() else { return nil }
         let (cw, _) = project.size(for: scene)
         return try? r.image(
             scene: scene, project: project, assets: assets, time: time, scale: Double(width) / Double(max(cw, 1)))
+    }
+
+    /// Just one layer, in place on the canvas (the layer list's thumbnails).
+    func layer(_ id: String, of scene: Scene, project: Project, assets: URL?, time: Double, width: Int) -> CGImage? {
+        try? ready()?.thumbnail(scene: scene, project: project, assets: assets, layer: id, time: time, width: width)
     }
 }
 

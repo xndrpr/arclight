@@ -1,10 +1,9 @@
 import ArclightCore
-import Combine
 import MetalKit
 import SwiftUI
 
 struct MetalCanvas: NSViewRepresentable {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     /// Drawable size in pixels (capped so deep zoom doesn't allocate huge textures; the layer scales it up).
     var pixelSize: CGSize = .zero
 
@@ -35,7 +34,6 @@ struct MetalCanvas: NSViewRepresentable {
         v.layerContentsPlacement = .scaleAxesIndependently
         if pixelSize.width > 1 { v.drawableSize = pixelSize }
         context.coordinator.observeTheme(v)
-        context.coordinator.observeOptions(v)
         return v
     }
 
@@ -46,7 +44,9 @@ struct MetalCanvas: NSViewRepresentable {
             red: Double(c.redComponent), green: Double(c.greenComponent), blue: Double(c.blueComponent), alpha: 1)
     }
 
+    /// Runs when what it reads changes: the frame's inputs below, so a selection or a toast doesn't redraw it.
     func updateNSView(_ v: MTKView, context: Context) {
+        _ = (doc.scene, doc.project, doc.time, doc.soloIds, doc.performance)
         context.coordinator.doc = doc
         v.clearColor = Self.clearColor
         if pixelSize.width > 1, v.drawableSize != pixelSize { v.drawableSize = pixelSize; v.needsDisplay = true }
@@ -71,15 +71,6 @@ struct MetalCanvas: NSViewRepresentable {
                 guard let v else { return }
                 v.clearColor = MetalCanvas.clearColor
                 v.needsDisplay = true
-            }
-        }
-
-        private var optionsToken: AnyCancellable?
-
-        /// Performance mode changes how the viewer renders: draw again (it isn't part of the document's changes).
-        func observeOptions(_ v: MTKView) {
-            optionsToken = doc.view.objectWillChange.sink { [weak v] _ in
-                DispatchQueue.main.async { v?.needsDisplay = true }
             }
         }
 

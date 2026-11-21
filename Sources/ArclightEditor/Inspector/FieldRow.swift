@@ -3,7 +3,7 @@ import SwiftUI
 
 /// One schema field: picks a scalar row, an object sub-section or a list editor by kind.
 struct FieldRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
 
     var body: some View {
@@ -38,7 +38,7 @@ private func stacked(_ s: Slot) -> Bool {
 
 /// label · editor · keyframe controls · ƒx · options.
 private struct ScalarRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     var extra: AnyView? = nil
     @State private var exprOpen = false
@@ -91,7 +91,7 @@ func scrubStep(_ step: Double, _ lo: Double?, _ hi: Double?) -> Double {
 
 /// Keyframe controls, ƒx toggle and the options menu.
 private struct RowTrailing: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     @Binding var exprOpen: Bool
     var extra: AnyView? = nil
@@ -134,7 +134,7 @@ private struct RowTrailing: View {
 
 /// "…" menu: easing into the key here, remove animation, reset.
 private struct RowMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
 
     var body: some View {
@@ -168,7 +168,7 @@ private struct RowMenu: View {
 /// A `numberOrObject` field holding the number shorthand (e.g. bloom 0.5): edited as its first sub-field,
 /// with a button to expand into the full object.
 private struct ShorthandRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let schema: ObjectSchema
 

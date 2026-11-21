@@ -3,7 +3,7 @@ import SwiftUI
 
 /// "Save scene as template…": name, id, description, category, scope, and which values become parameters.
 struct SaveTemplateSheet: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let scene: Scene
     let close: () -> Void
     @State private var name = ""

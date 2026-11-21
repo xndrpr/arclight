@@ -1,6 +1,5 @@
 import AVFoundation
 import ArclightCore
-import Combine
 import QuartzCore
 
 /// Plays the scene's reference audio and sound clips in sync with the playhead (one player per document, created
@@ -40,7 +39,7 @@ final class AudioPlayback {
     /// When the scene audio speaks (for clips that duck), worked out when playback starts.
     private var speech: [ClosedRange<Double>] = []
     private var voices: [Voice] = []
-    private var subs: Set<AnyCancellable> = []
+    private var watches: [AnyObject] = []
     private var timer: Timer?
     /// Scene time and host time playback started from (to detect seeks).
     private var anchorT = 0.0, anchorHost = 0.0
@@ -56,15 +55,14 @@ final class AudioPlayback {
             engine.connect(engine.mainMixerNode, to: limiter, format: out)
             engine.connect(limiter, to: engine.outputNode, format: out)
         }
-        // Publishers fire in willSet: re-evaluate on the next runloop turn, when the new values are in place.
-        doc.$playing.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: false) }
-        }.store(in: &subs)
-        doc.$rate.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: true) } }
-            .store(in: &subs)
-        doc.$scene.map { ["\($0.audibleClips)", "\($0.duration)"] }.removeDuplicates()
-            .sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: true) } }.store(in: &subs)
-        doc.$workArea.removeDuplicates().sink { [weak self] _ in DispatchQueue.main.async { self?.sync(restart: true) }
-        }.store(in: &subs)
+        watches = [
+            Watch({ [weak doc] in doc?.playing }) { [weak self] in self?.sync(restart: false) },
+            Watch({ [weak doc] in doc?.rate }) { [weak self] in self?.sync(restart: true) },
+            Watch({ [weak doc] in doc.map { ["\($0.scene.audibleClips)", "\($0.scene.duration)"] } }) {
+                [weak self] in self?.sync(restart: true)
+            },
+            Watch({ [weak doc] in doc?.workArea }) { [weak self] in self?.sync(restart: true) },
+        ]
     }
 
     deinit {

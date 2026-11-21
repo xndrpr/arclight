@@ -34,7 +34,7 @@ extension EditorDocument {
 
 struct ChatWindowView: View {
     let doc: EditorDocument
-    @ObservedObject var chats: ChatStore
+    let chats: ChatStore
 
     var body: some View {
         GeometryReader { g in
@@ -58,7 +58,7 @@ struct ChatWindowView: View {
 
 /// The chat list: newest first, a dot for a chat that is working, waiting for an answer, or failed.
 struct ChatSidebar: View {
-    @ObservedObject var chats: ChatStore
+    let chats: ChatStore
     @State private var renaming: String?
     @State private var name = ""
     @FocusState private var nameFocused: Bool

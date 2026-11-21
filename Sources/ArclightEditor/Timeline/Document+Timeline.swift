@@ -5,13 +5,13 @@ import UniformTypeIdentifiers
 
 /// Per-document timeline state that isn't scene data: selected keyframes, copied keys, whether the timeline
 /// was the last thing clicked (so ⌫ / ⌥← → act on keys), and one-time warnings.
-final class TimelineUIState: ObservableObject {
-    @Published var selectedKeys: Set<KeyRef> = []
-    var clipboard: KeyEdit.Clip?
+@Observable final class TimelineUIState {
+    var selectedKeys: Set<KeyRef> = []
+    @ObservationIgnored var clipboard: KeyEdit.Clip?
     /// True after a click in the timeline tracks / ruler, false after a click anywhere else in the window.
-    var focused = false
+    @ObservationIgnored var focused = false
     /// Layers we already warned about (expressions can't follow a trimmed start).
-    var warnedExpr: Set<String> = []
+    @ObservationIgnored var warnedExpr: Set<String> = []
 }
 
 private let timelineUIStates = NSMapTable<EditorDocument, TimelineUIState>.weakToStrongObjects()

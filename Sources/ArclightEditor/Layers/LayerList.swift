@@ -6,7 +6,7 @@ import SwiftUI
 /// Rows are pressed, clicked and dragged with one custom gesture (`NameRow.rowGesture`): click selects (also with
 /// trackpad tap-to-click), drag reorders / re-parents with a drop line, double-click renames.
 struct NamesColumn: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let rows: [TLRow]
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0
@@ -42,7 +42,7 @@ struct NamesColumn: View {
 
 /// Filter field, layer count / solo indicator, density toggle. Sits in the ruler row above the names.
 struct LayerListHeader: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     @FocusState private var focused: Bool
 
@@ -91,7 +91,6 @@ struct LayerListHeader: View {
                 symbol: detailed ? "rectangle.grid.1x2" : "list.bullet",
                 help: detailed ? "Detailed rows — switch to compact" : "Compact rows — switch to detailed"
             ) {
-                doc.objectWillChange.send()
                 density = (detailed ? LayerDensity.compact : .detailed).rawValue
                 Pref.store.removeObject(forKey: Pref.layerRowHeight)  // back to that density's own row height
             }

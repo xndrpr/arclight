@@ -44,7 +44,7 @@ struct FlowLayout: Layout {
 
 /// A layer id that selects the layer when clicked (switching scene first if needed).
 struct LayerChip: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let id: String
     let scene: String?
     @State private var hover = false

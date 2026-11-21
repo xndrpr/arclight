@@ -59,7 +59,7 @@ final class ChoiceSoundPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate
 
 /// The play buttons under a sound option: the sound alone, and in the scene when the option names one.
 struct ChoiceSoundButtons: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @ObservedObject var player: ChoiceSoundPlayer
     let option: ChatChoice.Option
     let sound: ChatChoice.Sound

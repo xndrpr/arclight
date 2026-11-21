@@ -1,11 +1,12 @@
 import AppKit
 import ArclightCore
-import Combine
 import Foundation
+import Observation
 
 /// One open project in the editor. Owns the working copy of the current scene, undo history,
 /// debounced autosave, and live reload of changes made on disk (e.g. by an AI agent over MCP).
-final class EditorDocument: ObservableObject {
+/// Views update only for the properties they read; state marked `@ObservationIgnored` never redraws anything.
+@Observable final class EditorDocument {
     /// Off for `arclight snapshot`, so development renders don't fill the user's Recent list.
     static var recordRecents = true
 
@@ -15,46 +16,48 @@ final class EditorDocument: ObservableObject {
     // Set only by the Document+*.swift extensions (they live in other files, so the setters can't be private).
     /// The project as the open document renders it: the stored project, with a detached thumbnail's own theme laid
     /// over it while that thumbnail is open (`effectiveProject`).
-    @Published var project: Project
+    var project: Project
     /// The working copy being edited: a motion scene, or an artboard of a thumbnail page (`Artboard.asScene`).
-    @Published var scene: Scene
+    var scene: Scene
     /// Motion (scenes, timeline) or Thumbnail (thumbnail pages, artboards). Remembered in project.json.
-    @Published var workspace: Workspace = .motion
+    var workspace: Workspace = .motion
     /// What `scene` is a working copy of; `.none` when the workspace is empty ("Create first scene / thumbnail").
-    @Published var target: EditTarget = .none
+    var target: EditTarget = .none
     /// Thumbnail workspace tool (Figma / Photoshop style): move, text, shapes, hand, zoom.
-    @Published var tool: ThumbnailTool = .move
+    var tool: ThumbnailTool = .move
     /// Thumbnail: the marquee selection (canvas px) that generative fill works on.
-    @Published var marquee: CGRect?
+    var marquee: CGRect?
     /// Which AI prompt field the contextual bar shows (generate / fill / expand), when open.
-    @Published var aiPrompt: AIPromptKind?
-    @Published var selection: String? {
+    var aiPrompt: AIPromptKind?
+    var selection: String? {
         didSet {
             if selection != oldValue { stateChanged() }
             if selection != nil, selectedSound != nil { selectedSound = nil }
         }
     }
-    /// Playhead (scene seconds). A change redraws the editor, except the steps playback makes (`ticking`): those
-    /// only move `clock`, which the playhead line and the timecode watch, so playing costs the UI almost nothing.
-    var time: Double = 0 {
-        willSet { if !ticking { objectWillChange.send() } }
-        didSet {
-            if clock.time != time { clock.time = time }
-            if !playing { playTime = time }
+    /// Playhead (scene seconds). The steps playback makes (`ticking`) redraw nothing: they only move `clock`,
+    /// which the playhead line and the timecode watch, so playing costs the UI almost nothing.
+    var time: Double {
+        get { access(keyPath: \.time); return _time }
+        set {
+            if ticking { _time = newValue } else { withMutation(keyPath: \.time) { _time = newValue } }
+            if clock.time != newValue { clock.time = newValue }
+            if !playing { playTime = newValue }
             if !ticking { stateChanged() }
         }
     }
+    @ObservationIgnored private var _time: Double = 0
     /// True while `tick()` moves `time` during playback.
-    var ticking = false
+    @ObservationIgnored var ticking = false
     let clock = PlayClock()
-    @Published var playing = false {
+    var playing = false {
         didSet {
             FileStamp.hold = playing
             if playing { lastTick = CACurrentMediaTime(); playTime = time } else { rate = 1 }
         }
     }
     /// Shuttle speed (J/K/L): negative plays backwards.
-    @Published var rate: Double = 1
+    var rate: Double = 1
     /// Half-resolution preview for heavy scenes. Off by default; remembered per user.
     /// Not published on the document (that redraws the whole editor): the viewer and the toggle watch `view`.
     var performance: Bool {
@@ -63,49 +66,48 @@ final class EditorDocument: ObservableObject {
     }
     /// Small view settings with their own observers.
     let view = ViewOptions()
-    @Published var toast: String?
+    var toast: String?
     /// Timeline view: seconds visible across the track area (the zoom) and the left edge (seconds).
     /// Panning only moves the offset, never the scale; changing the duration never rescales.
-    @Published var tlVisible: Double = 10
-    @Published var tlOffset: Double = 0
+    var tlVisible: Double = 10
+    var tlOffset: Double = 0
     /// One setting for the timeline and the canvas.
-    @Published var snapping = Pref.storedSnapping()
+    var snapping = Pref.storedSnapping()
     /// Loop playback (⌘L) and the optional work area (⌥-drag on the ruler) it loops inside.
-    @Published var loopEnabled = true
-    @Published var workArea: ClosedRange<Double>?
+    var loopEnabled = true
+    var workArea: ClosedRange<Double>?
     /// Full-screen cinema viewer / viewer-only layout.
-    @Published var cinema = false
-    @Published var viewerOnly = false
-    @Published var busy: String?
+    var cinema = false
+    var viewerOnly = false
+    var busy: String?
     /// The sound clip clicked in the sounds lane (Delete removes it). Cleared when a layer is selected.
-    @Published var selectedSound: String?
+    var selectedSound: String?
     /// `selectedSound` for the scene's own audio (the lane under the ruler).
     static let sceneAudioId = "@audio"
     /// The video export running or last run (ExportSheet.swift).
     let exportJob = ExportJob()
-    var onCinemaChange: ((Bool) -> Void)?
+    @ObservationIgnored var onCinemaChange: ((Bool) -> Void)?
 
     // Shared editor state used by several panels (activity, layers, canvas, inspector).
     /// Project activity feed (MCP calls by the AI, editor saves), oldest first.
-    @Published var activity: [ActivityEntry] = []
+    var activity: [ActivityEntry] = []
     /// Set when new AI (MCP) calls arrive; the top bar shows "AI is editing" until then.
-    @Published var agentActiveUntil: Date?
+    var agentActiveUntil: Date?
     /// Layers changed outside the editor, highlighted briefly.
-    @Published var flashIds: Set<String> = []
+    var flashIds: Set<String> = []
     /// Extra selected layers (⌘/⇧-click); `selection` stays the primary one.
-    @Published var multiSelection: Set<String> = []
+    var multiSelection: Set<String> = []
     /// Solo: when non-empty, only these layers render in the viewport.
-    @Published var soloIds: Set<String> = []
+    var soloIds: Set<String> = []
     /// Left sidebar tab id: "scenes", "history" or "assets".
-    @Published var leftTab = "scenes"
+    var leftTab = "scenes"
     /// The project's chats (Document+Chat.swift). Made when the panel first shows one.
-    lazy var chats: ChatStore = {
+    @ObservationIgnored lazy var chats: ChatStore = {
         let s = ChatStore(project: url)
         s.note = { [weak self] in self?.chatNote() }
         s.checkpoint = { [weak self] in self?.chatCheckpoint() ?? [:] }
         s.revert = { [weak self] in self?.revertChat(to: $0) ?? [] }
         s.frame = { [weak self] in self?.chatFrame() }
-        s.onActiveChange = { [weak self] in self?.objectWillChange.send() }
         return s
     }()
     /// The chat in front.
@@ -113,35 +115,36 @@ final class EditorDocument: ObservableObject {
     /// Memoised audio lane rows (AudioFileCache.swift).
     let laneMemo = LaneMemo()
     /// The chats' own window, once opened (ChatWindow.swift).
-    var chatWindow: ChatWindowController?
+    @ObservationIgnored var chatWindow: ChatWindowController?
 
     /// Primary + extra selection.
     var selectedIds: Set<String> { multiSelection.union(selection.map { [$0] } ?? []) }
 
     /// Precise playhead used by the viewport while playing.
-    var playTime: Double = 0
+    @ObservationIgnored var playTime: Double = 0
 
     // Internal state of the Document+*.swift extensions (internal only because they live in other files).
-    var lastTick: CFTimeInterval = 0
-    var lastPublish: CFTimeInterval = 0
-    var undoStack: [Scene] = [], redoStack: [Scene] = []
+    @ObservationIgnored var lastTick: CFTimeInterval = 0
+    @ObservationIgnored var lastPublish: CFTimeInterval = 0
+    var undoStack: [Scene] = []
+    var redoStack: [Scene] = []
     /// Undo history of project theme edits (Document+Theme.swift).
     let themeHistory = ThemeHistory()
     /// Bumped when library files change (imports, deletes, saved templates) so panels re-read the folders.
-    @Published var libraryVersion = 0
-    var inGesture = false
+    var libraryVersion = 0
+    @ObservationIgnored var inGesture = false
     /// Rev of the on-disk scene our working copy is based on.
-    var baseRev: Int
-    var savePending: DispatchWorkItem?
-    var stamps: [String: Date] = [:]
-    var stateWork: DispatchWorkItem?
-    var activityStamp: Date?
+    @ObservationIgnored var baseRev: Int
+    @ObservationIgnored var savePending: DispatchWorkItem?
+    @ObservationIgnored var stamps: [String: Date] = [:]
+    @ObservationIgnored var stateWork: DispatchWorkItem?
+    @ObservationIgnored var activityStamp: Date?
     /// How far into the activity log the feed has been read (bytes).
-    var activityOffset: UInt64 = 0
-    var zoomTween: Timer?
+    @ObservationIgnored var activityOffset: UInt64 = 0
+    @ObservationIgnored var zoomTween: Timer?
 
-    private var pollTimer: Timer?
-    private var gestureRecorded = false
+    @ObservationIgnored private var pollTimer: Timer?
+    @ObservationIgnored private var gestureRecorded = false
 
     var url: URL { store.url }
     var assets: URL { store.assetsURL }
@@ -256,14 +259,13 @@ final class EditorDocument: ObservableObject {
 }
 
 /// The playhead for the few views that follow it during playback (the playhead line, the timecode).
-final class PlayClock: ObservableObject {
-    @Published var time: Double = 0
+@Observable final class PlayClock {
+    var time: Double = 0
 }
 
-/// View settings that only a few views show (the viewer, its toggle): observed on their own, so changing one
-/// doesn't redraw the editor.
-final class ViewOptions: ObservableObject {
-    @Published var performance = Pref.store.bool(forKey: Pref.performance) {
+/// View settings that only a few views show (the viewer, its toggle).
+@Observable final class ViewOptions {
+    var performance = Pref.store.bool(forKey: Pref.performance) {
         didSet { Pref.store.set(performance, forKey: Pref.performance) }
     }
 }

@@ -74,7 +74,6 @@ extension EditorDocument {
         }
         try? store.update(project: p)
         refreshProject()
-        objectWillChange.send()
     }
 
     func refreshProject() { project = effectiveProject(); stamps = fileStamps() }

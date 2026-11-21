@@ -4,7 +4,7 @@ import SwiftUI
 /// "Notes for the AI": requests the user leaves while watching, tied to the selected layer and playhead.
 /// The AI agent sees open notes in `editor_state` / `note_list` and closes them with `note_resolve`.
 struct NotesSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var notes: [Note] = []
     @State private var draft = ""
     @State private var showResolved = false
@@ -124,7 +124,7 @@ struct NotesSection: View {
 }
 
 private struct NoteRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let note: Note
     let changed: () -> Void
     @State private var hover = false

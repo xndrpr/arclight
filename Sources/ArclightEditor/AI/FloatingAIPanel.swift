@@ -11,7 +11,7 @@ import SwiftUI
 /// menus keep working while you watch the AI, themes with the window, and shows in off-screen snapshots.
 /// Apply it as an overlay of the column it floats over.
 struct FloatingAIPanel: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     /// The top-bar AI pill's frame (global), so the panel opens out of it and closes back into it.
     var pill: CGRect = .zero
     @AppStorage(Pref.aiPanel) private var open = false
@@ -192,7 +192,7 @@ private extension View {
 
 /// Header: what the AI is doing, and the panel's own controls. Doubles as the drag handle.
 struct AIPanelHeader: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let collapsed: Bool
     var draggable = true
     var expanded = false

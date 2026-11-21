@@ -5,18 +5,18 @@ import simd
 
 /// One canvas drag: what it grabbed at mouse-down and how pointer movement maps to edits.
 /// Every transform drag is wrapped in `beginGesture/endGesture` (one undo step).
-final class GizmoSession: ObservableObject {
+@Observable final class GizmoSession {
     enum Mode: Equatable {
         case none, move, scale(Handle), rotate, anchor(compensate: Bool), marquee(additive: Bool)
         case move3D, orbitPending, orbit, pan
     }
 
     // Published feedback drawn by the overlay.
-    @Published var marquee: CGRect?  // canvas px
-    @Published var snapLines: [SnapLine] = []
-    @Published var readout: String?
-    @Published var readoutAt = CGPoint.zero  // canvas-view points
-    @Published var mode = Mode.none
+    var marquee: CGRect?  // canvas px
+    var snapLines: [SnapLine] = []
+    var readout: String?
+    var readoutAt = CGPoint.zero  // canvas-view points
+    var mode = Mode.none
 
     struct Item {
         let node: EvalNode
@@ -26,21 +26,27 @@ final class GizmoSession: ObservableObject {
         let scaleArray: Bool
     }
 
-    var items: [Item] = []
-    var nodes: [EvalNode] = []
-    var startC = CGPoint.zero, startView = CGPoint.zero, startMouse = CGPoint.zero
-    var box0 = CGRect.zero
-    var toUnscaled = matrix_identity_float4x4  // canvas → single layer's rotated, unscaled frame at its pivot
-    var worldInv = matrix_identity_float4x4
-    var snapX: [CGFloat] = [], snapY: [CGFloat] = []
-    var plane: Float = 0, hit0 = SIMD3<Float>(repeating: 0), pos0 = SIMD3<Float>(repeating: 0)
-    var eye0 = SIMD3<Float>(repeating: 0), target0 = SIMD3<Float>(repeating: 0)
-    var pan0 = CGSize.zero
+    @ObservationIgnored var items: [Item] = []
+    @ObservationIgnored var nodes: [EvalNode] = []
+    @ObservationIgnored var startC = CGPoint.zero
+    @ObservationIgnored var startView = CGPoint.zero
+    @ObservationIgnored var startMouse = CGPoint.zero
+    @ObservationIgnored var box0 = CGRect.zero
+    @ObservationIgnored var toUnscaled = matrix_identity_float4x4  // canvas → single layer's rotated, unscaled frame at its pivot
+    @ObservationIgnored var worldInv = matrix_identity_float4x4
+    @ObservationIgnored var snapX: [CGFloat] = []
+    @ObservationIgnored var snapY: [CGFloat] = []
+    @ObservationIgnored var plane: Float = 0
+    @ObservationIgnored var hit0 = SIMD3<Float>(repeating: 0)
+    @ObservationIgnored var pos0 = SIMD3<Float>(repeating: 0)
+    @ObservationIgnored var eye0 = SIMD3<Float>(repeating: 0)
+    @ObservationIgnored var target0 = SIMD3<Float>(repeating: 0)
+    @ObservationIgnored var pan0 = CGSize.zero
     /// Press timing: edits only start once the press is clearly a drag (tap-to-click never nudges a layer).
-    var press = PressTracker()
+    @ObservationIgnored var press = PressTracker()
     /// Layer clicked at mouse-down (for "click a layer of a multi-selection selects just it").
-    var clicked: String?
-    var clickAdditive = false
+    @ObservationIgnored var clicked: String?
+    @ObservationIgnored var clickAdditive = false
 
     var isActive: Bool { mode != .none }
 

@@ -50,7 +50,7 @@ enum TimelineInk {
 
     /// The playhead over a lane, as its own layer: it follows `clock`, so a lane isn't redrawn as it moves.
     struct Playhead: View {
-        @ObservedObject var clock: PlayClock
+        let clock: PlayClock
         let map: TimeMap
         /// The ruler's: with the triangle under the marker band.
         var head = false

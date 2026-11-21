@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Left column of the sounds lane: how many clips, mute all, remove all.
 struct SoundsLaneHeader: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.soundsLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 
     var body: some View {
@@ -44,7 +44,7 @@ struct SoundsLaneHeader: View {
 /// Sound clips: small waveform boxes at their times, each overlapping clip on a row of its own (the lane grows).
 /// Drag a clip to move it; right-click for mute, gain and remove; click empty space to move the playhead.
 struct SoundsLane: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let width: CGFloat
     @AppStorage(Pref.soundsLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 

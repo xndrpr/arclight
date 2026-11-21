@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The value editor for a field kind.
 struct FieldEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     @Binding var exprOpen: Bool
 
@@ -42,7 +42,7 @@ struct FieldEditor: View {
 }
 
 private struct NumberEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
 
     var body: some View {
@@ -99,7 +99,7 @@ extension View {
 }
 
 private struct ChoiceEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let options: [String]
     var body: some View {
@@ -114,7 +114,7 @@ private struct ChoiceEditor: View {
 }
 
 private struct VectorEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let labels: [String]
     var body: some View {
@@ -154,7 +154,7 @@ func vectorScrub(
 
 /// A number, or one value per axis; the link toggles between them.
 private struct NumberOrVectorEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let labels: [String]
     var body: some View {
@@ -197,7 +197,7 @@ private struct NumberOrVectorEditor: View {
 
 /// Raw JSON for fields without a dedicated editor.
 private struct JSONEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     var body: some View {
         CodeField(title: slot.field.label, text: slot.shown.map(prettyJSON) ?? "", badge: "{ }") { str in

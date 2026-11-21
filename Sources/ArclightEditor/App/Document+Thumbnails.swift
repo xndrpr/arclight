@@ -71,6 +71,7 @@ extension EditorDocument {
         var p = store.project
         p.workspace = ws.rawValue
         try? store.update(project: p)
+        notedProjectWrite()
         let (s, t, rev) = EditorDocument.initialTarget(ws, store: store)
         open(s, target: t, rev: rev)
     }

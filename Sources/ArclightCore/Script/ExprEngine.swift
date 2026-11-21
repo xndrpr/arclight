@@ -73,14 +73,16 @@ public final class ExprEngine {
     /// How a source runs: as one expression whose value is returned, or as a statement body with its own `return`.
     enum Form: Equatable { case expression, body }
 
-    private var formCache: [String: Form] = [:]
+    /// Shared by every engine (a renderer has one each): a failed parse costs JavaScriptCore a symbolicated stack.
+    nonisolated(unsafe) private static var formCache: [String: Form] = [:]
+    private static let formLock = NSLock()
 
     /// Classifies a source by parsing it; nothing is run. It is an expression when `return (src);` parses.
     /// Otherwise it is a statement body when it parses as a function body but not as a script, which means it
     /// has a `return` of its own (outside nested functions). A source that parses nowhere is a body, so the
     /// syntax error reported is the body's; anything else (`1; 2`) stays an expression and reports its error.
     func form(_ src: String) -> Form {
-        if let f = formCache[src] { return f }
+        if let f = Self.formLock.withLock({ Self.formCache[src] }) { return f }
         let f: Form
         if parses("(function() { return (\(src)); })") {
             f = .expression
@@ -89,7 +91,7 @@ public final class ExprEngine {
         } else {
             f = parses(src) ? .expression : .body
         }
-        formCache[src] = f
+        Self.formLock.withLock { Self.formCache[src] = f }
         return f
     }
 

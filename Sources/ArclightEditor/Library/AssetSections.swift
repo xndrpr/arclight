@@ -15,7 +15,7 @@ private struct EmptyNote: View {
 // MARK: Images
 
 struct ImagesSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         let files = LibraryModel.files(.image, in: doc.url)
         if files.isEmpty { EmptyNote(text: "Import PNG, JPEG or HEIC files to use them as image layers.") }
@@ -26,7 +26,7 @@ struct ImagesSection: View {
 }
 
 private struct ImageCell: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let url: URL
     @State private var image: CGImage?
     @State private var hover = false
@@ -80,7 +80,7 @@ private struct ImageCell: View {
 // MARK: Audio
 
 struct AudioSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         let files = LibraryModel.files(.audio, in: doc.url)
         if files.isEmpty {
@@ -95,7 +95,7 @@ struct AudioSection: View {
 }
 
 private struct AudioRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let url: URL
     @State private var duration: Double?
 
@@ -139,7 +139,7 @@ private struct AudioRow: View {
 // MARK: Fonts
 
 struct FontsSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         let files = LibraryModel.files(.font, in: doc.url)
         if files.isEmpty {
@@ -175,7 +175,7 @@ struct FontsSection: View {
 // MARK: Symbols
 
 struct SymbolsSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var query = ""
 
     var body: some View {
@@ -205,7 +205,7 @@ struct SymbolsSection: View {
 }
 
 private struct SymbolCell: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let info: Symbols.Info
     @State private var hover = false
 
@@ -236,7 +236,7 @@ private struct SymbolCell: View {
 // MARK: Templates
 
 struct TemplatesSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         let files = LibraryModel.templateFiles(project: doc.url)
         VStack(alignment: .leading, spacing: 2) {
@@ -256,7 +256,7 @@ struct TemplatesSection: View {
 }
 
 private struct TemplateRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let file: LibraryModel.TemplateFile
     @State private var hover = false
 

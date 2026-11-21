@@ -6,7 +6,7 @@ import SwiftUI
 /// generated form with a live preview. Creates a new scene, or inserts the layers into the current scene.
 struct TemplateGallery: View {
     enum Mode { case newScene, insert, newArtboard }
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let mode: Mode
     let close: () -> Void
     /// Template selected when the gallery opens (snapshots; defaults to the first).
@@ -180,7 +180,7 @@ private struct BlankCard: View {
 
 /// Right pane: big live preview, description, parameter form, actions.
 private struct TemplateDetail: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let template: Template
     @Binding var values: [String: String]
     let mode: TemplateGallery.Mode

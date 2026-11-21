@@ -34,7 +34,7 @@ enum FontCatalog {
 /// Font picker: the current font in its own face; the popover lists theme font tokens first, then every
 /// installed font with a live preview of the layer's text, search and a Cyrillic filter.
 struct FontField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     @State private var open = false
 
@@ -67,7 +67,7 @@ struct FontField: View {
 }
 
 struct FontPicker: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let current: String
     let sample: String
     /// List the project's font tokens first (off when picking a token's own value).

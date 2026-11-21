@@ -2,7 +2,7 @@ import ArclightCore
 import SwiftUI
 
 struct ActivityRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let item: ActivityItem
     let expanded: Bool
     let toggle: () -> Void

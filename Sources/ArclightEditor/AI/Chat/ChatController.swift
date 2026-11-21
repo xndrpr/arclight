@@ -5,23 +5,23 @@ import Foundation
 /// tool server behind it. Both backends reach Arclight's tools through a child `arclight mcp` process on this project, so every
 /// change shows in the activity feed with revert, like any agent's. Touched on the main thread only (the turn itself
 /// runs in a task; its events come back through the main queue, in order).
-final class ChatController: ObservableObject, @unchecked Sendable {
-    @Published private(set) var transcript: ChatTranscript
-    @Published private(set) var running = false
-    @Published var draft = ""
+@Observable final class ChatController: @unchecked Sendable {
+    private(set) var transcript: ChatTranscript
+    private(set) var running = false
+    var draft = ""
     /// Files waiting to go with the next message.
-    @Published private(set) var pending: [ChatAttachment] = []
+    private(set) var pending: [ChatAttachment] = []
     /// Bumped whenever the transcript grows or a row changes (the view follows the bottom on it).
-    @Published private(set) var revision = 0
+    private(set) var revision = 0
 
     let project: URL
     /// What the editor shows right now, put at the start of each message (`EditorDocument.chatNote`).
-    var note: () -> String? = { nil }
+    @ObservationIgnored var note: () -> String? = { nil }
     /// Scene revisions now, and putting scenes back to an earlier set (set by `ChatStore`).
-    var checkpoint: () -> [String: Int] = { [:] }
-    var revert: ([String: Int]) -> [String] = { _ in [] }
+    @ObservationIgnored var checkpoint: () -> [String: Int] = { [:] }
+    @ObservationIgnored var revert: ([String: Int]) -> [String] = { _ in [] }
     /// The frame the viewer shows now, as a PNG file (set by `ChatStore`): the composer's "attach this frame".
-    var frame: () -> URL? = { nil }
+    @ObservationIgnored var frame: () -> URL? = { nil }
 
     /// Attaches what the viewer shows right now.
     func attachFrame() {
@@ -31,21 +31,21 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     }
 
     /// Something the AI must be told with the next message (the user went back on its work).
-    private var aside: String?
+    @ObservationIgnored private var aside: String?
 
-    private var tools: MCPStdioClient?
-    private var backend: ChatBackend?
+    @ObservationIgnored private var tools: MCPStdioClient?
+    @ObservationIgnored private var backend: ChatBackend?
     /// The settings `backend` was made with; a change makes a new one on the next send.
-    private var backendConfig = ""
-    private var lastKind: ChatBackendKind?
-    private var task: Task<Void, Never>?
+    @ObservationIgnored private var backendConfig = ""
+    @ObservationIgnored private var lastKind: ChatBackendKind?
+    @ObservationIgnored private var task: Task<Void, Never>?
     /// Events from the running turn, applied to the transcript a frame at a time rather than one by one (a fast
     /// stream sends hundreds a second).
     private let inbox = EventInbox()
 
     /// Called (main thread) when what the chat list shows of this chat may have changed: it started or finished
     /// a turn, or was saved.
-    var onChange: () -> Void = {}
+    @ObservationIgnored var onChange: () -> Void = {}
 
     var id: String { transcript.id }
 
@@ -56,6 +56,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         for i in transcript.items.indices where transcript.items[i].kind == .tool && transcript.items[i].ok == nil {
             transcript.items[i].ok = false
         }
+        settingsChanged()
     }
 
     deinit {
@@ -64,10 +65,16 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         tools?.close()
     }
 
-    var kind: ChatBackendKind { ChatSettings.backend }
+    /// The backend and whether it can run, read when the chat opens and again when Settings change them (the
+    /// composer asks several times per redraw; each answer costs settings and Keychain reads).
+    private(set) var kind = ChatSettings.backend
+    private(set) var hasCredentials = false
 
-    /// The API backend needs a key; the CLI one brings its own login.
-    var hasCredentials: Bool { kind == .cli || KeychainStore.chatKey() != nil }
+    func settingsChanged() {
+        kind = ChatSettings.backend
+        hasCredentials = kind == .cli || KeychainStore.chatKey() != nil
+    }
+
 
     var statusLine: String {
         kind == .cli ? "\(ChatSettings.model.label) · your command-line agent" : ChatSettings.model.label
@@ -86,11 +93,11 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         var files: [ChatAttachment]
     }
 
-    @Published private(set) var queue: [Queued] = []
+    private(set) var queue: [Queued] = []
     /// True between Stop and the turn actually ending.
-    @Published private(set) var stopping = false
+    private(set) var stopping = false
     /// Set by "send now": the turn is being stopped so the queue goes out right after.
-    private var flushAfterStop = false
+    @ObservationIgnored private var flushAfterStop = false
 
     /// Sends the message in the field — or, while the AI is working, puts it in the queue.
     func send() {
@@ -110,8 +117,13 @@ final class ChatController: ObservableObject, @unchecked Sendable {
     func edit(queued q: Queued) {
         guard let i = queue.firstIndex(of: q) else { return }
         queue.remove(at: i)
-        draft = q.text
-        pending = q.files
+        insert(q.text, files: q.files)
+    }
+
+    /// Puts text (and files) into the field, after anything already typed there rather than over it.
+    func insert(_ text: String, files: [ChatAttachment] = []) {
+        draft = draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? text : draft + "\n\n" + text
+        pending = Array((pending + files).prefix(Self.maxAttachments))
     }
 
     func remove(queued q: Queued) { queue.removeAll { $0.id == q.id } }
@@ -137,6 +149,8 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         // Typed while a question waits: that's the answer, in the user's own words.
         let waiting = transcript.pendingChoice
         transcript.plan?.waiting = false
+        // A finished plan is history: the next request starts without it (it showed "Done" while the AI worked).
+        if transcript.plan?.isComplete == true { transcript.plan = nil }
         var mine = ChatItem(kind: .user, text: text, attachments: files.isEmpty ? nil : files)
         mine.checkpoint = checkpoint()
         mine.historyCount = transcript.history.count
@@ -180,9 +194,14 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         do { pending.append(try make()) } catch { say("\(error)") }
     }
 
+    /// A problem with what the user is attaching: shown by the field for a few seconds, not kept in the chat.
+    private(set) var composerNote: String?
+
     private func say(_ s: String) {
-        transcript.items.append(ChatItem(kind: .error, text: s))
-        revision += 1
+        composerNote = s
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+            if self?.composerNote == s { self?.composerNote = nil }
+        }
     }
 
     /// The user answered a choice card.
@@ -288,8 +307,7 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         backend?.close()
         backend = nil  // made again from the cut history on the next send
         backendConfig = ""
-        draft = item.text
-        pending = item.attachments ?? []
+        insert(item.text, files: item.attachments ?? [])
         revision += 1
         persist()
     }
@@ -338,11 +356,11 @@ final class ChatController: ObservableObject, @unchecked Sendable {
         }
     }
 
-    private var lastSave = Date.distantPast
+    @ObservationIgnored private var lastSave = Date.distantPast
 
     /// Development (`uibench`): applies `events` as one frame of a running turn.
     func replay(_ events: [ChatEvent]) {
-        running = true
+        if !running { running = true }
         for e in events { _ = inbox.post(e) }
         drain()
     }

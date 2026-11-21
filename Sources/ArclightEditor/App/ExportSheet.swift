@@ -4,16 +4,16 @@ import SwiftUI
 
 /// The export that is running (or last ran) for a project. Kept by the document, so hiding the sheet doesn't lose
 /// it: the top bar's "Exporting…" brings the sheet back.
-final class ExportJob: ObservableObject {
+@Observable final class ExportJob {
     /// The sheet's choices, kept for the project while it is open: reopening the sheet shows them again.
-    @Published var format = ExportFormat.mp4
-    @Published var scale = 1.0
-    @Published var which = ExportSheet.Which.current
-    @Published var transparent = false
-    @Published var dest: URL?
-    @Published var progress: Double?
-    @Published var results: [URL] = []
-    @Published var error: String?
+    var format = ExportFormat.mp4
+    var scale = 1.0
+    var which = ExportSheet.Which.current
+    var transparent = false
+    var dest: URL?
+    var progress: Double?
+    var results: [URL] = []
+    var error: String?
     /// Set by Cancel; the exporter asks between frames.
     private let stopFlag = StopFlag()
     var running: Bool { progress.map { $0 < 1 } ?? false }
@@ -31,8 +31,8 @@ final class StopFlag: @unchecked Sendable {
 }
 
 struct ExportSheet: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var job: ExportJob
+    let doc: EditorDocument
+    @Bindable var job: ExportJob
     @Binding var isPresented: Bool
     private var format: ExportFormat {
         get { job.format }

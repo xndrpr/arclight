@@ -14,12 +14,12 @@ enum ChatBlock: Identifiable {
         }
     }
 
-    /// Two or more tool calls in a row become one group.
+    /// Tool calls in a row become one group (one call too, so the row keeps its identity when a second comes).
     static func group(_ items: [ChatItem]) -> [ChatBlock] {
         var out: [ChatBlock] = []
         var run: [ChatItem] = []
         func flush() {
-            if run.count == 1 { out.append(.item(run[0])) } else if !run.isEmpty { out.append(.tools(run)) }
+            if !run.isEmpty { out.append(.tools(run)) }
             run = []
         }
         for i in items {
@@ -38,9 +38,13 @@ struct ChatToolGroup: View, Equatable {
     static func == (a: Self, b: Self) -> Bool { a.tools == b.tools }
 
     var body: some View {
+        if tools.count == 1 { ChatToolRow(item: tools[0]) } else { group }
+    }
+
+    private var group: some View {
         let running = tools.last { $0.ok == nil }
         let failed = tools.filter { $0.ok == false }.count
-        VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 6) {
             Button {
                 withMotion(Motion.snappy) { open.toggle() }
             } label: {
@@ -102,14 +106,13 @@ struct ChatAssistantRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             ChatMarkdown(text: text, live: live)
-            if !live {
-                HStack(spacing: 2) {
-                    IconButton(symbol: "doc.on.doc", help: "Copy message") { ChatRow.copy(text) }
-                        .opacity(hover ? 1 : 0)
-                    Spacer(minLength: 0)
-                }
-                .frame(height: 18)
+            // Its room is kept while the reply is written, so the reply doesn't jump when it ends.
+            HStack(spacing: 2) {
+                IconButton(symbol: "doc.on.doc", help: "Copy message") { ChatRow.copy(text) }
+                    .opacity(hover && !live ? 1 : 0).disabled(live)
+                Spacer(minLength: 0)
             }
+            .frame(height: 18)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
@@ -131,13 +134,29 @@ struct ChatMarkdown: View {
         return c
     }()
 
-    /// `blocks`, remembered for a reply that is finished (a long chat is scrolled through many times).
+    /// `blocks`, remembered (a long chat is scrolled through many times). A reply being written only grows at its
+    /// end: what comes before its last blank line outside a code fence is final, so only the rest is parsed again.
     static func cachedBlocks(_ text: String, live: Bool) -> [Block] {
+        if live, let cut = settledEnd(text) {
+            return cachedBlocks(String(text[..<cut.lowerBound]), live: false) + blocks(String(text[cut.upperBound...]))
+        }
         if live { return blocks(text) }
         if let hit = parsed.object(forKey: text as NSString) { return hit.value }
         let b = blocks(text)
         parsed.setObject(Boxed(b), forKey: text as NSString)
         return b
+    }
+
+    /// The last blank line of `s` that isn't inside a code fence.
+    private static func settledEnd(_ s: String) -> Range<String.Index>? {
+        var end = s.endIndex
+        while let gap = s.range(of: "\n\n", options: .backwards, range: s.startIndex..<end) {
+            let fences = s[..<gap.lowerBound].split(separator: "\n", omittingEmptySubsequences: false)
+                .filter { $0.drop { $0 == " " || $0 == "\t" }.hasPrefix("```") }.count
+            if fences % 2 == 0 { return gap }
+            end = gap.lowerBound
+        }
+        return nil
     }
 
     enum Block: Equatable {
@@ -194,31 +213,35 @@ struct ChatMarkdown: View {
     var body: some View {
         let blocks = Self.cachedBlocks(text, live: live)
         return VStack(alignment: .leading, spacing: 7) {
-            ForEach(Array(blocks.enumerated()), id: \.offset) { _, b in block(b).transition(.opacity) }
+            ForEach(Array(blocks.enumerated()), id: \.offset) { i, b in
+                let md = { (s: String) in
+                    live && i == blocks.count - 1 ? ChatRow.liveMarkdown(s) : ChatRow.markdown(s)
+                }
+                block(b, md).modifier(FadeIn(enabled: live))
+            }
         }
-        .animation(live ? Motion.animation(.easeOut(duration: 0.35)) : nil, value: blocks.count)
         .textSelection(.enabled)
     }
 
-    @ViewBuilder private func block(_ b: Block) -> some View {
+    @ViewBuilder private func block(_ b: Block, _ md: (String) -> AttributedString) -> some View {
         switch b {
         case .paragraph(let s):
-            Text(ChatRow.markdown(s)).font(ChatRow.body).foregroundStyle(UI.text).lineSpacing(3)
+            Text(md(s)).font(ChatRow.body).foregroundStyle(UI.text).lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         case .heading(let s, let level):
-            Text(ChatRow.markdown(s)).font(.system(size: level <= 1 ? 15 : level == 2 ? 14 : 13, weight: .semibold))
+            Text(md(s)).font(.system(size: level <= 1 ? 15 : level == 2 ? 14 : 13, weight: .semibold))
                 .foregroundStyle(UI.text).padding(.top, 2)
         case .bullet(let s, let indent):
             HStack(alignment: .firstTextBaseline, spacing: 7) {
                 Text("•").font(ChatRow.body).foregroundStyle(UI.dim)
-                Text(ChatRow.markdown(s)).font(ChatRow.body).foregroundStyle(UI.text).lineSpacing(3)
+                Text(md(s)).font(ChatRow.body).foregroundStyle(UI.text).lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.leading, CGFloat(indent) * 14 + 2)
         case .numbered(let s, let n):
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(n + ".").font(ChatRow.body).foregroundStyle(UI.dim).monospacedDigit()
-                Text(ChatRow.markdown(s)).font(ChatRow.body).foregroundStyle(UI.text).lineSpacing(3)
+                Text(md(s)).font(ChatRow.body).foregroundStyle(UI.text).lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.leading, 2)
@@ -229,6 +252,18 @@ struct ChatMarkdown: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: 6).fill(UI.raised))
         }
+    }
+}
+
+/// Fades a view in when it first appears (a new block of a reply being written), without animating the layout
+/// around it.
+private struct FadeIn: ViewModifier {
+    let enabled: Bool
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content.opacity(!enabled || shown ? 1 : 0)
+            .onAppear { if enabled { withMotion(.easeOut(duration: 0.35)) { shown = true } } }
     }
 }
 

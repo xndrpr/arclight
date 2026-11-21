@@ -7,7 +7,7 @@ import SwiftUI
 /// lane that lane.
 /// Plain vertical scrolling is left to the layer list. Also tracks whether the last click was in the timeline's
 /// track area (ruler, audio lane, tracks), which decides whether ⌫ / ⌥← → act on selected keyframes.
-final class TimelineScrollMonitor: ObservableObject {
+final class TimelineScrollMonitor {
     weak var doc: EditorDocument?
     var region: CGRect = .zero
     var trackX: CGFloat = 0
@@ -58,7 +58,6 @@ final class TimelineScrollMonitor: ObservableObject {
             // A mouse wheel with ⇧ arrives as sideways scroll (AppKit swaps the axes); a trackpad keeps dy.
             let d = precise ? dy : (dy != 0 ? dy : dx)
             if !precise || abs(dy) >= abs(dx) {
-                doc.objectWillChange.send()
                 TL.resize(key, by: precise ? d * 0.5 : d * 4)
                 return nil
             }

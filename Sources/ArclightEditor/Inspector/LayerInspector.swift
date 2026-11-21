@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Inspector for one layer: header (+ Animate presets), Timing, Transform, the type's own sections, Custom props.
 struct LayerInspector: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let node: Node
     @Environment(\.inspectorQuery) private var query
 
@@ -50,7 +50,7 @@ struct LayerInspector: View {
 }
 
 private struct TimingSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let node: Node
 
     var body: some View {
@@ -86,7 +86,7 @@ private struct TimingSection: View {
 
 /// Animate menu, clear animation, duplicate, delete.
 private struct LayerActions: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let node: Node
 
     var body: some View {
@@ -104,7 +104,7 @@ private struct LayerActions: View {
 }
 
 private struct AnimateMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let node: Node
 
     var body: some View {
@@ -144,7 +144,7 @@ private struct AnimateMenu: View {
 
 /// Props the schema doesn't know (custom data, `_`-prefixed, or typos), edited as JSON.
 private struct CustomSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let node: Node
     @Environment(\.inspectorQuery) private var query
 

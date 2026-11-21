@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Thumbnail workspace, left sidebar: thumbnail pages, each with its artboards (thumbnail, variants, covers).
 struct ThumbnailsSidebar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var hover: String?
     @State private var renaming: String?
     @Namespace private var ns
@@ -133,7 +133,7 @@ struct ThumbnailsSidebar: View {
 
 /// "+" on a page: a new artboard from a size preset.
 private struct AddArtboardMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let thumbnail: String
     var body: some View {
         Menu {
@@ -174,7 +174,7 @@ private struct AddArtboardMenu: View {
 
 /// "+" in the Thumbnails header.
 private struct NewThumbnailMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         Menu {
             Button("New Thumbnail Page") { doc.newThumbnail() }
@@ -190,7 +190,7 @@ private struct NewThumbnailMenu: View {
 
 /// Whether the open page follows the project theme, with the switch to detach or re-link it.
 private struct ThemeLinkRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let thumbnail: ArclightCore.Thumbnail
     var body: some View {
         HStack(spacing: 6) {
@@ -213,7 +213,7 @@ private struct ThemeLinkRow: View {
 
 /// Reference thumbnails kept with the page (never exported): add a picture or a YouTube link, analyse, remove.
 private struct ReferencesSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let thumbnail: ArclightCore.Thumbnail
     @State private var link = ""
     @State private var analyzing: String?
@@ -279,7 +279,7 @@ private struct ReferenceThumb: View {
 
 /// What the on-device analysis found in a reference, with a button to take its colours.
 private struct ReferenceReportView: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let asset: String
     @State private var report: ReferenceAnalyzer.Report?
 

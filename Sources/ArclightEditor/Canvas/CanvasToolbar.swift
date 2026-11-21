@@ -4,8 +4,8 @@ import SwiftUI
 /// Both groups sit `inset` from the viewport edges. When the viewport is narrow the layout steps down
 /// (align buttons fold into a menu, then the right group folds into "…") instead of overflowing or overlapping.
 struct ViewerChrome: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var vp: ViewportState
+    @Bindable var doc: EditorDocument
+    let vp: ViewportState
     static let inset: CGFloat = 8
 
     var body: some View {
@@ -40,8 +40,8 @@ private struct ToolbarPill: ViewModifier {
 /// Viewer toolbar, top-left: zoom, guides and (with a selection) align & distribute.
 private struct CanvasToolbar: View {
     enum AlignStyle { case inline, menu }
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var vp: ViewportState
+    @Bindable var doc: EditorDocument
+    let vp: ViewportState
     var align: AlignStyle = .inline
 
     var body: some View {
@@ -61,7 +61,7 @@ private struct CanvasToolbar: View {
 
 /// "62%" label (double-click = Fit) and a menu of zoom presets.
 private struct ZoomControl: View {
-    @ObservedObject var vp: ViewportState
+    let vp: ViewportState
 
     var body: some View {
         Menu {
@@ -87,7 +87,7 @@ private struct ZoomControl: View {
 
 private struct GuidesMenu: View {
     /// Snapping is the document's one setting (`doc.snapping`, Settings ▸ Snapping, N), shared with the timeline.
-    @ObservedObject var doc: EditorDocument
+    @Bindable var doc: EditorDocument
     @AppStorage(Pref.rulers) private var rulers = false
     @AppStorage(Pref.centerLines) private var center = false
     @AppStorage(Pref.safeAreas) private var safe = false
@@ -125,7 +125,7 @@ private func alignHelp(_ m: AlignMode, _ count: Int) -> String {
 }
 
 private struct AlignButtons: View {
-    @ObservedObject var doc: EditorDocument
+    @Bindable var doc: EditorDocument
     let count: Int
 
     var body: some View {
@@ -137,7 +137,7 @@ private struct AlignButtons: View {
 
 /// Align & distribute folded into one menu (narrow viewers).
 private struct AlignMenu: View {
-    @ObservedObject var doc: EditorDocument
+    @Bindable var doc: EditorDocument
     let count: Int
 
     var body: some View {
@@ -162,7 +162,7 @@ private struct AlignMenu: View {
 /// Viewer toolbar, top-right: performance mode, viewer only, cinema. Folds into "…" when narrow.
 private struct ViewerToolbar: View {
     enum Style { case full, menu }
-    @ObservedObject var doc: EditorDocument
+    @Bindable var doc: EditorDocument
     var style: Style = .full
 
     private static let perfHelp = "Performance mode — half-resolution preview for heavy scenes (⇧⌘P)"

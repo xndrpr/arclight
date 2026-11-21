@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Left column of the audio lane: file name, gain, mute, remove.
 struct AudioLaneHeader: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.audioLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 
     var body: some View {
@@ -49,7 +49,7 @@ struct AudioLaneHeader: View {
 /// to trim the head, the right edge to set where it stops (the scene end), the gain line up/down, and the
 /// fade handles (knees on the gain line) sideways.
 struct AudioLane: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let width: CGFloat
     @AppStorage(Pref.audioLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 

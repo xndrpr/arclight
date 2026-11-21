@@ -26,7 +26,7 @@ enum AIPanelState {
 /// connect an outside agent), notes for the AI, and the live feed of every AI call and editor save, with revert.
 /// Shown in `FloatingAIPanel` under `AIPanelHeader`.
 struct AIPanelContent: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @ObservedObject private var monitor = AgentMonitor.shared
     @AppStorage private var seen: String
     @AppStorage(Pref.aiPanelTab) private var tab = "chat"
@@ -45,6 +45,7 @@ struct AIPanelContent: View {
                 // The chat stays built while Activity is shown (it doesn't follow the document, so it costs nothing
                 // there): coming back is instant instead of laying out a long transcript again.
                 ChatView(doc: doc, chat: doc.chat).id(doc.chat.id)
+                    .environment(\.chatVisible, tab == "chat")
                     .opacity(tab == "chat" ? 1 : 0)
                     .offset(x: tab == "chat" ? 0 : -18)
                     .allowsHitTesting(tab == "chat")
@@ -135,7 +136,7 @@ private struct ConnectMorePopover: View {
 /// Top-bar pill: is an AI agent connected, and is it reading or editing this project right now?
 /// Click toggles the AI panel. `compact` shows only the icon and dot.
 struct AIStatusPill: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var compact = false
     @ObservedObject private var monitor = AgentMonitor.shared
     @AppStorage(Pref.aiPanel) private var open = false

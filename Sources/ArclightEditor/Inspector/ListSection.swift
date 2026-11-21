@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A list of objects (repeater items, camera shakes): add / remove / reorder rows, each row a sub-section.
 struct ListSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let schema: ObjectSchema
     @State private var open = true
@@ -66,7 +66,7 @@ struct ListSection: View {
 }
 
 private struct ListRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let list: Slot
     let schema: ObjectSchema
     let index: Int

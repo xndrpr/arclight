@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Export for the Thumbnail workspace: the open artboard (or every artboard of the page) as images.
 struct StillExportSheet: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @Binding var isPresented: Bool
     @State private var kind = Kind.youtube
     @State private var allArtboards = false

@@ -5,7 +5,7 @@ import SwiftUI
 /// Right-click menu on keyframes: easing (the common curves; the inspector's picker has every `Easing.names` entry),
 /// copy, paste at the playhead, delete.
 struct KeyMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let keys: Set<KeyRef>
     private static let easings = [
         "linear", "hold", "outExpo", "outCubic", "inOutCubic", "inCubic", "outBack", "spring", "inOutSine", "outQuart",

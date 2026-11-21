@@ -5,7 +5,7 @@ import SwiftUI
 /// Projects · project / scene names ………… AI status · problems · theme · canvas · performance · help · settings · Export.
 /// Narrow windows shed labels (AI status, Performance, fps) before anything can overlap; names truncate.
 struct TopBar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let export: () -> Void
     @State private var renamingProject = false
     @State private var width: CGFloat = 1600
@@ -137,7 +137,7 @@ private struct PerformanceToggle: View {
     var body: some View { Inner(view: doc.view, label: label, hover: $hover) }
 
     private struct Inner: View {
-        @ObservedObject var view: ViewOptions
+        let view: ViewOptions
         let label: Bool
         @Binding var hover: Bool
 
@@ -165,7 +165,7 @@ private struct PerformanceToggle: View {
 }
 
 private struct SceneNameRename: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var editing = false
     var body: some View {
         InlineRename(
@@ -184,7 +184,7 @@ private struct SceneNameRename: View {
 
 /// "1920×1080 · 30 fps" — click for canvas presets (vertical, square, 4K…), frame rate and Settings.
 private struct CanvasMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var showFPS = true
     @State private var hover = false
 
@@ -247,7 +247,7 @@ private struct HomeLogoButton: View {
 
 /// Motion | Thumbnail: what this project window edits. ⌘1 / ⌘2.
 struct WorkspaceSwitch: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @Namespace private var ns
     /// The tab just clicked: the pill slides there at once, then the panels swap (next frame) and fade in.
     @State private var pending: Workspace?

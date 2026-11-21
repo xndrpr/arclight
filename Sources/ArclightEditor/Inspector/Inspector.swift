@@ -8,7 +8,7 @@ import SwiftUI
 /// editors; nothing → `SceneInspector`.
 /// Layout grid: `UI.inset` left/right, `UI.labelWidth` label column, `UI.rowHeight` controls (InspectorMetrics.swift).
 struct InspectorView: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var query = ""
 
     var body: some View {
@@ -75,7 +75,7 @@ private struct InspectorSearch: View {
 
 /// A titled, collapsible group of schema fields on one host (layer or scene). Hidden while searching if nothing matches.
 struct InspectorSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let title: String
     let host: PropHost
     let fields: [Field]
@@ -132,7 +132,7 @@ struct InspectorHeader<Trailing: View>: View {
 
 /// Several layers selected: what is selected and what you can do with all of them.
 private struct MultiSelectionInspector: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         let ids = doc.selectedLayerIds
@@ -159,7 +159,7 @@ private struct MultiSelectionInspector: View {
 }
 
 private struct MultiRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let node: Node
     let primary: Bool
     @State private var hover = false

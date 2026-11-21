@@ -60,7 +60,7 @@ struct GuidesOverlay: View {
 
 /// Pixel rulers along the top and left edges of the viewer, following zoom and pan.
 struct CanvasRulers: View {
-    @ObservedObject var vp: ViewportState
+    let vp: ViewportState
     static let thickness: CGFloat = 16
 
     var body: some View {

@@ -3,7 +3,7 @@ import ArclightCore
 import SwiftUI
 
 struct ScenesSidebar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var hover: String?
     @State private var renaming: String?
     @Namespace private var ns
@@ -149,7 +149,7 @@ private struct RowFrames: PreferenceKey {
 
 /// "+" in the scenes header: a blank scene or one from a template.
 private struct NewSceneMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         Menu {
             Button("New Scene") { doc.newScene() }

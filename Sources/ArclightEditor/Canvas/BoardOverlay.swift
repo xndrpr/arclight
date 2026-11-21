@@ -6,8 +6,8 @@ import SwiftUI
 /// positions, Figma-style, with a name label above every artboard. Click an artboard to open it; drag a label to
 /// move that artboard on the board.
 struct BoardOverlay: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var vp: ViewportState
+    let doc: EditorDocument
+    let vp: ViewportState
     /// Top-left of the open canvas in viewport points, and the scale.
     let origin: CGPoint
     let scale: CGFloat
@@ -105,7 +105,7 @@ private struct LeadingAnchor: ViewModifier {
 
 /// A rendered (not live) artboard: cached by page revision and a width bucket, so zooming re-renders sharper.
 struct BoardTile: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let artboard: Artboard
     let pixelWidth: CGFloat
     @State private var image: CGImage?
@@ -132,7 +132,7 @@ struct BoardTile: View {
 /// A floating mini view of the open artboard at YouTube feed size, with the timestamp badge, in the corner of the
 /// viewer: what most viewers see first.
 struct FeedThumbnail: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var image: CGImage?
     @AppStorage(Pref.feedThumbnail) private var on = false
 

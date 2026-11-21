@@ -4,8 +4,8 @@ import SwiftUI
 /// The options of a choice card, large: one at a time on a dark stage, with a filmstrip of all of them below.
 /// ← → flip between options (and storyboard beats), Space picks, Return goes with the pick, Esc closes.
 struct ChoiceViewer: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var chat: ChatController
+    let doc: EditorDocument
+    let chat: ChatController
     @ObservedObject var frames: ChoiceFrames
     let choice: ChatChoice
     @Binding var picked: [String]

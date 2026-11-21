@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Theme popover: preset grid, the token editor and "Save as preset…".
 struct ThemePopover: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
@@ -52,7 +52,7 @@ struct ThemePopover: View {
 
 /// Every preset as a small preview tile (background, text in the display font, accent); click applies.
 private struct ThemePresetGrid: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var presets = ThemePresets.all()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -131,7 +131,7 @@ private struct ThemePresetTile: View {
 
 /// "Save as preset…": expands into a name field and saves the current tokens to the user library.
 private struct SavePresetBar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var naming = false
     @State private var name = ""
     @FocusState private var focused: Bool
@@ -175,7 +175,7 @@ private struct SavePresetBar: View {
 
 /// Off-screen rendering of the popover content for `arclight snapshot --panel themepopover`.
 struct ThemePopoverSnapshot: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         ThemePopover(doc: doc).frame(maxHeight: .infinity, alignment: .top).background(UI.bg)
     }

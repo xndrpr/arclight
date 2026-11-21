@@ -4,7 +4,7 @@ import SwiftUI
 /// Thumbnail workspace: the open artboard's layers (Figma's layer list), top-most first. The same rows as the
 /// timeline's name column — select, rename, reorder, group, lock, hide — without tracks or camera/look rows.
 struct ThumbnailLayersPanel: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
 
     var body: some View {

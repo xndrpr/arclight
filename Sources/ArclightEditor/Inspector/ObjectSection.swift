@@ -5,7 +5,7 @@ import SwiftUI
 /// switch; a keyframed top-level object gets ‹ ◆ › controls in the header. `asSection` draws it as a full
 /// inspector section (uppercase header, no indent) instead of a nested sub-section.
 struct ObjectSection: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let schema: ObjectSchema
     var shorthand = false
@@ -123,7 +123,7 @@ struct ObjectSection: View {
 
 /// "…" for an object: edit as JSON, reset, easing for the key at the playhead.
 private struct ObjectMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     @State private var editing = false
 
@@ -186,7 +186,7 @@ struct JSONPopover: View {
 
 /// The rows of an object's fields, with advanced ones behind "More".
 private struct ObjectFields: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let schema: ObjectSchema
     let query: String
@@ -200,7 +200,7 @@ private struct ObjectFields: View {
 
 /// A list of field rows; advanced fields are hidden behind a "More" toggle (unless set or searching).
 struct FieldList: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let fields: [Field]
     var showAdvanced = false
     let slotFor: (Field) -> Slot

@@ -4,8 +4,8 @@ import SwiftUI
 /// A direction stage the AI asks about (brief, look, storyboard, motion): the options as tiles drawn from the
 /// draft scenes, a comment field and one button. Once answered it shows what was picked and stays read-only.
 struct ChoiceCard: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var chat: ChatController
+    let doc: EditorDocument
+    let chat: ChatController
     let choice: ChatChoice
     @StateObject private var frames = ChoiceFrames()
     @StateObject private var sounds = ChoiceSoundPlayer()
@@ -203,7 +203,7 @@ struct ChoiceCard: View {
 
 /// A tile's picture: one still, a strip of stills, or the scene playing on a loop.
 struct ChoiceVisual: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @ObservedObject var frames: ChoiceFrames
     let visual: ChatChoice.Visual
     let playing: Bool
@@ -237,9 +237,13 @@ struct ChoiceVisual: View {
             let i =
                 playing
                 ? Int(ctx.date.timeIntervalSinceReferenceDate * ChoiceFrames.loopFPS) % times.count : times.count / 2
-            // Every frame is asked for up front so the loop fills in while it plays.
-            let imgs = times.map { frames.image(doc, scene, $0, width) }
-            frame(imgs[i] ?? imgs.compactMap { $0 }.first, aspect)
+            // Playing, every frame is asked for up front so the loop fills in; paused, only the one shown.
+            if playing {
+                let imgs = times.map { frames.image(doc, scene, $0, width) }
+                frame(imgs[i] ?? imgs.compactMap { $0 }.first, aspect)
+            } else {
+                frame(frames.image(doc, scene, times[i], width), aspect)
+            }
         }
     }
 

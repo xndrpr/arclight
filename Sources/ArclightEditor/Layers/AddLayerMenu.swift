@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 /// "+ Layer": every kind of layer, placed for the current canvas (centred, sized relative to it).
 /// New layers start at the playhead.
 struct AddLayerMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         let c = doc.canvasSize

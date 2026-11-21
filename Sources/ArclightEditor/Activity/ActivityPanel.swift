@@ -5,7 +5,7 @@ import SwiftUI
 /// Live feed of what happened to the project: every AI agent (MCP) call and every editor save, newest first,
 /// grouped by day. Lives in the AI panel under the notes.
 struct ActivityPanel: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.activityWho) private var who = ActivityFeed.Who.all.rawValue
     @AppStorage(Pref.activityThisScene) private var thisScene = false
     @AppStorage(Pref.activityReads) private var showReads = true

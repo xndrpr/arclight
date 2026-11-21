@@ -25,7 +25,7 @@ final class ChoiceFrames: ObservableObject {
         let s = JSONFile.read(Scene.self, from: url) ?? doc.store.scenes[id]
         // Keep the last copy after the drafts are deleted, so answered cards keep their pictures this session.
         let kept = s ?? scenes[id]?.scene
-        DispatchQueue.main.async { self.scenes[id] = (kept, Date()) }
+        scenes[id] = (kept, Date())  // not published: setting it inside a view update is fine
         return kept
     }
 

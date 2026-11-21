@@ -3,14 +3,14 @@ import SwiftUI
 
 /// Back to the scene page.
 private struct BackButton: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         IconButton(symbol: "chevron.left", help: "Back to scene") { doc.selection = nil }
     }
 }
 
 struct CameraInspector: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         let f = Schema.sceneFields.first { $0.name == "camera" }!
@@ -53,7 +53,7 @@ struct CameraInspector: View {
 }
 
 struct LookInspector: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         let post = Schema.sceneFields.first { $0.name == "post" }!

@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 /// Colour or gradient. Gradients: `{"linear":[x0,y0,x1,y1] | "radial":[cx,cy,r], "stops":[[pos, colour]…]}` in
 /// layer pixels from the centre, up to 4 stops.
 struct PaintField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
 
     var body: some View {
@@ -37,7 +37,7 @@ struct PaintField: View {
 }
 
 private struct GradientEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let gradient: [String: JSONValue]
 
@@ -193,7 +193,7 @@ private struct GradientEditor: View {
 
 /// File picker that copies the chosen file into the project's assets/ folder.
 struct AssetField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let kind: String
 

@@ -74,21 +74,23 @@ extension EditorDocument {
         }
     }
 
+    /// Modification dates of the project's files, read in one pass per folder (the poll runs every 0.5 s).
     func fileStamps() -> [String: Date] {
-        var out: [String: Date] = [:]
-        let fm = FileManager.default
-        func list(_ dir: String) -> [URL] {
-            (try? fm.contentsOfDirectory(at: url.appendingPathComponent(dir), includingPropertiesForKeys: nil)) ?? []
-        }
-        for f in [url.appendingPathComponent("project.json")] + list("scenes") {
-            out[f.lastPathComponent] = (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
-        }
-        for f in list("thumbnails") {
-            out["thumbnails/" + f.lastPathComponent] =
-                (try? fm.attributesOfItem(atPath: f.path)[.modificationDate]) as? Date
+        var out = ["project.json": Self.modified(url.appendingPathComponent("project.json"))].compactMapValues { $0 }
+        for (dir, prefix) in [("scenes", ""), ("thumbnails", "thumbnails/")] {
+            let files = try? FileManager.default.contentsOfDirectory(
+                at: url.appendingPathComponent(dir), includingPropertiesForKeys: [.contentModificationDateKey])
+            for f in files ?? [] { out[prefix + f.lastPathComponent] = Self.modified(f) }
         }
         return out
     }
+
+    private static func modified(_ f: URL) -> Date? {
+        try? f.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+    }
+
+    /// The editor wrote project.json itself: its new date isn't a change from outside to reload.
+    func notedProjectWrite() { stamps["project.json"] = Self.modified(url.appendingPathComponent("project.json")) }
 
     /// Re-reads the activity feed when the log file changed (MCP calls append to it).
     func refreshActivity(force: Bool = false) {
@@ -130,11 +132,9 @@ extension EditorDocument {
             // Something was created outside the editor (an agent's first scene or thumbnail): open it.
             let (s, t, rev) = EditorDocument.initialTarget(workspace, store: store)
             if t != .none { open(s, target: t, rev: rev) }
-            objectWillChange.send()
             return
         case .artboard(let pid, let aid):
             pollArtboard(pid, aid)
-            objectWillChange.send()
             return
         case .scene: break
         }
@@ -155,7 +155,6 @@ extension EditorDocument {
         } else {
             open(EditorDocument.placeholderScene(), target: .none, rev: 0)
         }
-        objectWillChange.send()
     }
 
     /// Live reload of the open artboard when its page changed on disk (an agent's thumbnail_apply).

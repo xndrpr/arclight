@@ -5,7 +5,7 @@ import simd
 /// Briefly outlines layers changed outside the editor (e.g. by an AI agent) in the viewport. 2D layers only;
 /// never takes clicks. `doc.flashIds` clears itself after a moment, which fades the outlines out.
 struct FlashOverlay: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let scale: CGFloat
     @State private var pulse = false
     /// Last outlines, kept while fading out after `flashIds` clears.

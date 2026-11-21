@@ -6,12 +6,17 @@ import UniformTypeIdentifiers
 /// The message box: Return sends, ⇧Return or ⌥Return adds a line, Esc stops a running reply. It grows with the text
 /// up to about ten lines, then scrolls. Files come in from the paperclip, by pasting or by dropping them on the chat.
 struct ChatInput: View {
-    @ObservedObject var chat: ChatController
+    @Bindable var chat: ChatController
     @State private var height: CGFloat = ChatTextView.minHeight
     @State private var focused = false
+    @Environment(\.chatVisible) private var visible
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if let note = chat.composerNote {
+                Label(note, systemImage: "exclamationmark.triangle.fill").font(UI.small).foregroundStyle(UI.warning)
+                    .fixedSize(horizontal: false, vertical: true).transition(.opacity)
+            }
             if !chat.queue.isEmpty {
                 ChatQueue(chat: chat).transition(.move(edge: .bottom).combined(with: .opacity))
             }
@@ -27,7 +32,7 @@ struct ChatInput: View {
             VStack(spacing: 0) {
                 ChatTextView(
                     text: $chat.draft, height: $height, focused: $focused, enabled: chat.hasCredentials,
-                    submit: { chat.send() },
+                    visible: visible, submit: { chat.send() },
                     escape: {
                         guard chat.running else { return false }
                         chat.stop()
@@ -104,6 +109,7 @@ struct ChatInput: View {
         }
         .padding(10)
         .animation(Motion.snappy, value: chat.queue)
+        .animation(UI.fade, value: chat.composerNote)
     }
 
     private var placeholder: String {
@@ -120,6 +126,16 @@ struct ChatInput: View {
         p.message = "Images and PDFs are shown to the AI; text files are read; other files can be imported."
         guard p.runModal() == .OK else { return }
         chat.attach(files: p.urls)
+    }
+}
+
+private struct ChatVisibleKey: EnvironmentKey { static let defaultValue = true }
+
+extension EnvironmentValues {
+    /// Whether the chat is the visible tab of its panel (the field only takes the keyboard then).
+    var chatVisible: Bool {
+        get { self[ChatVisibleKey.self] }
+        set { self[ChatVisibleKey.self] = newValue }
     }
 }
 
@@ -195,6 +211,9 @@ struct ChatTextView: NSViewRepresentable {
     @Binding var height: CGFloat
     @Binding var focused: Bool
     var enabled: Bool
+    /// The field takes the keyboard when it is shown (and gives it back when hidden), never while hidden: a hidden
+    /// field holding focus swallowed Space and every one-key shortcut.
+    var visible = true
     var submit: () -> Void
     /// True when it handled the key.
     var escape: () -> Bool
@@ -241,8 +260,9 @@ struct ChatTextView: NSViewRepresentable {
         // Measuring before it has a width wrapped every letter onto its own line and the box jumped to full height.
         tv.postsFrameChangedNotifications = true
         context.coordinator.observeWidth(tv)
+        context.coordinator.wasVisible = visible
         DispatchQueue.main.async {
-            tv.window?.makeFirstResponder(tv)
+            if visible { tv.window?.makeFirstResponder(tv) }
             context.coordinator.measure(tv)
         }
         return scroll
@@ -257,7 +277,13 @@ struct ChatTextView: NSViewRepresentable {
             context.coordinator.measure(tv)
         }
         if tv.isEditable != enabled { tv.isEditable = enabled }
-        Self.applyTheme(tv)
+        if visible != context.coordinator.wasVisible {
+            context.coordinator.wasVisible = visible
+            DispatchQueue.main.async {
+                guard let w = tv.window else { return }
+                if visible { w.makeFirstResponder(tv) } else if w.firstResponder === tv { w.makeFirstResponder(nil) }
+            }
+        }
     }
 
     static func applyTheme(_ tv: NSTextView) {
@@ -274,6 +300,7 @@ struct ChatTextView: NSViewRepresentable {
         init(_ p: ChatTextView) { parent = p }
         private var frameToken: NSObjectProtocol?
         private var lastWidth: CGFloat = 0
+        var wasVisible = true
         deinit {
             if let t = themeToken { NotificationCenter.default.removeObserver(t) }
             if let t = frameToken { NotificationCenter.default.removeObserver(t) }
@@ -302,8 +329,8 @@ struct ChatTextView: NSViewRepresentable {
             measure(tv)
         }
 
-        func textDidBeginEditing(_ notification: Notification) { parent.focused = true }
-        func textDidEndEditing(_ notification: Notification) { parent.focused = false }
+        /// The focus ring follows the keyboard focus itself (editing only begins with the first key).
+        func focusChanged(_ on: Bool) { DispatchQueue.main.async { self.parent.focused = on } }
 
         /// Sizes the box to the text: one line at least, ten at most (then it scrolls).
         func measure(_ tv: NSTextView) {
@@ -370,6 +397,18 @@ struct ChatTextView: NSViewRepresentable {
 final class ChatNSTextView: NSTextView {
     weak var owner: ChatTextView.Coordinator?
 
+    override func becomeFirstResponder() -> Bool {
+        let ok = super.becomeFirstResponder()
+        if ok { owner?.focusChanged(true) }
+        return ok
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let ok = super.resignFirstResponder()
+        if ok { owner?.focusChanged(false) }
+        return ok
+    }
+
     override func paste(_ sender: Any?) {
         if owner?.take(.general) == true { return }
         pasteAsPlainText(sender)
@@ -400,7 +439,7 @@ final class ChatNSTextView: NSTextView {
 
 /// Messages written while the AI was working, above the field: they go out together when the turn ends.
 private struct ChatQueue: View {
-    @ObservedObject var chat: ChatController
+    @Bindable var chat: ChatController
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {

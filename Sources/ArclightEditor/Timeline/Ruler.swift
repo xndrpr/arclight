@@ -7,7 +7,7 @@ import SwiftUI
 /// double-click to rename, right-click for colour / delete / expression); ⌥-drag sets the work area
 /// (⌥-click clears it). The ruler keeps counting past END; that area is hatched (not rendered).
 struct Ruler: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let width: CGFloat
 
     enum Drag: Equatable { case scrub, end, marker(String, Double), work(Double) }

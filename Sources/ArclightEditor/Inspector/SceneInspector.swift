@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Nothing selected: scene fields (duration, background, size/fps overrides), links to Camera and Look, theme tokens.
 struct SceneInspector: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @Environment(\.inspectorQuery) private var query
 
     private var fields: [Field] {

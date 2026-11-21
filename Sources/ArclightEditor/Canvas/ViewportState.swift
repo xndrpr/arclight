@@ -2,21 +2,21 @@ import AppKit
 import SwiftUI
 
 /// Zoom and pan of the viewer (view state, not saved in the document). `zoom == nil` means Fit (letterboxed).
-final class ViewportState: ObservableObject {
-    @Published var zoom: CGFloat?
+@Observable final class ViewportState {
+    var zoom: CGFloat?
     /// Offset of the canvas centre from the viewport centre, in points.
-    @Published var pan: CGSize = .zero
+    var pan: CGSize = .zero
 
     /// Last laid-out viewport size, canvas size (px) and Fit padding; set by the viewport.
-    var viewSize: CGSize = .zero
-    var canvas: CGSize = CGSize(width: 1920, height: 1080)
-    var pad: CGFloat = 24
+    @ObservationIgnored var viewSize: CGSize = .zero
+    @ObservationIgnored var canvas: CGSize = CGSize(width: 1920, height: 1080)
+    @ObservationIgnored var pad: CGFloat = 24
     /// Plain NSView behind the viewport, used to hit-test AppKit events (scroll, pinch, clicks).
-    weak var anchorView: NSView?
+    @ObservationIgnored weak var anchorView: NSView?
     let events = CanvasEvents()
     /// Thumbnail workspace: every artboard of the page, in the open artboard's pixel coordinates (it sits at 0,0).
     /// Panning may then reach any artboard, and "fit all" frames the whole page. nil for motion scenes.
-    var board: CGRect?
+    @ObservationIgnored var board: CGRect?
     /// Sets `board` from inside a view body (a plain var: no view update).
     func setBoard(_ r: CGRect?) { board = r }
 

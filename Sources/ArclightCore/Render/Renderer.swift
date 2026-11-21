@@ -226,12 +226,7 @@ public final class Renderer {
     ) throws -> CGImage {
         let (cw, ch) = project.size(for: scene)
         let w = max(1, Int((Double(cw) * scale).rounded())), h = max(1, Int((Double(ch) * scale).rounded()))
-        let t: RenderTargets
-        if let cur = targets, cur.width == w, cur.height == h {
-            t = cur
-        } else {
-            t = try makeTargets(width: w, height: h); targets = t
-        }
+        let t = try imageTargets(width: w, height: h)
         let od = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: Renderer.outFormat, width: w, height: h, mipmapped: false)
         od.usage = [.renderTarget, .shaderRead]; od.storageMode = .shared
@@ -245,6 +240,25 @@ public final class Renderer {
         cb.waitUntilCompleted()
         if let e = cb.error { throw RenderError.setup("\(e)") }
         return try Renderer.cgImage(from: out)
+    }
+
+    /// Target sets for `image`, by size. Small ones are kept (thumbnails of several sizes alternate); a large one
+    /// (an export frame) replaces the last large one, so at most one big set stays allocated.
+    private var smallTargets: [Int: RenderTargets] = [:]
+
+    private func imageTargets(width w: Int, height h: Int) throws -> RenderTargets {
+        let small = w * h <= 512 * 512
+        let key = w << 20 | h
+        if small, let t = smallTargets[key] { return t }
+        if !small, let t = targets, t.width == w, t.height == h { return t }
+        let t = try makeTargets(width: w, height: h)
+        if small {
+            if smallTargets.count >= 6 { smallTargets.removeAll() }
+            smallTargets[key] = t
+        } else {
+            targets = t
+        }
+        return t
     }
 
     private var previewTargets: RenderTargets?

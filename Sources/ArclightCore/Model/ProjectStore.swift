@@ -1,5 +1,6 @@
 import CoreText
 import Foundation
+import Observation
 
 /// A project on disk:
 /// ```
@@ -10,7 +11,7 @@ import Foundation
 ///   assets/
 ///   .arclight/          activity log, notes, chats
 /// ```
-public final class ProjectStore {
+@Observable public final class ProjectStore {
     public let url: URL
     public internal(set) var project: Project
     public private(set) var scenes: [String: Scene]
@@ -41,8 +42,8 @@ public final class ProjectStore {
 
     /// Decoded files by path, with the modification date and size they had: `reload` decodes only what changed
     /// (an agent's edit touches one scene; a project has dozens).
-    private var decodedScenes: [String: (date: Date?, size: Int, scene: Scene)] = [:]
-    private var decodedThumbnails: [String: (date: Date?, size: Int, page: Thumbnail)] = [:]
+    @ObservationIgnored private var decodedScenes: [String: (date: Date?, size: Int, scene: Scene)] = [:]
+    @ObservationIgnored private var decodedThumbnails: [String: (date: Date?, size: Int, page: Thumbnail)] = [:]
 
     private static func fileState(_ f: URL) -> (date: Date?, size: Int) {
         let a = try? FileManager.default.attributesOfItem(atPath: f.path)

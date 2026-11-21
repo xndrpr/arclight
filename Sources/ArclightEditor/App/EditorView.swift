@@ -6,7 +6,7 @@ import SwiftUI
 /// viewport column (`FloatingAIPanel`). Sidebars and timeline are resizable; when the window is too narrow,
 /// the sidebars give up width before the viewport does.
 struct EditorView: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.leftWidth) private var leftW: Double = 210
     @AppStorage(Pref.rightWidth) private var rightW: Double = 360
     @AppStorage(Pref.timelineHeight) private var timelineH: Double = 280
@@ -140,7 +140,7 @@ struct PanelWidths: Equatable {
 /// Shown over the viewport when the open workspace has nothing yet (a thumbnail-only project in Motion, or a
 /// motion project's Thumbnail before the first page).
 struct EmptyWorkspaceView: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         VStack(spacing: 12) {

@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Nothing-selected inspector section: the project's theme tokens.
 struct ThemeEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         CollapsibleSection(title: "Theme tokens", trailing: AnyView(count)) {
@@ -25,7 +25,7 @@ struct ThemeEditor: View {
 /// Used by the scene inspector and the theme popover (callers add the header and insets).
 /// Every edit is undoable (`setThemeToken`).
 struct ThemeTokenList: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var newKey = ""
     @State private var addError: String?
 
@@ -135,7 +135,7 @@ private struct TokenLabel: View {
 
 /// A font token's value: shown in its own face; click to pick from installed fonts.
 private struct ThemeFontField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let value: String
     let commit: (String) -> Void
     @State private var open = false

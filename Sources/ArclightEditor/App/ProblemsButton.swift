@@ -5,7 +5,7 @@ import SwiftUI
 /// Top-bar badge: project problems (missing fonts/assets/symbols, invalid properties, broken expressions,
 /// undefined tokens). Click to list them; click a problem to jump to its scene and layer.
 struct ProblemsButton: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var problems: [Problem] = []
     @State private var open = false
 

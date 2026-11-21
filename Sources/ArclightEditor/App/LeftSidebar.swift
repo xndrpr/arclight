@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Left sidebar: Scenes | History | Assets. The AI (activity, notes, connection) has its own panel on the right.
 struct LeftSidebar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @Namespace private var tabNS
     /// Direction of the last tab change, for the page slide.
     @State private var forward = true

@@ -84,8 +84,8 @@ struct TimeMap {
 }
 
 struct TimelineView: View {
-    @ObservedObject var doc: EditorDocument
-    @StateObject private var scroll = TimelineScrollMonitor()
+    let doc: EditorDocument
+    @State private var scroll = TimelineScrollMonitor()
     @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     @AppStorage(Pref.audioLaneHeight) private var audioLaneH = 0.0
     @AppStorage(Pref.soundsLaneHeight) private var soundsLaneH = 0.0
@@ -181,7 +181,7 @@ extension View {
 
 /// What to do when the scene has no layers yet (or the filter hides them all).
 private struct EmptyTimelineNote: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         let filter = doc.layerUI.filter

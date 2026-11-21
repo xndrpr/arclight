@@ -71,9 +71,23 @@ public enum UIBench {
 
         let ids = doc.scene.nodes.prefix(8).map(\.id)
         let scenes = doc.store.orderedScenes.prefix(6).map(\.id)
+        let chats = doc.chats.list.sorted { $0.messages > $1.messages }.prefix(2).map(\.id)
+        // A reply as the model writes it: inline Markdown, a new paragraph every few sentences.
+        let words = Array(repeating: "The quick brown fox jumps over the lazy dog, then **reads** a `scene` and writes.", count: 4)
+            .joined(separator: " ").split(separator: " ").map(String.init) + ["\n\n"]
+        var k = 0
+        func streamFrame(_ c: ChatController) {
+            c.replay((0..<6).map { _ in k += 1; return .text(words[k % words.count] + (words[k % words.count] == "\n\n" ? "" : " ")) })
+        }
         if let only = ProcessInfo.processInfo.environment["UIBENCH_LOOP"] {
+            if only == "stream" || only == "type", let first = chats.first {
+                Pref.store.set("chat", forKey: Pref.aiPanelTab)
+                doc.chats.select(first)
+            }
             for i in 0..<400 {
                 switch only {
+                case "stream": streamFrame(doc.chats.active); Offscreen.pump(1 / 30)
+                case "type": doc.chats.active.draft += "a"; Offscreen.pump(1 / 30)
                 case "select": doc.selection = ids[i % ids.count]
                 case "workspace": doc.setWorkspace(i % 2 == 0 ? .thumbnail : .motion)
                 case "scene": doc.open(scene: scenes[i % scenes.count])
@@ -102,17 +116,11 @@ public enum UIBench {
         doc.setWorkspace(.motion)
 
         Pref.store.set("chat", forKey: Pref.aiPanelTab)
-        let chats = doc.chats.list.sorted { $0.messages > $1.messages }.prefix(2).map(\.id)
         if chats.count == 2 {
             measure("chat: open another chat", n: 6) { i in doc.chats.select(chats[i % 2]) }
             doc.chats.select(chats[0])
             let c = doc.chats.active
-            let words = "The quick brown fox jumps over the lazy dog, then **reads** a `scene` and writes. ".split(
-                separator: " ")
-            var k = 0
-            measure("chat: stream one frame", n: 20) { _ in
-                c.replay((0..<6).map { _ in k += 1; return .text(words[k % words.count] + " ") })
-            }
+            measure("chat: stream one frame", n: 20) { _ in streamFrame(c) }
             measure("chat: type a character", n: 20) { _ in c.draft += "a" }
         }
         w.orderOut(nil)

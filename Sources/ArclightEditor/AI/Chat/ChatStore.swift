@@ -3,22 +3,20 @@ import Foundation
 
 /// All the chats of one open project: the list, which one is in front, and the live `ChatController` of each chat
 /// that has been opened. Chats run on their own, so one can keep working while another is in front. Main thread only.
-final class ChatStore: ObservableObject {
+@Observable final class ChatStore {
     let project: URL
     /// Every saved chat, newest first (plus the one in front while it is still empty).
-    @Published private(set) var list: [ChatTranscript.Summary] = []
-    @Published private(set) var activeID: String = ""
+    private(set) var list: [ChatTranscript.Summary] = []
+    private(set) var activeID: String = ""
     /// What the editor shows right now, put at the start of each message.
-    var note: () -> String? = { nil }
+    @ObservationIgnored var note: () -> String? = { nil }
     /// Scene revisions now, and putting scenes back to an earlier set (the document's; see `Document+Chat`).
-    var checkpoint: () -> [String: Int] = { [:] }
-    var revert: ([String: Int]) -> [String] = { _ in [] }
-    var frame: () -> URL? = { nil }
-    /// Called when another chat comes to the front (the views showing "the chat" follow it).
-    var onActiveChange: () -> Void = {}
+    @ObservationIgnored var checkpoint: () -> [String: Int] = { [:] }
+    @ObservationIgnored var revert: ([String: Int]) -> [String] = { _ in [] }
+    @ObservationIgnored var frame: () -> URL? = { nil }
 
-    private var index: ChatIndex
-    private var open: [String: ChatController] = [:]
+    @ObservationIgnored private var index: ChatIndex
+    @ObservationIgnored private var open: [String: ChatController] = [:]
 
     init(project: URL) {
         self.project = project
@@ -70,10 +68,10 @@ final class ChatStore: ObservableObject {
         // An empty chat left behind was never saved: nothing to keep of it.
         if let old = open[activeID], old.transcript.items.isEmpty, !old.running { open[activeID] = nil }
         activeID = controller(id).id
+        active.settingsChanged()  // Settings may have changed while it was in the back
         index.active = activeID
         refresh()
         saveIndex()
-        onActiveChange()
     }
 
     /// The chat at `offset` from the one in front in the list (⌃Tab style), wrapping.
@@ -104,7 +102,7 @@ final class ChatStore: ObservableObject {
     private func refresh() {
         var l = index.chats
         if !l.contains(where: { $0.id == activeID }), let c = open[activeID] { l.insert(c.transcript.summary, at: 0) }
-        if l != list { list = l } else { objectWillChange.send() }  // a status may have changed
+        if l != list { list = l }
     }
 
     private func saveIndex() {

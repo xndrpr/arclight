@@ -99,7 +99,7 @@ struct SymbolBrowser: View {
 
 /// Shows the chosen symbol; click to browse.
 struct SymbolField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let value: String?
     let commit: (String) -> Void
     @State private var open = false

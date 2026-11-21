@@ -129,7 +129,7 @@ extension EditorDocument {
 
 /// The vertical tool bar on the left of the Thumbnail canvas.
 struct ThumbnailToolBar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     var body: some View {
         VStack(spacing: 2) {
@@ -164,7 +164,7 @@ struct ThumbnailToolBar: View {
 
 /// Artboard presets from the tool bar (A adds one like the open artboard).
 private struct ArtboardToolMenu: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         Menu {
             Section("Add artboard") {
@@ -185,8 +185,8 @@ private struct ArtboardToolMenu: View {
 
 /// Over the open canvas while a drawing, hand or zoom tool is active: turns clicks and drags into that tool's action.
 struct ThumbnailToolOverlay: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var vp: ViewportState
+    let doc: EditorDocument
+    let vp: ViewportState
     let scale: CGFloat
     @State private var start: CGPoint?
     @State private var current: CGPoint?
@@ -268,7 +268,7 @@ extension EditorDocument {
 
 /// Hand tool (H, or held Space) over the whole viewer: drag anywhere to pan the board.
 struct HandPanOverlay: View {
-    @ObservedObject var vp: ViewportState
+    let vp: ViewportState
     @State private var start: CGSize?
 
     var body: some View {

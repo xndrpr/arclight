@@ -6,8 +6,8 @@ import simd
 /// Live Metal preview, letterboxed to the canvas aspect at Fit, with zoom/pan, guides, rulers and the
 /// transform overlay. Zoom and pan live in `ViewportState` (view state, not the document).
 struct ViewportView: View {
-    @ObservedObject var doc: EditorDocument
-    @StateObject private var vp = ViewportState()
+    let doc: EditorDocument
+    @State private var vp = ViewportState()
     @State private var hint = true
     @State private var dropTarget = false
     @AppStorage(Pref.rulers) private var rulers = false

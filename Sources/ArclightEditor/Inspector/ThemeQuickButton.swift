@@ -4,7 +4,7 @@ import SwiftUI
 /// Top-bar button for the project theme: the palette as overlapping dots + a chevron. Click → `ThemePopover`
 /// (presets, token editor, save as preset).
 struct ThemeQuickButton: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var open = false
     @State private var hover = false
 
@@ -53,7 +53,7 @@ private struct ThemeDots: View {
 
 /// Scene-inspector row that shows the current theme and opens the theme popover.
 struct ThemeRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @State private var open = false
 
     var body: some View {

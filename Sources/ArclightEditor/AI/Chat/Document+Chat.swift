@@ -42,7 +42,6 @@ extension EditorDocument {
             }
         }
         stamps = fileStamps()
-        objectWillChange.send()
         flash(done.isEmpty ? "Nothing to put back" : "Put back \(done.count) scene\(done.count == 1 ? "" : "s")")
         return done
     }

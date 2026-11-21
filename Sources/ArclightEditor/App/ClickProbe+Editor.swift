@@ -1,5 +1,5 @@
 import AppKit
-import Combine
+import Observation
 import SwiftUI
 
 /// Click probes against the real editor (`arclight clickprobe <subcommand> <project>`).
@@ -17,15 +17,30 @@ extension ClickProbe {
         return (doc, w)
     }
 
-    /// Sweeps the pointer over the whole window and counts document change notifications (each one re-renders
-    /// every view observing the document). Mouse moves alone should cause none.
+    /// Counts changes of the document's view state (each one redraws the views reading it).
+    private final class ChangeCounter: @unchecked Sendable {
+        var count = 0
+        private let doc: EditorDocument
+        init(_ doc: EditorDocument) { self.doc = doc; arm() }
+        private func arm() {
+            withObservationTracking {
+                _ = (doc.project, doc.scene, doc.workspace, doc.target, doc.tool, doc.marquee, doc.aiPrompt)
+                _ = (doc.selection, doc.multiSelection, doc.soloIds, doc.selectedSound, doc.time, doc.playing)
+                _ = (doc.toast, doc.busy, doc.tlVisible, doc.tlOffset, doc.workArea, doc.cinema, doc.viewerOnly)
+                _ = (doc.activity, doc.agentActiveUntil, doc.flashIds, doc.leftTab, doc.libraryVersion)
+            } onChange: { [weak self] in
+                DispatchQueue.main.async { self?.count += 1; self?.arm() }
+            }
+        }
+    }
+
+    /// Sweeps the pointer over the whole window and counts document changes. Mouse moves alone should cause none.
     public static func runEditor(project: String) -> Int32 {
         guard let (doc, w) = borderlessEditor(project) else { return 1 }
-        var changes = 0
-        let sub = doc.objectWillChange.sink { changes += 1 }
+        let counter = ChangeCounter(doc)
         Offscreen.pump(1.0)
-        let idle = changes
-        changes = 0
+        let idle = counter.count
+        counter.count = 0
         let mouse = SyntheticMouse(w)
         var moves = 0
         for y in stride(from: 20.0, to: Double(editorSize.height) - 20, by: 40) {
@@ -36,8 +51,7 @@ extension ClickProbe {
         }
         Offscreen.pump(0.3)
         print("idle (1 s, no input): \(idle) document changes")
-        print("pointer sweep (\(moves) moves): \(changes) document changes")
-        sub.cancel()
+        print("pointer sweep (\(moves) moves): \(counter.count) document changes")
         return 0
     }
 

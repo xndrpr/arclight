@@ -4,7 +4,7 @@ import SwiftUI
 
 /// An expression in a field: one-line preview + inline compile error + value at the playhead. Click to edit.
 struct ExprField: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let source: String
     @Binding var open: Bool
@@ -42,7 +42,7 @@ struct ExprField: View {
 }
 
 private struct ExpressionEditor: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let slot: Slot
     let initial: String
     let close: () -> Void

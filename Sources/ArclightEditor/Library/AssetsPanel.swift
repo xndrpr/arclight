@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Left sidebar "Assets" tab: the project's images, audio, fonts, all symbols and saved templates.
 struct AssetsPanel: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @AppStorage(Pref.assetsCollapsed) private var collapsedRaw = ""
 
     var body: some View {

@@ -4,11 +4,11 @@ import SwiftUI
 /// Selection and transform overlay: move / 8-handle scale / rotate / anchor for 2D layers, multi-select and
 /// marquee, floor-drag for 3D layers and ⌥-drag camera orbit. Edits auto-key animated props.
 struct GizmoOverlay: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var vp: ViewportState
+    let doc: EditorDocument
+    let vp: ViewportState
     let scale: CGFloat
 
-    @StateObject private var session = GizmoSession()
+    @State private var session = GizmoSession()
     @State private var hoverCursor = NSCursor.arrow
     /// True between mouse-down and mouse-up (the first onChanged begins the session, whatever it moved).
     @State private var pressed = false
@@ -155,7 +155,7 @@ private struct SelectionBoxView: View {
 
 /// Dashed snap lines, marquee rectangle and the live value chip.
 private struct SnapFeedback: View {
-    @ObservedObject var session: GizmoSession
+    let session: GizmoSession
     let scale: CGFloat
     let canvas: CGSize
 

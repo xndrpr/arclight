@@ -9,7 +9,7 @@ struct ChatView: View {
     /// Not observed: only choice cards read it (and they observe it themselves). Observing it here redrew the
     /// whole chat on every document change.
     let doc: EditorDocument
-    @ObservedObject var chat: ChatController
+    let chat: ChatController
     @State private var dropping = false
 
     var body: some View {
@@ -50,9 +50,7 @@ struct ChatView: View {
             }
         }
         // A key saved or the backend switched in Settings: redraw (status line, empty state, field).
-        .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in
-            chat.objectWillChange.send()
-        }
+        .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in chat.settingsChanged() }
     }
 
     private var header: some View {
@@ -133,6 +131,7 @@ private struct ChatMessageList: View, Equatable {
     /// Where the content's top was last frame. New text grows the list downward and leaves it still; only
     /// scrolling moves it.
     @State private var scroll = ScrollMemo()
+    @Environment(\.chatVisible) private var visible
 
     /// Not view state: it changes on every frame of a scroll and nothing is drawn from it.
     private final class ScrollMemo {
@@ -173,7 +172,6 @@ private struct ChatMessageList: View, Equatable {
                                 ChatToolGroup(tools: tools).equatable()
                             }
                         }
-                        .id(block.id)
                     }
                     if running, items.last?.kind != .thinking { ChatWorking(label: activity) }
                     Color.clear.frame(height: 1).id(Self.bottom)
@@ -223,6 +221,8 @@ private struct ChatMessageList: View, Equatable {
             // the next streamed words pull the list back down first.
             .background(
                 ScrollWheelWatcher { up in
+                    // Hidden behind the Activity tab, the feed's scrolling must not unpin the chat.
+                    guard visible else { return }
                     if up {
                         if pinned { pinned = false }
                     } else {
@@ -292,7 +292,6 @@ struct ChatRow: View, Equatable {
     var canGoBack = false
     var editFrom: () -> Void = {}
     var revert: () -> Void = {}
-    @State private var open = false
     @State private var hover = false
 
     static func == (a: ChatRow, b: ChatRow) -> Bool {
@@ -368,24 +367,6 @@ struct ChatRow: View, Equatable {
         }
     }
 
-    private func fold<C: View>(label: String, symbol: String, @ViewBuilder _ content: () -> C) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Button {
-                withMotion(Motion.snappy) { open.toggle() }
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "chevron.right").font(.system(size: 7, weight: .bold))
-                        .rotationEffect(.degrees(open ? 90 : 0))
-                    Image(systemName: symbol).font(.system(size: 9))
-                    Text(label).font(UI.small)
-                }
-                .foregroundStyle(UI.dim).contentShape(Rectangle())
-            }
-            .buttonStyle(.plain).cursor(.pointingHand)
-            if open { content().padding(.leading, 12).transition(.opacity) }
-        }
-    }
-
     /// Message text: a touch larger than the editor's UI font, for reading.
     static let body = Font.system(size: 13)
 
@@ -394,14 +375,21 @@ struct ChatRow: View, Equatable {
         NSPasteboard.general.setString(s, forType: .string)
     }
 
-    /// Inline Markdown of one block, remembered: while a reply streams only its last block is new each time.
-    static func markdown(_ s: String) -> AttributedString {
+    /// Inline Markdown of one block, remembered unless `remember` is off (the block a reply is writing).
+    static func markdown(_ s: String, remember: Bool = true) -> AttributedString {
         if let hit = markdownCache.object(forKey: s as NSString) { return hit.value }
         let a =
             (try? AttributedString(
                 markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
-        markdownCache.setObject(Boxed(a), forKey: s as NSString)
+        if remember { markdownCache.setObject(Boxed(a), forKey: s as NSString) }
         return a
+    }
+
+    /// The block a reply is writing changes every frame: its finished lines are parsed once, only its last line
+    /// again, and that one isn't remembered.
+    static func liveMarkdown(_ s: String) -> AttributedString {
+        guard let nl = s.lastIndex(of: "\n") else { return markdown(s, remember: false) }
+        return markdown(String(s[...nl])) + markdown(String(s[s.index(after: nl)...]), remember: false)
     }
 
     private static let markdownCache: NSCache<NSString, Boxed<AttributedString>> = {
@@ -477,7 +465,7 @@ private struct ChatWorking: View {
 
 /// No messages yet: how to start, or what's missing.
 private struct ChatEmptyState: View {
-    @ObservedObject var chat: ChatController
+    let chat: ChatController
     static let examples = [
         "Make a 5-second title card that says “Launch day”.",
         "Make the selected text bigger and slow down its reveal.",
@@ -500,7 +488,7 @@ private struct ChatEmptyState: View {
                 .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
                 ForEach(Self.examples, id: \.self) { s in
                     Button {
-                        chat.draft = s
+                        chat.insert(s)
                     } label: {
                         Text(s).font(UI.small).foregroundStyle(UI.label2).multilineTextAlignment(.leading)
                             .padding(.horizontal, 8).padding(.vertical, 6)
@@ -623,7 +611,7 @@ private struct FlowRow: Layout {
 
 /// The header's chat list: every chat of the project, the one in front ticked.
 struct ChatListMenu: View {
-    @ObservedObject var chats: ChatStore
+    let chats: ChatStore
     @State private var renaming: ChatTranscript.Summary?
     @State private var name = ""
 

@@ -27,7 +27,7 @@ import SwiftUI
 
     fileprivate func cached(_ key: String) -> CGImage? { cache.object(forKey: key as NSString) }
 
-    /// Renders after a short debounce (scrubbing cancels stale requests) on the main actor, one at a time.
+    /// Renders after a short debounce (scrubbing cancels stale requests), off the main thread, one at a time.
     func render(_ doc: EditorDocument, id: String, time: Double, key: String) async -> CGImage? {
         if let c = cached(key) { return c }
         try? await Task.sleep(nanoseconds: 120_000_000)
@@ -36,9 +36,8 @@ import SwiftUI
         if let c = cached(key) { return c }
         let t = Self.bucketTime(doc, id, time)
         guard
-            let img = try? doc.renderer.thumbnail(
-                scene: doc.scene, project: doc.project, assets: doc.assets, layer: id,
-                time: t, width: Int(Self.size.width * 2))
+            let img = await ThumbWorker.shared.layer(
+                id, of: doc.scene, project: doc.project, assets: doc.assets, time: t, width: Int(Self.size.width * 2))
         else { return nil }
         cache.setObject(img, forKey: key as NSString)
         return img
@@ -46,7 +45,7 @@ import SwiftUI
 }
 
 struct LayerThumbnail: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     let id: String
     let time: Double
     @State private var image: CGImage?

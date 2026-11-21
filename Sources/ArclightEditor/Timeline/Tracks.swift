@@ -13,8 +13,8 @@ import SwiftUI
 /// once it clearly moves (`ClickSlop`), so trackpad tap-to-click always selects / places the playhead.
 /// Past END: moving a key or a layer's start there extends the scene to include it (`SceneExtent`).
 struct Tracks: View {
-    @ObservedObject var doc: EditorDocument
-    @ObservedObject var ui: TimelineUIState
+    let doc: EditorDocument
+    let ui: TimelineUIState
     let rows: [TLRow]
     let width: CGFloat
     var minHeight: CGFloat = 120

@@ -85,7 +85,7 @@ private struct FPSPicker: View {
 }
 
 struct ProjectSettings: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         let p = doc.project
         let w = p.size.first ?? 1920, h = p.size.count > 1 ? p.size[1] : 1080
@@ -120,7 +120,7 @@ struct ProjectSettings: View {
 }
 
 struct SceneSettings: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     var body: some View {
         let s = doc.scene
         let pw = doc.project.size.first ?? 1920, ph = doc.project.size.count > 1 ? doc.project.size[1] : 1080

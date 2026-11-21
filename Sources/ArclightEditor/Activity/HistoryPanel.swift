@@ -62,7 +62,7 @@ private final class RevisionThumbs: ObservableObject {
 
 /// Saved revisions of the current scene, newest first: who saved, what changed, a frame at the playhead, restore/compare.
 struct HistoryPanel: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @StateObject private var thumbs = RevisionThumbs()
     @State private var entries: [ProjectStore.HistoryEntry] = []
 
@@ -117,7 +117,7 @@ struct HistoryPanel: View {
 }
 
 private struct HistoryRow: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @ObservedObject var thumbs: RevisionThumbs
     let entry: ProjectStore.HistoryEntry
     let current: Bool
@@ -209,7 +209,7 @@ private struct HistoryRow: View {
 
 /// Side by side: a saved revision and the current working scene at the playhead, plus what differs.
 private struct CompareView: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
     @ObservedObject var thumbs: RevisionThumbs
     let rev: Int
     let source: String?

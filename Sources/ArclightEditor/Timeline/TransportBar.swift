@@ -3,7 +3,7 @@ import ArclightCore
 import SwiftUI
 
 struct TransportBar: View {
-    @ObservedObject var doc: EditorDocument
+    let doc: EditorDocument
 
     /// Narrow timelines step down (frame-step and zoom buttons go first; their shortcuts still work) rather than
     /// pushing the panel wider than the window.
@@ -150,7 +150,7 @@ private struct WorkAreaChip: View {
 
 /// A label of the playhead's time that follows it during playback without redrawing the bar around it.
 private struct PlayheadText: View {
-    @ObservedObject var clock: PlayClock
+    let clock: PlayClock
     let text: (Double) -> String
     var body: some View { Text(text(clock.time)).monospacedDigit() }
 }
