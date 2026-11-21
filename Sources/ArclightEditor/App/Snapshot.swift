@@ -5,7 +5,7 @@ import SwiftUI
 /// `arclight snapshot <project> --out ui.png`: renders the editor UI (or one panel, `--panel`) to a PNG without
 /// showing anything on screen. Used to check UI changes during development and in CI (Scripts/verify.sh).
 ///
-/// Options: `--time`, `--select <layer id>`, `--tab scenes|history|assets|ai`, `--setup` (see `applySetup`; for thumbnails
+/// Options: `--time`, `--select <layer id | sound:<clip id> | sound:@audio>`, `--tab scenes|history|assets|ai`, `--setup` (see `applySetup`; for thumbnails
 /// `board` fits all artboards and `tool:rect` picks a tool),
 /// `--theme <AppTheme raw value>`, `--size WxH`, `--panel settings|installhelp|shortcuts|inspector|themepopover|timeline|
 /// newproject|welcome|templates|inserttemplate|savetemplate|chat|choiceviewer` (library panels fill `--size`, e.g. 980x640).
@@ -37,7 +37,9 @@ public enum EditorSnapshot {
             return 1
         }
         if let t = o.time { doc.time = t }
-        if let s = o.select { doc.selection = s }
+        if let s = o.select {
+            if s.hasPrefix("sound:") { doc.selectedSound = String(s.dropFirst(6)) } else { doc.selection = s }
+        }
         if let tab = o.tab { if ["ai", "activity"].contains(tab) { openAI = true } else { doc.leftTab = tab } }
         applySetup(o.setup, doc: doc, openAI: &openAI, layout: &aiLayout)
         UserDefaults.standard.setVolatileDomain(

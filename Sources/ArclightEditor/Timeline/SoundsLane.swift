@@ -92,7 +92,8 @@ struct SoundsLane: View {
             guard dragId == nil else { return }
             if case .active(let p) = phase { hoverId = hit(p, items, rows, map)?.id } else { hoverId = nil }
         }
-        .cursor(hoverId != nil ? .openHand : .arrow)
+        // A clip is clicked to select it, so it shows the pointer (the closed hand while it is being dragged).
+        .cursor(dragId != nil && press.dragging ? .closedHand : hoverId != nil ? .pointingHand : .arrow)
         .contextMenu {
             if let id = hoverId, let r = doc.scene.sound(id) {
                 Text("\(id) — \((r.src as NSString).lastPathComponent)")

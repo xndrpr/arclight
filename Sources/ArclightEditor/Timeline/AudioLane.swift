@@ -95,7 +95,7 @@ struct AudioLane: View {
             var cur = NSCursor.arrow
             if case .active(let p) = phase, let c {
                 switch hit(p, c.clip, map) {
-                case .body: cur = .openHand
+                case .body: cur = .pointingHand
                 case .trimIn, .end, .fadeIn, .fadeOut: cur = .resizeLeftRight
                 case .gain: cur = .resizeUpDown
                 case .none: cur = .arrow

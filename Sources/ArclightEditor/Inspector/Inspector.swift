@@ -25,7 +25,9 @@ struct InspectorView: View {
     }
 
     @ViewBuilder private var content: some View {
-        if doc.selectedLayerIds.count > 1 {
+        if let id = doc.selectedSound, doc.selection == nil {
+            SoundInspector(doc: doc, id: id)
+        } else if doc.selectedLayerIds.count > 1 {
             MultiSelectionInspector(doc: doc)
         } else {
             switch doc.selection {
