@@ -208,6 +208,8 @@ private func twoSceneDoc() throws -> (doc: EditorDocument, project: TempProject)
             let r = try #require(doc.canvasRect(node))
             let start = CGPoint(x: r.midX + 20, y: r.midY + 10)  // inside the layer, away from the pivot
             let session = GizmoSession()
+            GizmoSession.heldKeys = []
+            defer { GizmoSession.heldKeys = nil }
             session.begin(at: start, doc: doc, vp: vp, nodes: nodes, layout: layout)
             #expect(session.mode == .move)
             session.drag(

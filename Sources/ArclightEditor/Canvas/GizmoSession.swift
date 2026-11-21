@@ -50,7 +50,9 @@ import simd
 
     var isActive: Bool { mode != .none }
 
-    static var mods: NSEvent.ModifierFlags { NSEvent.modifierFlags }
+    /// Tests pin the keys: a key held on the real keyboard would change what a drag does.
+    nonisolated(unsafe) static var heldKeys: NSEvent.ModifierFlags?
+    static var mods: NSEvent.ModifierFlags { heldKeys ?? NSEvent.modifierFlags }
     static var spaceDown: Bool { CGEventSource.keyState(.combinedSessionState, key: 49) }
     static var mouse: CGPoint { let m = NSEvent.mouseLocation; return CGPoint(x: m.x, y: -m.y) }
 
