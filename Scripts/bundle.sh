@@ -13,6 +13,10 @@ APP="dist/Arclight.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/arclight"
+# Debug symbols are 60% of the binary: they go to dist/Arclight.dSYM (for crash reports), not into the app.
+rm -rf dist/Arclight.dSYM
+dsymutil "$BIN" -o dist/Arclight.dSYM
+strip "$APP/Contents/MacOS/arclight"
 
 # App icon from Resources/AppIcon.png (1024²).
 ICONSET="$(mktemp -d)/AppIcon.iconset"

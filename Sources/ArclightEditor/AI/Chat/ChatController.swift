@@ -340,6 +340,13 @@ final class ChatController: ObservableObject, @unchecked Sendable {
 
     private var lastSave = Date.distantPast
 
+    /// Development (`uibench`): applies `events` as one frame of a running turn.
+    func replay(_ events: [ChatEvent]) {
+        running = true
+        for e in events { _ = inbox.post(e) }
+        drain()
+    }
+
     /// Saves off the main thread (a long chat's history is megabytes of JSON), in order, so a later save never
     /// loses to an earlier one.
     private func persist() {
