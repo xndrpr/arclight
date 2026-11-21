@@ -1,14 +1,13 @@
 import ArclightCore
 import SwiftUI
 
-/// Renders small frames of saved revisions one at a time, deferred so scrolling stays smooth. Cached by scene/rev/time.
-private final class RevisionThumbs: ObservableObject {
-    @Published private(set) var images: [String: CGImage] = [:]
-    private var queue: [(key: String, job: () -> CGImage?)] = []
-    private var running = false
+/// Small frames of saved revisions, by scene/rev/time.
+private final class RevisionThumbs: FrameQueue {
     private var snapshots: [String: Scene] = [:]
     /// Time of the last requested frame; rows keep showing it while playing instead of re-rendering every tick.
     private(set) var lastTime: Double = 0
+
+    init() { super.init(delay: 0.04, cap: 400) }
 
     static func key(_ scene: String, _ rev: Int, _ t: Double, _ w: Double) -> String {
         "\(scene):\(rev):\(Int((t * 1000).rounded())):\(Int(w))"
@@ -24,38 +23,10 @@ private final class RevisionThumbs: ObservableObject {
     }
 
     func request(_ doc: EditorDocument, scene sceneId: String, rev: Int, time t: Double, width: Double) {
-        let k = Self.key(sceneId, rev, t, width)
         lastTime = t
-        guard images[k] == nil, !queue.contains(where: { $0.key == k }) else { return }
-        queue.append(
-            (
-                k,
-                { [weak self, weak doc] in
-                    guard let self, let doc, let s = self.snapshot(doc, sceneId, rev) else { return nil }
-                    return doc.preview(s, time: t, width: width * 2)
-                }
-            ))
-        pump()
-    }
-
-    func cancel(_ key: String) { queue.removeAll { $0.key == key } }
-
-    private func pump() {
-        guard !running, !queue.isEmpty else { return }
-        running = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.04) { [weak self] in
-            guard let self else { return }
-            self.running = false
-            // Rows may cancel their jobs while we wait (scrolling, switching tabs), so the queue can be empty here.
-            guard !self.queue.isEmpty else { return }
-            self.running = true
-            let next = self.queue.removeFirst()
-            if let img = next.job() {
-                if self.images.count > 400 { self.images.removeAll() }
-                self.images[next.key] = img
-            }
-            self.running = false
-            self.pump()
+        enqueue(Self.key(sceneId, rev, t, width)) { [weak self, weak doc] in
+            guard let self, let doc, let s = self.snapshot(doc, sceneId, rev) else { return nil }
+            return doc.preview(s, time: t, width: width * 2)
         }
     }
 }

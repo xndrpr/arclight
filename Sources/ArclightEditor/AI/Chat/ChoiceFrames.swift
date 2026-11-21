@@ -1,13 +1,12 @@
 import ArclightCore
 import SwiftUI
 
-/// Renders the frames choice tiles show, one at a time on the main thread (the editor's renderer), cached by
-/// scene revision. Draft scenes are read straight from disk so a tile never waits for the editor's next poll.
-final class ChoiceFrames: ObservableObject {
-    @Published private(set) var images: [String: CGImage] = [:]
+/// The frames choice tiles show, by scene revision. Draft scenes are read straight from disk so a tile never waits
+/// for the editor's next poll.
+final class ChoiceFrames: FrameQueue {
     private var scenes: [String: (scene: Scene?, read: Date)] = [:]
-    private var queue: [(key: String, job: () -> CGImage?)] = []
-    private var running = false
+
+    init() { super.init(delay: 0.015, cap: 600) }
 
     static let loopFPS: Double = 12
 
@@ -32,26 +31,7 @@ final class ChoiceFrames: ObservableObject {
     func image(_ doc: EditorDocument, _ s: Scene, _ t: Double, _ width: Double) -> CGImage? {
         let k = "\(s.id):\(s.rev):\(Int((t * 1000).rounded())):\(Int(width))"
         if let img = images[k] { return img }
-        if !queue.contains(where: { $0.key == k }) {
-            queue.append((k, { [weak doc] in doc?.preview(s, time: t, width: width) }))
-            DispatchQueue.main.async { self.pump() }
-        }
+        enqueue(k) { [weak doc] in doc?.preview(s, time: t, width: width) }
         return nil
-    }
-
-    private func pump() {
-        guard !running, !queue.isEmpty else { return }
-        running = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.015) { [weak self] in
-            guard let self else { return }
-            self.running = false
-            guard !self.queue.isEmpty else { return }
-            let next = self.queue.removeFirst()
-            if let img = next.job() {
-                if self.images.count > 600 { self.images.removeAll() }
-                self.images[next.key] = img
-            }
-            self.pump()
-        }
     }
 }
