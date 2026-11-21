@@ -57,6 +57,13 @@ import Foundation
     /// How many chats are working right now.
     var runningCount: Int { open.values.filter(\.running).count }
 
+    /// The latest usage-limit report for the backend the chat in front uses. Limits belong to the account, so this
+    /// is whichever open chat heard last.
+    var limits: ChatLimits? {
+        let kind = active.kind
+        return open.values.compactMap(\.limits).filter { $0.source == kind }.max { $0.observed < $1.observed }
+    }
+
     /// Starts an empty chat and brings it to the front (the one in front already is, when it is empty).
     func newChat() {
         if active.transcript.items.isEmpty { return }

@@ -222,6 +222,19 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
         return calls.filter { !answered.contains($0) }
     }
 
+    /// One request's usage, priced from the list (a fallback model with no listed price is priced as the one asked
+    /// for: the estimate stays close rather than going blank).
+    func usage(_ msg: StreamedMessage, seconds: Double) -> ChatUsage? {
+        guard let tokens = msg.usage else { return nil }
+        let id = msg.model ?? model.rawValue
+        let cost =
+            ChatPricing.cost(id, tokens: tokens, webSearches: msg.webSearches)
+            ?? ChatPricing.cost(model.rawValue, tokens: tokens, webSearches: msg.webSearches)
+        return ChatUsage(
+            scope: .request, model: id, tokens: tokens, webSearches: msg.webSearches, cost: cost, modelTime: seconds,
+            contextWindow: ChatPricing.contextWindow(id))
+    }
+
     static func errorResult(_ id: String, _ text: String) -> JSONValue {
         ["type": "tool_result", "tool_use_id": .string(id), "content": .string(text), "is_error": true]
     }
@@ -232,7 +245,10 @@ public final class APIChatBackend: ChatBackend, @unchecked Sendable {
             let (body, beta) = ChatPrompt.request(
                 model: model, effort: effort, system: system, tools: runner.tools, messages: history, web: web)
             do {
-                return try await client.stream(body, beta: beta, onEvent: onEvent)
+                let start = Date()
+                let msg = try await client.stream(body, beta: beta, onEvent: onEvent)
+                if let u = usage(msg, seconds: Date().timeIntervalSince(start)) { onEvent(.usage(u)) }
+                return msg
             } catch ChatAPIError.http(400, let m) where web && m.lowercased().contains("web") {
                 // The organization has web search turned off (Console ▸ Settings): carry on without it.
                 web = false

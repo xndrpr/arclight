@@ -13,6 +13,9 @@ import Foundation
     private(set) var pending: [ChatAttachment] = []
     /// Bumped whenever the transcript grows or a row changes (the view follows the bottom on it).
     private(set) var revision = 0
+    /// How close the account is to its usage limits, as the backend last reported them (not saved: the provider
+    /// reports it again on the next turn). Per-turn tokens, cost and the context size are in `transcript.turns`.
+    private(set) var limits: ChatLimits?
 
     let project: URL
     /// What the editor shows right now, put at the start of each message (`EditorDocument.chatNote`).
@@ -56,6 +59,7 @@ import Foundation
         for i in transcript.items.indices where transcript.items[i].kind == .tool && transcript.items[i].ok == nil {
             transcript.items[i].ok = false
         }
+        transcript.closeAbandonedTurn()
         settingsChanged()
     }
 
@@ -160,9 +164,9 @@ import Foundation
         if let c = waiting {
             let a = ChatChoice.Answer(comment: text, typed: true)
             transcript.answer(c.id, a)
-            run(c.resultText(a), attachments: files)
+            run(c.resultText(a), attachments: files, answering: mine.id)
         } else {
-            run(text, attachments: files)
+            run(text, attachments: files, answering: mine.id)
         }
     }
 
@@ -212,7 +216,7 @@ import Foundation
         transcript.answer(choice.id, a)
         transcript.plan?.waiting = false
         persist()
-        run(choice.resultText(a))
+        run(choice.resultText(a), answering: choice.id)
     }
 
     private func noteBackendSwitch() {
@@ -223,7 +227,8 @@ import Foundation
         lastKind = kind
     }
 
-    private func run(_ text: String, attachments: [ChatAttachment] = []) {
+    /// Runs one turn. `answering` is the row it answers (the user's message or the choice card).
+    private func run(_ text: String, attachments: [ChatAttachment] = [], answering item: String?) {
         running = true
         onChange()
         revision += 1
@@ -239,6 +244,7 @@ import Foundation
             kind: kind, model: ChatSettings.model, effort: ChatSettings.effort, cliPath: ChatSettings.cliPath,
             key: kind == .api ? KeychainStore.chatKey() : nil, history: transcript.history,
             session: transcript.cliSession, web: ChatSettings.webSearch)
+        transcript.beginTurn(item: item, backend: setup.kind, model: setup.model.rawValue)
         let reuse = setup.config == backendConfig ? backend : nil
         let server = tools
         task = Task { [weak self] in
@@ -346,8 +352,12 @@ import Foundation
         let events = inbox.take()
         guard !events.isEmpty else { return }
         var t = transcript
-        for e in events { t.apply(e) }
+        var l = limits
+        for e in events {
+            if case .limits(let report) = e { l = report.merged(onto: l) } else { t.apply(e) }
+        }
         transcript = t
+        if l != limits { limits = l }
         revision += 1
         // Long turns are saved as they go (at most every few seconds).
         if Date().timeIntervalSince(lastSave) > 4 {
@@ -382,6 +392,7 @@ import Foundation
         DispatchQueue.main.async { [self] in
             drain()
             transcript.endThinking()
+            transcript.endTurn(Self.outcome(error))
             if let b = backend {
                 transcript.history = b.history
                 transcript.cliSession = b.cliSession
@@ -413,6 +424,15 @@ import Foundation
             let flush = flushAfterStop
             flushAfterStop = false
             if error == nil || flush { sendNextQueued() }
+        }
+    }
+
+    private static func outcome(_ error: Error?) -> ChatTurn.Outcome {
+        switch error {
+        case nil: return .done
+        case is CancellationError: return .stopped
+        case let e as URLError where e.code == .cancelled: return .stopped
+        default: return .failed
         }
     }
 

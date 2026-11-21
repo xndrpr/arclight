@@ -8,6 +8,12 @@ public struct StreamedMessage: Equatable, Sendable {
     public var stopDetails: JSONValue?
     /// Ids of `tool_use` blocks whose streamed input wasn't valid JSON (cut off or malformed). Their `input` is `{}`.
     public var invalidToolInputs: Set<String> = []
+    /// What the response used (`message_start` and `message_delta` usage); nil when the stream reported none.
+    public var usage: ChatTokens?
+    /// The model that answered (`message_start.message.model`: a fallback model when the request was re-run on one).
+    public var model: String?
+    /// Web searches the server ran for it (`usage.server_tool_use.web_search_requests`).
+    public var webSearches = 0
 }
 
 public enum ChatAPIError: Error, CustomStringConvertible, Equatable {
@@ -37,6 +43,7 @@ public struct MessageAssembler {
     private var blocks: [Int: JSONValue] = [:]
     private var partialJSON: [Int: String] = [:]
     private var closed: Set<Int> = []
+    private var meter = UsageMeter()
     public private(set) var done = false
 
     public init() {}
@@ -45,6 +52,11 @@ public struct MessageAssembler {
     public mutating func feed(_ data: Data) throws -> ChatEvent? {
         guard let ev = try? JSONDecoder().decode(JSONValue.self, from: data), let type = ev["type"]?.string else {
             return nil
+        }
+        if meter.feed(ev) {
+            message.usage = meter.tokens
+            message.model = meter.model
+            message.webSearches = meter.webSearches
         }
         switch type {
         case "content_block_start":
@@ -179,7 +191,11 @@ public struct MessagesAPIClient: MessageStreaming {
         req.httpBody = try enc.encode(body)
 
         let (bytes, response) = try await session.bytes(for: req)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let http = response as? HTTPURLResponse
+        let status = http?.statusCode ?? 0
+        if let http, let limits = ChatLimits(apiHeaders: Self.headers(http), httpStatus: status) {
+            onEvent(.limits(limits))
+        }
         guard status == 200 else {
             var raw = Data()
             for try await b in bytes { raw.append(b) }
@@ -198,5 +214,11 @@ public struct MessagesAPIClient: MessageStreaming {
         }
         guard asm.done else { throw ChatAPIError.stream("the connection closed before the reply finished") }
         return asm.message
+    }
+
+    static func headers(_ r: HTTPURLResponse) -> [String: String] {
+        var h: [String: String] = [:]
+        for (k, v) in r.allHeaderFields { h["\(k)".lowercased()] = "\(v)" }
+        return h
     }
 }
