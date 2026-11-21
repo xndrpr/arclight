@@ -70,6 +70,33 @@ private struct HoverButtonBody: View {
     }
 }
 
+/// One choice in a picker popover: a check circle, the title (bold when picked) and a line on what it's good for.
+struct OptionRow: View {
+    let title: String
+    let detail: String
+    let on: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 12))
+                    .foregroundStyle(on ? UI.accent : UI.faint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(UI.font.weight(on ? .semibold : .regular)).foregroundStyle(UI.text)
+                    Text(detail).font(.system(size: 10.5)).foregroundStyle(UI.dim).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 6).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 6).fill(on ? UI.selected : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).cursor(.pointingHand)
+    }
+}
+
 /// Uppercase, tracked section label ("THEME TOKENS").
 struct SmallCapsLabel: View {
     let text: String
