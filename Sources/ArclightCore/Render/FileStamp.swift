@@ -14,16 +14,19 @@ public enum FileStamp {
     private static var seen: [String: (stamp: Double, at: CFTimeInterval)] = [:]
 
     public static func of(_ path: String) -> Double {
-        func stat() -> Double {
-            ((try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate]) as? Date)?
-                .timeIntervalSince1970 ?? 0
+        // One `stat` call: FileManager's attributes also read extended attributes and build a dictionary, which was
+        // 40 % of the viewer's CPU time per frame on a scene with dozens of assets.
+        func modified() -> Double {
+            var st = stat()
+            guard stat(path, &st) == 0 else { return 0 }
+            return Double(st.st_mtimespec.tv_sec) + Double(st.st_mtimespec.tv_nsec) / 1e9
         }
-        guard hold else { return stat() }
+        guard hold else { return modified() }
         let now = CACurrentMediaTime()
         lock.lock()
         if let s = seen[path], now - s.at < 0.5 { lock.unlock(); return s.stamp }
         lock.unlock()
-        let stamp = stat()
+        let stamp = modified()
         lock.lock()
         if seen.count > 4096 { seen.removeAll(keepingCapacity: true) }
         seen[path] = (stamp, now)

@@ -161,7 +161,7 @@ struct AudioLane: View {
         press.update(g.translation)
         let t = map.t(g.location.x)
         guard base != nil, let c = baseClip else {
-            if drag == Hit.none { doc.time = doc.clampedTime(doc.snapTime(t, tolerance: tol)) }
+            if drag == Hit.none { doc.scrub(to: t, tolerance: tol) }
             return
         }
         guard moved else { return }

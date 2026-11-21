@@ -107,7 +107,7 @@ struct Ruler: View {
         press.update(g.translation)
         switch drag! {
         case .scrub:
-            doc.time = doc.clampedTime(doc.snapTime(t, tolerance: tol))
+            doc.scrub(to: t, tolerance: tol)
         case .end:
             guard moved else { return }
             doc.setDuration(doc.snapTime(t, tolerance: tol, exclude: [d]))

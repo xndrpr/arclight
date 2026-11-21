@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The viewer's top bar: zoom, guides and align on the left, performance / viewer-only / cinema on the right.
+/// The viewer's top bar: zoom, guides and align on the left, viewer-only / cinema on the right.
 /// Both groups sit `inset` from the viewport edges. When the viewport is narrow the layout steps down
 /// (align buttons fold into a menu, then the right group folds into "…") instead of overflowing or overlapping.
 struct ViewerChrome: View {
@@ -159,13 +159,11 @@ private struct AlignMenu: View {
     }
 }
 
-/// Viewer toolbar, top-right: performance mode, viewer only, cinema. Folds into "…" when narrow.
+/// Viewer toolbar, top-right: viewer only, cinema. Folds into "…" when narrow.
 private struct ViewerToolbar: View {
     enum Style { case full, menu }
     @Bindable var doc: EditorDocument
     var style: Style = .full
-
-    private static let perfHelp = "Performance mode — half-resolution preview for heavy scenes (⇧⌘P)"
 
     var body: some View {
         HStack(spacing: 2) {
@@ -174,9 +172,6 @@ private struct ViewerToolbar: View {
                 if style == .full { Text(b).font(UI.small).foregroundStyle(UI.dim).lineLimit(1).padding(.trailing, 6) }
             }
             if style == .full {
-                IconButton(symbol: "bolt.fill", help: Self.perfHelp, active: doc.performance) {
-                    doc.performance.toggle()
-                }
                 IconButton(
                     symbol: doc.viewerOnly ? "rectangle.split.3x1" : "rectangle",
                     help: doc.viewerOnly ? "Show the panels again (⌘F)" : "Viewer only — hide the panels (⌘F)",
@@ -187,16 +182,15 @@ private struct ViewerToolbar: View {
                 }
             } else {
                 Menu {
-                    Toggle("Performance Mode (⇧⌘P)", isOn: $doc.performance)
                     Toggle("Viewer Only (⌘F)", isOn: $doc.viewerOnly)
                     Button("Cinema Viewer (P)") { doc.onCinemaChange?(true) }
                 } label: {
                     Image(systemName: "ellipsis").font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(doc.performance || doc.viewerOnly ? UI.accent : UI.dim)
+                        .foregroundStyle(doc.viewerOnly ? UI.accent : UI.dim)
                         .frame(width: 24, height: 22).barHit()
                 }
                 .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .help("Viewer: performance mode, viewer only, cinema")
+                .help("Viewer: viewer only, cinema")
                 .cursor(.pointingHand)
             }
         }

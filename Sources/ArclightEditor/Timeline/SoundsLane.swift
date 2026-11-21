@@ -146,7 +146,7 @@ struct SoundsLane: View {
         }
         press.update(g.translation)
         if scrubbing {
-            doc.time = doc.clampedTime(doc.snapTime(map.t(g.location.x), tolerance: tol))
+            doc.scrub(to: map.t(g.location.x), tolerance: tol)
             return
         }
         guard press.dragging, let id = dragId else { return }

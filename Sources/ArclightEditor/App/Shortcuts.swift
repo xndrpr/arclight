@@ -46,7 +46,6 @@ enum Shortcuts {
                 (["⌥ drag", "⌥ scroll"], "Orbit / dolly the 3D camera"),
                 (["P"], "Cinema viewer (full screen)"),
                 (["⌘F"], "Viewer only"),
-                (["⇧⌘P"], "Performance mode"),
             ]
         ),
     ]

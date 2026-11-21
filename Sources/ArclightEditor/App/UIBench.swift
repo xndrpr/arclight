@@ -96,16 +96,36 @@ public enum UIBench {
                 case "workspace": doc.setWorkspace(i % 2 == 0 ? .thumbnail : .motion)
                 case "scene": doc.open(scene: scenes[i % scenes.count])
                 case "idle": Offscreen.pump(0.05)
-                default: doc.performance.toggle()
+                case "scrub": doc.scrub(to: Double(i % 120) * 0.05, tolerance: 0); Offscreen.pump(1 / 60, step: 1 / 240)
+                default: doc.selection = ids[i % ids.count]
                 }
                 draw()
                 if let p = Double(ProcessInfo.processInfo.environment["UIBENCH_PAUSE"] ?? "") { Offscreen.pump(p) }
             }
             return 0
         }
-        measure("toggle Performance") { _ in doc.performance.toggle() }
         measure("select a layer") { i in doc.selection = ids.isEmpty ? nil : ids[i % ids.count] }
         measure("move playhead (paused)") { i in doc.time = Double(i % 5) * 0.5 }
+        // A drag across the ruler: 60 steps a second for half a second; the main-thread work per step.
+        if only == nil || "scrub drag (per step)".contains(only!) {
+            var perStep: [Double] = []
+            for run in 0..<4 {
+                _ = idle()
+                meter.reset()
+                let direct = ProcessInfo.processInfo.environment["UIBENCH_SCRUB_DIRECT"] != nil  // how it was
+                for k in 0..<30 {
+                    let t = Double(run) * 0.3 + Double(k) * 0.05
+                    if direct { doc.playing = false; doc.time = t } else { doc.scrub(to: t, tolerance: 0) }
+                    draw()
+                    Offscreen.pump(1 / 60, step: 1 / 240)
+                }
+                Offscreen.pump(0.3, step: 0.01)  // the catch-up after the pointer rests
+                perStep.append(meter.busy * 1000 / 30)
+            }
+            let s = perStep.sorted()
+            print("scrub drag (per step)".padding(toLength: 30, withPad: " ", startingAt: 0)
+                + String(format: " %6.1f / %6.1f ms", s[s.count / 2], s.last!))
+        }
         measure("open another scene") { i in doc.open(scene: scenes[(i + 1) % scenes.count]) }
         measure("AI tab Chat ⇄ Activity") { i in
             Pref.store.set(i % 2 == 0 ? "activity" : "chat", forKey: Pref.aiPanelTab)

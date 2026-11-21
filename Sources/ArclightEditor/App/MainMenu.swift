@@ -72,7 +72,6 @@ enum MainMenu {
             [
                 item("Viewer Only", #selector(W.toggleViewerOnly(_:)), "f"),
                 item("Cinema Viewer             P", #selector(W.toggleCinema(_:)), "f", [.command, .shift]),
-                item("Performance Mode", #selector(W.togglePerformance(_:)), "p", [.command, .shift]),
                 .separator(),
                 item("AI Panel", #selector(W.toggleAIPanel(_:)), "a", [.command, .option]),
                 item("Chats Window", #selector(W.openChatWindow(_:)), "a", [.command, .shift]),

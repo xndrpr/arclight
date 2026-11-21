@@ -60,14 +60,6 @@ import Observation
     }
     /// Shuttle speed (J/K/L): negative plays backwards.
     var rate: Double = 1
-    /// Half-resolution preview for heavy scenes. Off by default; remembered per user.
-    /// Not published on the document (that redraws the whole editor): the viewer and the toggle watch `view`.
-    var performance: Bool {
-        get { view.performance }
-        set { view.performance = newValue }
-    }
-    /// Small view settings with their own observers.
-    let view = ViewOptions()
     var toast: String?
     /// Timeline view: seconds visible across the track area (the zoom) and the left edge (seconds).
     /// Panning only moves the offset, never the scale; changing the duration never rescales.
@@ -142,6 +134,11 @@ import Observation
     /// How far into the activity log the feed has been read (bytes).
     @ObservationIgnored var activityOffset: UInt64 = 0
     @ObservationIgnored var zoomTween: Timer?
+    /// Scrubbing (`scrub(to:)`): when everything that shows the time last caught up, the catch-up still to come, and
+    /// how the viewer is asked to draw the new frame (set by `MetalCanvas`).
+    @ObservationIgnored var lastScrubPublish: CFTimeInterval = 0
+    @ObservationIgnored var scrubPublish: DispatchWorkItem?
+    @ObservationIgnored var redrawViewer: () -> Void = {}
     /// What each workspace had open when the user left it, to come back to.
     @ObservationIgnored var lastTargets: [Workspace: EditTarget] = [:]
 
@@ -265,9 +262,4 @@ import Observation
     var time: Double = 0
 }
 
-/// View settings that only a few views show (the viewer, its toggle).
-@Observable final class ViewOptions {
-    var performance = Pref.store.bool(forKey: Pref.performance) {
-        didSet { Pref.store.set(performance, forKey: Pref.performance) }
-    }
-}
+

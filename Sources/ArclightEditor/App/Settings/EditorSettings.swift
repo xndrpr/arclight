@@ -4,7 +4,6 @@ import SwiftUI
 
 struct EditorSettings: View {
     let doc: EditorDocument?
-    @AppStorage(Pref.performance) private var performance = false
     @AppStorage(Pref.snapping) private var snapping = true
     @AppStorage(Pref.theme) private var theme = AppTheme.dark.rawValue
     var body: some View {
@@ -15,21 +14,6 @@ struct EditorSettings: View {
                 AppThemeGrid(
                     selection: Binding(get: { theme }, set: { if let t = AppTheme(rawValue: $0) { AppTheme.apply(t) } })
                 )
-            }
-            Hairline()
-            SettingRow(
-                label: "Performance mode",
-                note: "Preview at half resolution when playback lags. Export is always full quality."
-            ) {
-                Toggle(
-                    "",
-                    isOn: Binding(
-                        get: { doc?.performance ?? performance },
-                        set: {
-                            performance = $0; doc?.performance = $0
-                        })
-                )
-                .labelsHidden().toggleStyle(.switch)
             }
             Hairline()
             SettingRow(

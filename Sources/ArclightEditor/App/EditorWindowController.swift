@@ -66,7 +66,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
     /// ⇧⌘N: a new scene in Motion, a new thumbnail page in Thumbnail.
     @objc func newScene(_ sender: Any?) { if doc.isThumbnail { doc.newThumbnail() } else { doc.newScene() } }
     @objc func saveDocument(_ sender: Any?) { doc.saveNow(); doc.flash("Saved") }
-    @objc func togglePerformance(_ sender: Any?) { doc.performance.toggle() }
     @objc func toggleAIPanel(_ sender: Any?) { AIPanelState.toggle() }
     @objc func openChatWindow(_ sender: Any?) { doc.openChatWindow() }
     @objc func toggleViewerOnly(_ sender: Any?) { doc.viewerOnly.toggle() }
@@ -87,7 +86,6 @@ final class EditorWindowController: NSWindowController, NSWindowDelegate {
         case #selector(redo(_:)): return doc.canRedo || doc.canRedoTheme
         case #selector(copy(_:)), #selector(cut(_:)), #selector(duplicateLayer(_:)), #selector(clearKeyframes(_:)):
             return doc.selection != nil
-        case #selector(togglePerformance(_:)): item.state = doc.performance ? .on : .off; return true
         case #selector(toggleAIPanel(_:)):
             item.state = Pref.store.bool(forKey: Pref.aiPanel) ? .on : .off; return true
         case #selector(toggleViewerOnly(_:)): item.state = doc.viewerOnly ? .on : .off; return true

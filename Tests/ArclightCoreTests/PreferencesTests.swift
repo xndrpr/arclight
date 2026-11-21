@@ -7,7 +7,7 @@ import Testing
 @Suite struct PreferencesTests {
     @Test func keysAreStable() {
         let keys = [
-            Pref.theme, Pref.performance, Pref.snapping, Pref.leftWidth, Pref.rightWidth, Pref.timelineHeight,
+            Pref.theme, Pref.snapping, Pref.leftWidth, Pref.rightWidth, Pref.timelineHeight,
             Pref.aiPanel, Pref.aiFloat, Pref.activityWho, Pref.activityThisScene,
             Pref.activityReads,
             Pref.notesCollapsed, Pref.assetsCollapsed, Pref.layerDensity, Pref.rulers, Pref.centerLines, Pref.safeAreas,
@@ -15,7 +15,7 @@ import Testing
         ]
         #expect(
             keys == [
-                "ui.theme", "ui.performance", "ui.snapping", "ui.leftWidth", "ui.rightWidth", "ui.timelineHeight",
+                "ui.theme", "ui.snapping", "ui.leftWidth", "ui.rightWidth", "ui.timelineHeight",
                 "ui.aiPanel", "ui.aiFloat", "ui.activity.who", "ui.activity.thisScene",
                 "ui.activity.reads",
                 "ui.notes.collapsed", "ui.assets.collapsed", "layers.density", "canvas.rulers", "canvas.centerLines",

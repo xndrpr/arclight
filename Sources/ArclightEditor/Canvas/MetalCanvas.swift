@@ -34,6 +34,7 @@ struct MetalCanvas: NSViewRepresentable {
         v.layerContentsPlacement = .scaleAxesIndependently
         if pixelSize.width > 1 { v.drawableSize = pixelSize }
         context.coordinator.observeTheme(v)
+        doc.redrawViewer = { [weak v] in v?.needsDisplay = true }
         return v
     }
 
@@ -46,7 +47,7 @@ struct MetalCanvas: NSViewRepresentable {
 
     /// Runs when what it reads changes: the frame's inputs below, so a selection or a toast doesn't redraw it.
     func updateNSView(_ v: MTKView, context: Context) {
-        _ = (doc.scene, doc.project, doc.time, doc.soloIds, doc.performance)
+        _ = (doc.scene, doc.project, doc.time, doc.soloIds)
         context.coordinator.doc = doc
         v.clearColor = Self.clearColor
         if pixelSize.width > 1, v.drawableSize != pixelSize { v.drawableSize = pixelSize; v.needsDisplay = true }
@@ -84,7 +85,7 @@ struct MetalCanvas: NSViewRepresentable {
             doc.renderer.only = doc.soloIds.isEmpty ? nil : doc.soloIds
             doc.renderer.encodePreview(
                 scene: doc.scene, project: doc.project, assets: doc.assets, time: t,
-                drawable: drawable.texture, resolution: doc.performance ? 0.5 : 1, commandBuffer: cb)
+                drawable: drawable.texture, resolution: 1, commandBuffer: cb)
             cb.present(drawable)
             cb.commit()
         }

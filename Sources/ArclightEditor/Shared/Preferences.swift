@@ -32,7 +32,6 @@ enum Pref {
 
     // Appearance and editing
     static let theme = "ui.theme"
-    static let performance = "ui.performance"
     static let snapping = "ui.snapping"
 
     // Window layout

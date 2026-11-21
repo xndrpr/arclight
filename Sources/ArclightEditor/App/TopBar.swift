@@ -2,8 +2,8 @@ import AppKit
 import ArclightCore
 import SwiftUI
 
-/// Projects · project / scene names ………… AI status · problems · theme · canvas · performance · help · settings · Export.
-/// Narrow windows shed labels (AI status, Performance, fps) before anything can overlap; names truncate.
+/// Projects · project / scene names ………… AI status · problems · theme · canvas · help · settings · Export.
+/// Narrow windows shed labels (AI status, fps) before anything can overlap; names truncate.
 struct TopBar: View {
     let doc: EditorDocument
     let export: () -> Void
@@ -90,7 +90,6 @@ struct TopBar: View {
             ThemeQuickButton(doc: doc)
             if !doc.isThumbnail {
                 CanvasMenu(doc: doc, showFPS: density > .compact)
-                PerformanceToggle(doc: doc, label: density == .full)
             }
             IconButton(symbol: "keyboard", help: "Keyboard shortcuts (⌘?)") {
                 NotificationCenter.default.post(name: .showShortcuts, object: doc)
@@ -125,30 +124,6 @@ struct TopBar: View {
         guard let w, w.styleMask.contains(.titled), !w.styleMask.contains(.fullScreen) else { return defaultHeight }
         let titlebar = w.frame.height - w.contentLayoutRect.height
         return titlebar >= 28 ? max(38, titlebar.rounded()) : defaultHeight
-    }
-}
-
-/// "⚡ Performance" — half-resolution preview while on.
-private struct PerformanceToggle: View {
-    let doc: EditorDocument
-    var label = true
-
-    var body: some View {
-        let on = doc.view.performance
-        Button {
-            doc.view.performance.toggle()
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "bolt.fill").font(.system(size: 10))
-                if label { Text("Performance").font(UI.small).lineLimit(1) }
-            }
-        }
-        .buttonStyle(
-            HoverButtonStyle(name: "performance", on: on, padding: label ? 9 : 8, height: 26, cornerRadius: 6)
-        )
-        .help(
-            "Performance mode is \(on ? "on" : "off"): preview at half resolution if playback lags. Export is always full quality. (⇧⌘P)"
-        )
     }
 }
 

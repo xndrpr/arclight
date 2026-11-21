@@ -41,14 +41,40 @@ extension EditorDocument {
     /// `t` limited to the timeline's playable range (0 ... `maxTime`).
     func clampedTime(_ t: Double) -> Double { min(max(0, t), maxTime) }
 
-    /// Stops playback and puts the playhead at `t` (snapped, then clamped): a click or drag in the ruler or tracks.
+    /// Stops playback and puts the playhead at `t` (snapped, then clamped): a click or drag in the ruler, tracks or
+    /// audio lanes. Like playback, each step moves only what follows the playhead live (the viewer, the playhead
+    /// line, the timecode); the rest of the editor that shows the time (inspector values, layer thumbnails, history
+    /// frames) catches up a few times a second and once the pointer rests. Redrawing all of it on every step made
+    /// scrubbing stutter on big scenes.
     func scrub(to t: Double, tolerance: Double) {
-        playing = false
+        if playing { playing = false }
+        ticking = true
         time = clampedTime(snapTime(t, tolerance: tolerance))
+        ticking = false
+        redrawViewer()
+        scrubPublish?.cancel()
+        if CACurrentMediaTime() - lastScrubPublish >= Self.scrubCatchUp {
+            publishTime()
+        } else {
+            let w = DispatchWorkItem { [weak self] in self?.publishTime() }
+            scrubPublish = w
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.scrubCatchUp, execute: w)
+        }
+    }
+
+    static let scrubCatchUp = 0.15
+
+    /// Tells everything that shows the time that it changed, after steps made with `ticking`.
+    func publishTime() {
+        lastScrubPublish = CACurrentMediaTime()
+        scrubPublish?.cancel()
+        scrubPublish = nil
+        withMutation(keyPath: \.time) {}
+        stateChanged()
     }
 
     func step(_ frames: Int) {
-        playing = false
+        if playing { playing = false }
         time = max(0, min(maxTime, ((time * fps).rounded() + Double(frames)) / fps))
         followPlayhead()
     }
