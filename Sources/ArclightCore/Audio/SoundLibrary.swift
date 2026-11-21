@@ -8,9 +8,7 @@ public struct SoundLibrary: Sendable {
     public enum Kind: String, CaseIterable, Sendable {
         /// Sound effects (Freesound).
         case sfx
-        /// Music tracks.
         case music
-        /// Anything.
         case any
     }
 
@@ -18,7 +16,6 @@ public struct SoundLibrary: Sendable {
         public var id: String
         public var title: String
         public var creator: String?
-        /// Seconds.
         public var duration: Double?
         public var license: String
         public var licenseVersion: String?
