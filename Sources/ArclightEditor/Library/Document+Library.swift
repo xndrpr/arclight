@@ -21,9 +21,7 @@ extension EditorDocument {
     /// Creates a new scene from a template and opens it.
     func newScene(from t: Template, params: [String: JSONValue]) {
         saveNow()
-        let base = LibraryModel.prefix(for: t)
-        var id = base, k = 2
-        while store.scenes[id] != nil { id = "\(base)-\(k)"; k += 1 }
+        let id = Naming.unique(LibraryModel.prefix(for: t)) { store.scenes[$0] != nil }
         do {
             addTokens(for: t)
             var s = try Templates.instantiate(t, params: params, sceneId: id, canvas: projectCanvas)
