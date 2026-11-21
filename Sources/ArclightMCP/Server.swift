@@ -135,9 +135,7 @@ public final class MCPServer {
     }
 
     func send(_ v: JSONValue) {
-        let enc = JSONEncoder()
-        enc.outputFormatting = [.withoutEscapingSlashes]
-        guard var data = try? enc.encode(v) else { return }
+        guard var data = try? JSONFormat.wire().encode(v) else { return }
         data.append(0x0A)
         out.write(data)
     }

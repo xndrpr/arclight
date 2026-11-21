@@ -72,13 +72,13 @@ public enum Outline {
         switch v {
         case .string(let x): s = x.contains(" ") || x.isEmpty ? "\"\(x)\"" : x
         case .number(let d): s = Format.number(d)
-        default: s = (try? String(data: JSONFormat.compact().encode(v), encoding: .utf8)) ?? "?"
+        default: s = JSONFormat.compactString(v) ?? "?"
         }
         return s.count > 48 ? String(s.prefix(45)) + "…" : s
     }
 
     static func compact(_ v: JSONValue) -> String {
-        let s = (try? String(data: JSONFormat.compact().encode(v), encoding: .utf8)) ?? "?"
+        let s = JSONFormat.compactString(v) ?? "?"
         return s.count > 160 ? String(s.prefix(157)) + "…" : s
     }
 }

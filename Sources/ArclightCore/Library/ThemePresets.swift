@@ -140,8 +140,7 @@ public enum ThemePresets {
         var id = Naming.slug(n, fallback: "theme")
         if builtIn.contains(where: { $0.id == id || $0.name.lowercased() == n.lowercased() }) { id = "my-" + id }
         let preset = ThemePreset(id: id, name: n, description: description, tokens: tokens)
-        try FileManager.default.createDirectory(at: userDir, withIntermediateDirectories: true)
-        try JSONFormat.pretty().encode(preset).write(to: userDir.appendingPathComponent("\(id).json"), options: .atomic)
+        try JSONFile.write(preset, to: userDir.appendingPathComponent("\(id).json"))
         return preset
     }
 

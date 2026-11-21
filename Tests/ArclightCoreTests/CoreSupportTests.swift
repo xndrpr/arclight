@@ -28,6 +28,8 @@ import Testing
         #expect(
             String(decoding: try JSONFormat.pretty().encode(Sample()), as: UTF8.self)
                 == "{\n  \"a\" : 1,\n  \"b\" : \"a/b\"\n}")
+        #expect(JSONFormat.compactString(Sample()) == #"{"a":1,"b":"a/b"}"#)
+        #expect(String(decoding: try JSONFormat.wire().encode(["k": "a/b"]), as: UTF8.self) == #"{"k":"a/b"}"#)
     }
 
     @Test func jsonFilesAndLines() throws {
@@ -77,6 +79,7 @@ import Testing
         let n = try JSONValue.object(["id": "a", "type": "shape", "x": 4]).decoded(as: Node.self)
         #expect(n.id == "a" && n.props["x"] == .value(4))
         #expect(throws: (any Error).self) { try JSONValue.string("x").decoded(as: Node.self) }
+        #expect(try JSONValue(encoding: Sample()) == ["a": 1, "b": "a/b"])
     }
 
     /// The slug flavours the call sites use: asset bases (four words), sound bases (Latin), artboard ids (ASCII).

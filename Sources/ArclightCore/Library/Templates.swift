@@ -152,8 +152,7 @@ public enum Templates {
                 switch val {
                 case .string(let x): str = x
                 case .number(let d): str = d.rounded() == d && abs(d) < 1e15 ? String(Int64(d)) : String(d)
-                default:
-                    str = (try? String(data: JSONFormat.compact().encode(val), encoding: .utf8)) ?? ""
+                default: str = JSONFormat.compactString(val) ?? ""
                 }
                 out = out.replacingOccurrences(of: "{{\(k)}}", with: str)
             }
@@ -170,7 +169,7 @@ public enum Templates {
         from scene: Scene, id: String, name: String, description: String?,
         params: [(param: Template.Param, target: String)]
     ) throws -> Template {
-        var json = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(scene))
+        var json = try JSONValue(encoding: scene)
         var obj = json.object ?? [:]
         obj["rev"] = nil
         obj["id"] = .string(id)
@@ -212,9 +211,8 @@ public enum Templates {
             guard let project else { throw ModelError.invalid("no project open") }
             dir = project.appendingPathComponent("templates")
         }
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = dir.appendingPathComponent("\(t.id).json")
-        try JSONFormat.pretty().encode(t).write(to: url, options: .atomic)
+        try JSONFile.write(t, to: url)
         return url
     }
 }
