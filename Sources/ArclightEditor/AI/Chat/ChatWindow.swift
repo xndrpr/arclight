@@ -154,7 +154,8 @@ private struct ChatSidebarRow: View {
         .padding(.horizontal, 8).padding(.vertical, 7)
         .background(RoundedRectangle(cornerRadius: 7).fill(front ? UI.selected : (hover ? UI.hover : .clear)))
         .contentShape(Rectangle())
-        .onTapGesture(perform: open)
+        .cursor(.pointingHand)
+        .onClick { _ in open() }
         .onHover { hover = $0 }
         .animation(UI.fade, value: front)
         .animation(UI.fade, value: hover)

@@ -90,9 +90,9 @@ struct ChatInput: View {
                         Button {
                             chat.send()
                         } label: {
-                            Image(systemName: "arrow.up").font(.system(size: 11, weight: .bold))
+                            Image(systemName: "arrow.up").font(.system(size: 12.5, weight: .bold))
                                 .foregroundStyle(chat.canSend ? UI.onAccent : UI.faint)
-                                .frame(width: 24, height: 24)
+                                .frame(width: 28, height: 28)
                                 .background(Circle().fill(chat.canSend ? UI.accent : UI.raised))
                                 .contentShape(Circle())
                         }
@@ -100,14 +100,20 @@ struct ChatInput: View {
                         .transition(.scale(scale: 0.8).combined(with: .opacity))
                     }
                 }
-                .padding(.horizontal, 5).padding(.bottom, 5)
+                .padding(.horizontal, 7).padding(.bottom, 7)
                 .animation(Motion.snappy, value: chat.running)
                 .animation(Motion.snappy, value: chat.canSend)
             }
-            .background(RoundedRectangle(cornerRadius: 8).fill(UI.field))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(focused ? UI.accent.opacity(0.6) : UI.fieldBorder))
+            .padding(.top, 3)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(UI.field))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .strokeBorder(focused ? UI.accent.opacity(0.55) : UI.fieldBorder, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(UI.isDark ? 0.32 : 0.08), radius: 12, y: 4)
+            .animation(UI.fade, value: focused)
         }
-        .padding(10)
+        .padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 12)
         .animation(Motion.snappy, value: chat.queue)
         .animation(UI.fade, value: chat.composerNote)
     }
@@ -484,14 +490,18 @@ struct ChatBrainMenu: View {
             open.toggle()
         } label: {
             HStack(spacing: 4) {
+                if ChatSettings.backend == .cli {
+                    Image(systemName: "terminal").font(.system(size: 9.5, weight: .semibold))
+                        .help("Through your command-line agent")
+                }
                 Text("\(model.label) · \(effort.label)").font(UI.small)
                 Image(systemName: "chevron.down").font(.system(size: 7, weight: .bold))
                     .rotationEffect(.degrees(open ? 180 : 0))
             }
-            .foregroundStyle(hover || open ? UI.text : UI.dim)
-            .padding(.horizontal, 7).frame(height: 22)
-            .background(RoundedRectangle(cornerRadius: 6).fill(hover || open ? UI.hover : .clear))
-            .contentShape(Rectangle())
+            .foregroundStyle(hover || open ? UI.text : UI.label2)
+            .padding(.horizontal, 9).frame(height: 24)
+            .background(Capsule().fill(hover || open ? UI.hover : UI.raised.opacity(0.8)))
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain).cursor(.pointingHand).onHover { hover = $0 }
         .animation(Motion.animation(UI.fade), value: hover)

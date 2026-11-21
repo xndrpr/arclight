@@ -23,11 +23,10 @@ struct ChatView: View {
                 // Equatable: typing in the field (draft) or attaching files doesn't redraw the history.
                 ChatMessageList(
                     doc: doc, chat: chat, items: chat.transcript.items, running: chat.running,
-                    activity: chat.activity, revision: chat.revision
+                    activity: chat.activity, revision: chat.revision, turns: chat.transcript.turns
                 )
                 .equatable()
             }
-            Hairline()
             ChatInput(chat: chat)
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -53,32 +52,22 @@ struct ChatView: View {
         .onReceive(NotificationCenter.default.publisher(for: ChatSettingsChange.name)) { _ in chat.settingsChanged() }
     }
 
+    /// The chat's name (opening the project's chats), its usage, then the image model, notes, new chat and settings.
+    /// The chat model is in the composer, where it is picked.
     private var header: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "sparkles").font(.system(size: 10, weight: .semibold)).foregroundStyle(UI.ai)
-            Text(chat.statusLine).font(UI.small).foregroundStyle(UI.label2).lineLimit(1)
-            if chat.kind == .cli {
-                Text("Experimental · CLI").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(UI.warning)
-                    .padding(.horizontal, 5).frame(height: 15)
-                    .background(Capsule().fill(UI.warning.opacity(0.14)))
-                    .help("Runs through your own installed command-line agent and its login. Experimental.")
-            }
-            Spacer()
+        HStack(spacing: 2) {
+            ChatListMenu(chats: doc.chats)
+            Spacer(minLength: 8)
+            ChatUsageButton(chat: chat, chats: doc.chats)
             ChatModelMenu()
             ProjectNotesButton(project: chat.project)
-            historyMenu
             IconButton(symbol: "square.and.pencil", help: "New chat (this one stays in the list and keeps working)") {
                 doc.chats.newChat()
             }
             .disabled(chat.transcript.items.isEmpty)
             IconButton(symbol: "gearshape", help: "Chat settings") { ChatSettingsLink.open() }
         }
-        .padding(.horizontal, 10).frame(height: 32)
-    }
-
-    /// The project's chats: bring one to the front, rename or delete it. A dot marks one that is working or waiting.
-    private var historyMenu: some View {
-        ChatListMenu(chats: doc.chats)
+        .padding(.leading, 8).padding(.trailing, 6).frame(height: 36)
     }
 
     static func date(_ d: Date) -> String {
@@ -125,6 +114,7 @@ private struct ChatMessageList: View, Equatable {
     let running: Bool
     let activity: String?
     let revision: Int
+    let turns: [ChatTurn]
     /// The list is scrolled to (near) the bottom: new rows keep it there. Scrolling up stops following.
     @State private var pinned = true
     @State private var viewport: CGFloat = 0
@@ -145,35 +135,43 @@ private struct ChatMessageList: View, Equatable {
         // `revision` moves with every change to the rows: comparing the rows themselves (megabytes of text and
         // pictures, 30 times a second) would cost more than the redraw it saves.
         a.revision == b.revision && a.running == b.running && a.activity == b.activity
-            && a.items.count == b.items.count && a.chat === b.chat
+            && a.items.count == b.items.count && a.chat === b.chat && a.turns.count == b.turns.count
     }
 
     var body: some View {
         let lastId = items.last?.id
+        let lines = ChatLine.lines(items, turns: turns, running: running)
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 12) {
-                    ForEach(ChatBlock.group(items)) { block in
-                        Group {
-                            switch block {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ForEach(lines) { line in
+                        VStack(alignment: .leading, spacing: 8) {
+                            if let d = line.day { ChatDayDivider(title: d) }
+                            switch line.block {
                             case .item(let item):
                                 if item.kind == .choice, let c = item.choice {
                                     ChoiceCard(doc: doc, chat: chat, choice: c)
                                 } else {
                                     ChatRow(
-                                        item: item, live: running && item.id == lastId,
+                                        item: item, live: running && item.id == lastId, author: line.author,
+                                        turn: item.kind == .assistant ? line.turn : nil,
                                         canGoBack: !running && item.checkpoint != nil,
                                         editFrom: { confirmBack(item, edit: true) },
                                         revert: { confirmBack(item, edit: false) }
                                     )
                                     .equatable()
                                 }
-                            case .tools(let tools):
-                                ChatToolGroup(tools: tools).equatable()
+                            case .work(let steps):
+                                ChatWorkGroup(steps: steps, live: running && steps.last?.id == lastId).equatable()
                             }
+                            // A reply draws its turn's line itself, next to its copy button.
+                            if let t = line.turn, !line.isReply { ChatTurnFooter(turn: t) }
                         }
                     }
-                    if running, items.last?.kind != .thinking { ChatWorking(label: activity) }
+                    // Before the first event of a turn arrives, something must show that it started.
+                    if running, case .item(let last)? = lines.last?.block, last.kind != .assistant {
+                        ChatWorking(label: activity)
+                    }
                     Color.clear.frame(height: 1).id(Self.bottom)
                 }
                 .padding(.horizontal, 14).padding(.vertical, 12)
@@ -288,6 +286,10 @@ struct ChatRow: View, Equatable {
     let item: ChatItem
     /// The row the running turn is writing to now.
     var live = false
+    /// A reply that starts the turn's answer: "✦ Arclight · 14:32" above it.
+    var author = false
+    /// The turn this reply ends: its time, tokens and cost, drawn under it.
+    var turn: ChatTurn?
     /// User rows: the message can be gone back to (it has a checkpoint and nothing is running).
     var canGoBack = false
     var editFrom: () -> Void = {}
@@ -295,7 +297,8 @@ struct ChatRow: View, Equatable {
     @State private var hover = false
 
     static func == (a: ChatRow, b: ChatRow) -> Bool {
-        a.item == b.item && a.live == b.live && a.canGoBack == b.canGoBack
+        a.item == b.item && a.live == b.live && a.canGoBack == b.canGoBack && a.author == b.author
+            && a.turn == b.turn
     }
 
     var body: some View {
@@ -308,8 +311,9 @@ struct ChatRow: View, Equatable {
                             if a.kind == .image {
                                 AttachmentThumb(attachment: a, side: 72)
                                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(UI.border))
-                                    .help(a.name)
-                                    .onTapGesture(count: 2) { NSWorkspace.shared.open(URL(fileURLWithPath: a.path)) }
+                                    .help("\(a.name): click to open")
+                                    .cursor(.pointingHand)
+                                    .onClick { _ in NSWorkspace.shared.open(URL(fileURLWithPath: a.path)) }
                             } else {
                                 AttachmentChip(attachment: a)
                             }
@@ -318,9 +322,16 @@ struct ChatRow: View, Equatable {
                 }
                 if !item.text.isEmpty {
                     Text(item.text).font(Self.body).foregroundStyle(UI.text).textSelection(.enabled)
-                        .lineSpacing(2)
-                        .padding(.horizontal, 11).padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(UI.selected))
+                        .lineSpacing(3)
+                        .padding(.horizontal, 13).padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(UI.accent.opacity(UI.isDark ? 0.2 : 0.12))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .strokeBorder(UI.accent.opacity(UI.isDark ? 0.22 : 0.18), lineWidth: 0.5)
+                        )
                         .contextMenu {
                             Button("Copy Message") { Self.copy(item.text) }
                             if canGoBack {
@@ -331,6 +342,10 @@ struct ChatRow: View, Equatable {
                 }
                 // Shown on hover, like the reply's copy button: the row keeps its height either way.
                 HStack(spacing: 2) {
+                    if let d = item.created {
+                        Text(d.formatted(date: .omitted, time: .shortened)).font(.system(size: 10.5).monospacedDigit())
+                            .foregroundStyle(UI.faint).padding(.trailing, 4)
+                    }
                     IconButton(symbol: "doc.on.doc", help: "Copy message") { Self.copy(item.text) }
                     if canGoBack {
                         IconButton(symbol: "pencil", help: "Edit from here: go back to this message and change it") {
@@ -349,7 +364,8 @@ struct ChatRow: View, Equatable {
             .contentShape(Rectangle())
             .onHover { hover = $0 }
         case .assistant:
-            ChatAssistantRow(text: item.text, live: live)
+            ChatAssistantRow(
+                text: item.text, live: live, author: author ? item.created : nil, showsAuthor: author, turn: turn)
         case .thinking:
             ChatThinkingRow(item: item, live: live && item.duration == nil)
         case .tool:
@@ -473,7 +489,24 @@ private struct ChatEmptyState: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle().fill(
+                    LinearGradient(colors: [UI.ai.opacity(0.9), UI.accent], startPoint: .topLeading, endPoint: .bottomTrailing))
+                Image(systemName: "sparkles").font(.system(size: 20, weight: .semibold)).foregroundStyle(.white)
+            }
+            .frame(width: 48, height: 48)
+            .shadow(color: UI.ai.opacity(0.35), radius: 14, y: 4)
+            VStack(spacing: 6) {
+                Text("What should we make?").font(.system(size: 16, weight: .semibold)).foregroundStyle(UI.text)
+                Text(
+                    chat.hasCredentials
+                        ? "Ask for a scene, a thumbnail or a change. Every edit shows live and can be undone in Activity."
+                        : "To chat here, add an API key from your AI provider in Settings. It stays in your Keychain."
+                )
+                .font(UI.small).foregroundStyle(UI.dim).multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true).frame(maxWidth: 300)
+            }
             if chat.kind == .cli, CLILocator.locate(custom: ChatSettings.cliPath) == nil {
                 Label(
                     "The command-line agent wasn't found. Set its path in Settings ▸ AI ▸ Experimental, or switch back to the API there.",
@@ -482,28 +515,52 @@ private struct ChatEmptyState: View {
                 .font(UI.small).foregroundStyle(UI.warning).fixedSize(horizontal: false, vertical: true)
             }
             if chat.hasCredentials {
-                Text(
-                    "Ask the AI to build or change anything in this project. You'll see each change live, and can revert it in Activity."
-                )
-                .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
-                ForEach(Self.examples, id: \.self) { s in
-                    Button {
-                        chat.insert(s)
-                    } label: {
-                        Text(s).font(UI.small).foregroundStyle(UI.label2).multilineTextAlignment(.leading)
-                            .padding(.horizontal, 8).padding(.vertical, 6)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(RoundedRectangle(cornerRadius: 6).fill(UI.raised))
+                VStack(spacing: 8) {
+                    ForEach(Array(Self.examples.enumerated()), id: \.offset) { i, s in
+                        Button {
+                            chat.insert(s)
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: Self.icons[i]).font(.system(size: 12)).foregroundStyle(UI.ai).frame(width: 18)
+                                Text(s).font(UI.small).foregroundStyle(UI.label2).multilineTextAlignment(.leading)
+                                Spacer(minLength: 0)
+                                Image(systemName: "arrow.up.left").font(.system(size: 9, weight: .bold)).foregroundStyle(UI.faint)
+                            }
+                            .padding(.horizontal, 12).padding(.vertical, 10)
+                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(UI.raised.opacity(0.7)))
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(UI.border, lineWidth: 0.5))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(HoverLift()).cursor(.pointingHand)
                     }
-                    .buttonStyle(.plain).cursor(.pointingHand)
                 }
+                .frame(maxWidth: 360)
             } else {
-                Text("To chat here, add an API key from your AI provider in Settings. It stays in your Keychain.")
-                    .font(UI.small).foregroundStyle(UI.dim).fixedSize(horizontal: false, vertical: true)
                 Button("Open AI settings") { ChatSettingsLink.open() }.buttonStyle(PillButtonStyle(primary: true))
+                    .cursor(.pointingHand)
             }
         }
-        .padding(12)
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    static let icons = ["textformat.size", "slider.horizontal.3", "photo.on.rectangle.angled"]
+}
+
+/// A card that brightens a little under the pointer and dips when pressed.
+private struct HoverLift: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { Lifted(configuration: configuration) }
+
+    private struct Lifted: View {
+        let configuration: Configuration
+        @State private var hover = false
+        var body: some View {
+            configuration.label
+                .brightness(hover ? 0.04 : 0)
+                .scaleEffect(configuration.isPressed ? 0.985 : 1)
+                .animation(UI.fade, value: hover)
+                .onHover { hover = $0 }
+        }
     }
 }
 
@@ -513,7 +570,7 @@ enum ChatSettingsLink {
 
 /// The model's thinking. While it runs: "Thinking…" and the newest lines as they come. Then folded to
 /// "Thought for 6s", click to read it all.
-private struct ChatThinkingRow: View {
+struct ChatThinkingRow: View {
     let item: ChatItem
     let live: Bool
     @State private var open = false
@@ -539,12 +596,7 @@ private struct ChatThinkingRow: View {
             .buttonStyle(.plain).cursor(text.isEmpty || live ? .arrow : .pointingHand)
             .disabled(text.isEmpty || live)
             if live, !text.isEmpty {
-                // The tail of the thinking, newest at the bottom, fading out at the top.
-                Text(String(text.suffix(700))).font(UI.small).foregroundStyle(UI.faint)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, maxHeight: 64, alignment: .bottomLeading).clipped()
-                    .mask(LinearGradient(colors: [.clear, .black, .black], startPoint: .top, endPoint: .bottom))
-                    .padding(.leading, 13)
+                ChatThinkingTail(text: text).padding(.leading, 13)
             } else if open {
                 Text(text).font(UI.small).foregroundStyle(UI.dim).textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
@@ -562,6 +614,17 @@ private struct ChatThinkingRow: View {
         if live { return "Thinking…" }
         guard let d = item.duration else { return "Thought" }
         return d < 1 ? "Thought briefly" : "Thought for \(Int(d.rounded()))s"
+    }
+}
+
+/// The newest lines of thinking as they come, fading out at the top.
+struct ChatThinkingTail: View {
+    let text: String
+    var body: some View {
+        Text(String(text.suffix(700))).font(UI.small).foregroundStyle(UI.faint)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, maxHeight: 64, alignment: .bottomLeading).clipped()
+            .mask(LinearGradient(colors: [.clear, .black, .black], startPoint: .top, endPoint: .bottom))
     }
 }
 
@@ -587,19 +650,30 @@ struct ChatListMenu: View {
                 }
             }
         } label: {
-            HStack(spacing: 3) {
-                Image(systemName: "bubble.left.and.bubble.right").font(.system(size: 11, weight: .medium))
-                if chats.list.count > 1 { Text("\(chats.list.count)").font(UI.monoSmall) }
+            HStack(spacing: 5) {
+                Text(title).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(UI.text).lineLimit(1)
+                    .truncationMode(.tail)
+                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundStyle(UI.dim)
+                if chats.runningCount > (chats.status(chats.activeID) == .running ? 1 : 0) {
+                    Circle().fill(UI.ai).frame(width: 6, height: 6).help("Another chat is working")
+                }
             }
-            .foregroundStyle(chats.runningCount > 0 ? UI.ai : UI.label2)
+            .padding(.horizontal, 6).frame(height: 26)
+            .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-        .help("Chats of this project")
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help("This project's chats (\(chats.list.count)): open, rename or delete")
+        .cursor(.pointingHand)
         .alert("Rename chat", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Name", text: $name)
             Button("Rename") { if let r = renaming { chats.rename(r.id, to: name) }; renaming = nil }
             Button("Cancel", role: .cancel) { renaming = nil }
         }
+    }
+
+    /// The chat in front's name.
+    private var title: String {
+        chats.list.first { $0.id == chats.activeID }?.title ?? "New chat"
     }
 
     static func label(_ c: ChatTranscript.Summary, status: ChatController.Status, front: Bool) -> String {

@@ -36,14 +36,53 @@ enum ChatToolNames {
         "theme_set": ("Setting the theme", "Set the theme"),
         "theme_apply": ("Applying the theme", "Applied the theme"),
         "project_check": ("Checking the project", "Checked the project"),
+        "project_create": ("Creating the project", "Created the project"),
+        "project_open": ("Opening the project", "Opened the project"),
+        "project_update": ("Updating the project", "Updated the project"),
+        "audio_analyze": ("Listening to the audio", "Analyzed the audio"),
+        "audio_transcribe": ("Transcribing the voice", "Transcribed the voice"),
+        "mix_check": ("Checking the mix", "Checked the mix"),
+        "sound_search": ("Looking for sounds", "Looked for sounds"),
+        "sound_import": ("Importing a sound", "Imported a sound"),
+        "sound_synth": ("Synthesizing a sound", "Synthesized a sound"),
+        "sound_generate": ("Generating a sound", "Generated a sound"),
+        "sound_notes": ("Writing sound notes", "Wrote sound notes"),
+        "voice_generate": ("Recording a voice line", "Recorded a voice line"),
+        "frame_extract": ("Taking frames from a video", "Took frames from a video"),
+        "history": ("Reading the history", "Read the history"),
+        "note_list": ("Reading your notes", "Read your notes"),
+        "note_resolve": ("Answering a note", "Answered a note"),
+        "template_list": ("Looking at templates", "Looked at templates"),
+        "template_instantiate": ("Starting from a template", "Started from a template"),
+        "template_save": ("Saving a template", "Saved a template"),
+        "symbol_list": ("Looking at symbols", "Looked at symbols"),
+        "symbol_save": ("Saving a symbol", "Saved a symbol"),
+        "asset_write": ("Writing an asset", "Wrote an asset"),
+        "font_list": ("Looking at fonts", "Looked at fonts"),
+        "reference_add": ("Adding a reference", "Added a reference"),
+        "theme_presets": ("Looking at themes", "Looked at themes"),
+        "theme_preset_save": ("Saving a theme", "Saved a theme"),
+        "thumbnail_get": ("Reading the thumbnail", "Read the thumbnail"),
+        "thumbnail_list": ("Looking at thumbnails", "Looked at thumbnails"),
+        "thumbnail_delete": ("Deleting a thumbnail", "Deleted a thumbnail"),
+        "update_plan": ("Planning", "Updated the plan"),
+        "ask_choice": ("Preparing options", "Offered options"),
     ]
 
     static func doing(_ tool: String) -> String {
-        names[tool]?.doing ?? tool.replacingOccurrences(of: "_", with: " ").capitalizedFirst
+        let t = plain(tool)
+        return names[t]?.doing ?? t.replacingOccurrences(of: "_", with: " ").capitalizedFirst
     }
 
     static func done(_ tool: String) -> String {
-        names[tool]?.done ?? tool.replacingOccurrences(of: "_", with: " ").capitalizedFirst
+        let t = plain(tool)
+        return names[t]?.done ?? t.replacingOccurrences(of: "_", with: " ").capitalizedFirst
+    }
+
+    /// Command-line agents name a server's tools `mcp__<server>__<tool>`.
+    static func plain(_ tool: String) -> String {
+        guard tool.hasPrefix("mcp__"), let r = tool.range(of: "__", options: .backwards) else { return tool }
+        return String(tool[r.upperBound...])
     }
 }
 
