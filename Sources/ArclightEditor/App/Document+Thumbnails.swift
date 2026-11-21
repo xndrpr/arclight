@@ -74,13 +74,14 @@ extension EditorDocument {
         withAnimation(.easeOut(duration: Self.curtainIn)) { switching = ws }
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.curtainIn) { [self] in
             setWorkspace(ws)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [self] in
-                withAnimation(.easeIn(duration: 0.2)) { switching = nil }
+            // The timer fires after the new layout's pass; the short wait lets the viewer draw its first frame.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [self] in
+                withAnimation(.easeOut(duration: 0.16)) { switching = nil }
             }
         }
     }
 
-    static let curtainIn = 0.09
+    static let curtainIn = 0.06
 
     func setWorkspace(_ ws: Workspace) {
         guard ws != workspace else { return }
