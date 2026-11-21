@@ -81,22 +81,58 @@ import Testing
         #expect(r.first?.object?["type"]?.string == "image")
         #expect(text(r).contains("a feed"))
 
-        // Export: YouTube preset → 1280×720 JPGs under 2 MB; the Shorts artboard keeps its size.
+        // Export: YouTube preset → JPGs under 2 MB, 1280×720 and the Shorts cover turned upright (720×1280).
         let out = text(try run(s, "export", ["thumbnail": "ep12", "artboards": ["a", "shorts"]]))
-        let files = out.split(separator: "\n").map { String($0.split(separator: " ").first ?? "") }
+        let files = Self.files(out)
         #expect(files.count == 2)
         for f in files {
-            let url = URL(fileURLWithPath: f)
             let size = try #require(try FileManager.default.attributesOfItem(atPath: f)[.size] as? Int)
             #expect(size < StillExporter.youtubeMaxBytes)
-            let src = try #require(CGImageSourceCreateWithURL(url as CFURL, nil))
-            let props = try #require(CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any])
-            let w = props[kCGImagePropertyPixelWidth] as? Int, h = props[kCGImagePropertyPixelHeight] as? Int
-            if f.hasSuffix("ep12_a.jpg") { #expect(w == 1280 && h == 720) }
-            if f.hasSuffix("ep12_shorts.jpg") { #expect(w == 1080 && h == 1920) }
+            let px = try Self.pixels(f)
+            if f.hasSuffix("ep12_a.jpg") { #expect(px == [1280, 720]) }
+            if f.hasSuffix("ep12_shorts.jpg") { #expect(px == [720, 1280]) }
         }
         let png = text(try run(s, "export", ["thumbnail": "ep12", "artboards": ["b"], "format": "png", "scale": 0.5]))
         #expect(png.contains("ep12_b.png") && png.contains("640x360"))
+    }
+
+    private static func files(_ out: String) -> [String] {
+        out.split(separator: "\n").map { String($0.split(separator: " ").first ?? "") }
+    }
+
+    /// [width, height] of the image file at `path`.
+    private static func pixels(_ path: String) throws -> [Int] {
+        let src = try #require(CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil))
+        let props = try #require(CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any])
+        return [props[kCGImagePropertyPixelWidth] as? Int ?? 0, props[kCGImagePropertyPixelHeight] as? Int ?? 0]
+    }
+
+    /// Every format keeps each artboard's own aspect and orientation: landscape, portrait, square and 4:5 alike.
+    @Test func exportKeepsEachArtboardsShape() throws {
+        let (s, tp) = try server()
+        defer { tp.remove() }
+        let boards: [(id: String, preset: String, youtube: [Int], own: [Int])] = [
+            ("wide", "youtube-hd", [1280, 720], [1920, 1080]),
+            ("tall", "shorts", [720, 1280], [1080, 1920]),
+            ("square", "square", [720, 720], [1080, 1080]),
+            ("portrait", "portrait", [720, 900], [1080, 1350]),
+        ]
+        let artboards = boards.map { JSONValue.object(["id": .string($0.id), "size": .string($0.preset)]) }
+        _ = try run(s, "thumbnail_create", ["id": "shapes", "artboards": .array(artboards)])
+        for format in ["youtube", "jpg", "png"] {
+            let dir = tp.url.appendingPathComponent("exports/\(format)").path
+            let out = text(
+                try run(s, "export", ["thumbnail": "shapes", "format": .string(format), "out_dir": .string(dir)]))
+            let files = Self.files(out)
+            #expect(files.count == boards.count)
+            for b in boards {
+                let f = try #require(files.first { $0.hasSuffix("shapes_\(b.id).\(format == "png" ? "png" : "jpg")") })
+                let px = try Self.pixels(f)
+                #expect(px == (format == "youtube" ? b.youtube : b.own), "\(format) \(b.id)")
+                #expect(out.contains("\(px[0])x\(px[1])"))  // the reported size is the written one
+                #expect(abs(Double(px[0]) / Double(px[1]) - Double(b.own[0]) / Double(b.own[1])) < 0.005)
+            }
+        }
     }
 
     @Test func outlineHistoryThemeAndDelete() throws {

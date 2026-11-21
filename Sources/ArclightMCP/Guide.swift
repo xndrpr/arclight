@@ -385,7 +385,8 @@ enum Guide {
         - High contrast: light text on dark or the reverse, plus one accent colour. Avoid thin strokes and small detail.
         - Keep the bottom-right corner (about 20% x 15%) free of anything important: YouTube's timestamp badge covers it.
         - Leave a margin of about 40 px; the feed rounds the corners.
-        Export {thumbnail, format:"youtube"} writes 1280x720 JPGs under YouTube's 2 MB limit to <project>/exports/<thumbnail>_<artboard>.jpg.
+        Export {thumbnail, format:"youtube"} writes JPGs under YouTube's 2 MB limit to <project>/exports/<thumbnail>_<artboard>.jpg: 1280x720 for a 16:9 artboard, \
+        720x1280 for a 9:16 Shorts cover, other shapes fitted inside with their own aspect (a square at 720x720). format jpg or png keeps the artboard's own size.
 
         # AI pixels (image_status says what's available)
         - image_remove_bg {layer} — on-device and free: cut a person/object out of a photo, then add effects.outline for the sticker look.

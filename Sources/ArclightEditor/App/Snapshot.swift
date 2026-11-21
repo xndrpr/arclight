@@ -80,6 +80,7 @@ public enum EditorSnapshot {
                     doc: doc, chat: doc.chat, frames: ChoiceFrames(), choice: c,
                     picked: .constant(o.select.map { [$0] } ?? []),
                     comment: .constant(""), waiting: true, index: i, toggle: { _ in }, confirm: {}))
+        case "export" where doc.isThumbnail: return AnyView(StillExportSheet(doc: doc, isPresented: .constant(true)))
         case "export":
             return AnyView(
                 ExportSheet(doc: doc, isPresented: .constant(true), which: o.select == "joined" ? .joined : .current))
