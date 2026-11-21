@@ -236,6 +236,7 @@ case "uibench":
 case "clickprobe":
     // Development: replays moving / jittery clicks into off-screen buttons and reports which ones fire.
     if args.positional.first == "scroll" { exit(ClickProbe.scrollCancel()) }
+    if args.positional.first == "taps" { exit(ClickProbe.taps()) }
     if args.positional.first == "views", args.positional.count > 1 {
         exit(ClickProbe.editorViews(project: args.positional[1]))
     }

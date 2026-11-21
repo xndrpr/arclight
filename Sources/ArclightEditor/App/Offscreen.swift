@@ -22,6 +22,11 @@ enum Offscreen {
         // Nor their Keychain: a development copy of the binary isn't trusted by the saved keys, so macOS would ask
         // the user for their password on every run. Keys in the environment still count.
         KeychainStore.backend = NoKeychain()
+        // A synthetic click on a menu button opens the menu on the real screen (menus are their own windows):
+        // close any menu the moment it opens.
+        NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) {
+            ($0.object as? NSMenu)?.cancelTrackingWithoutAnimation()
+        }
         // Off-screen commands never read or write the user's settings: a throwaway domain, removed at exit.
         if !usesThrowawayStore {
             usesThrowawayStore = true

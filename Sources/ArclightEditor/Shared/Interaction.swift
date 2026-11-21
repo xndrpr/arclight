@@ -109,23 +109,70 @@ extension Shape {
 ///
 /// Touching the trackpad (tap-to-click included) makes macOS send a scroll-wheel event with no movement
 /// (phase `.mayBegin`, then `.cancelled`). When one lands between mouse-down and mouse-up, SwiftUI treats it as the
-/// start of a scroll and cancels the pressed button, so the click silently does nothing. Click diagnostics showed
-/// this on every lost click. While the left button is down, such zero-movement scroll events are dropped; real
-/// scrolling (non-zero deltas) and mouse wheels are untouched.
+/// start of a scroll and cancels the pressed button, so the click silently does nothing; one that lands just before
+/// the press does the same inside scroll views. So: zero-movement scroll events during a press are dropped, and a
+/// "may begin" outside a press is held back for a moment and dropped if a press follows (a tap is landing),
+/// delivered otherwise. Real scrolling, momentum and mouse wheels are untouched.
+///
+/// The press is tracked from the mouse events themselves: `NSEvent.pressedMouseButtons` reports the physical button,
+/// which a tap-to-click never presses, so taps went unguarded (click diagnostics: a quarter of the taps with a scroll
+/// event mid-press were lost, against one in eight without).
 enum ScrollClickGuard {
+    private static var pressed = false
+    /// The held "may begin" event, and whether the last one was dropped for a tap (its `.cancelled` goes too).
+    private static var held: NSEvent?
+    private static var droppedTouch = false
+    private static var lastMomentum: TimeInterval = 0
+    static let hold: TimeInterval = 0.2
+
     /// Installed once at launch and never removed.
-    private static let monitor = LocalEventMonitor(.scrollWheel) { e in
-        guard shouldDrop(e) else { return e }
-        ClickTrace.note("dropped a zero-movement trackpad scroll during the press (would have cancelled the click)")
-        return nil
+    private static let buttons = LocalEventMonitor([.leftMouseDown, .leftMouseUp]) { e in
+        pressed = e.type == .leftMouseDown
+        if pressed, held != nil {
+            held = nil
+            droppedTouch = true
+            ClickTrace.note("dropped a trackpad touch just before the press (would have cancelled the click)")
+        }
+        return e
     }
 
-    static func install() { monitor.install() }
+    private static let scrolls = LocalEventMonitor(.scrollWheel) { e in
+        if !e.momentumPhase.isEmpty { lastMomentum = e.timestamp }
+        if shouldDrop(e) {
+            ClickTrace.note("dropped a zero-movement trackpad scroll during the press (would have cancelled the click)")
+            return nil
+        }
+        let still = e.scrollingDeltaX == 0 && e.scrollingDeltaY == 0 && e.momentumPhase.isEmpty
+        if still, e.phase.contains(.cancelled), droppedTouch {
+            droppedTouch = false
+            return nil
+        }
+        // A touch while a flick is still coasting stops it: that one goes through at once.
+        if still, e.phase.contains(.mayBegin), e.timestamp - lastMomentum > 0.5 {
+            deliverHeld()
+            held = e
+            DispatchQueue.main.asyncAfter(deadline: .now() + hold) { if held === e { deliverHeld() } }
+            return nil
+        }
+        deliverHeld()  // a real scroll follows its touch, in order
+        return e
+    }
+
+    private static func deliverHeld() {
+        guard let h = held else { return }
+        held = nil
+        NSApp.sendEvent(h)
+    }
+
+    static func install() {
+        buttons.install()
+        scrolls.install()
+    }
 
     static func shouldDrop(_ e: NSEvent) -> Bool {
         shouldDrop(
-            buttonDown: NSEvent.pressedMouseButtons & 1 == 1, dx: e.scrollingDeltaX, dy: e.scrollingDeltaY,
-            phase: e.phase, momentum: e.momentumPhase)
+            buttonDown: pressed, dx: e.scrollingDeltaX, dy: e.scrollingDeltaY, phase: e.phase,
+            momentum: e.momentumPhase)
     }
 
     /// Pure rule (tested): drop while the button is down, unless the event actually scrolls.

@@ -25,9 +25,16 @@ public enum ClickProbe {
                 Button("hoverPlain") { c.hit("hoverPlain") }.buttonStyle(.plain).frame(width: 120, height: 30)
                     .background(hover ? UI.hover : .clear).hitArea().onHover { hover = $0 }.cursor(.pointingHand).help(
                         "x")
+                // Buttons inside areas with gestures of their own (panel headers, toolbars, scroll views).
+                HStack { IconButton(symbol: "gear", help: "x") { c.hit("inDouble") }; Spacer() }
+                    .frame(width: 120, height: 30).hitArea().onTapGesture(count: 2) { c.hit("double") }
+                HStack { IconButton(symbol: "gear", help: "x") { c.hit("inDrag") }; Spacer() }
+                    .frame(width: 120, height: 30).hitArea().gesture(DragGesture(minimumDistance: 3).onChanged { _ in })
+                ScrollView { IconButton(symbol: "gear", help: "x") { c.hit("inScroll") }.frame(width: 120, height: 30) }
+                    .frame(width: 120, height: 30)
             }
             .padding(20).frame(
-                width: 300, height: 400, alignment: .topLeading)
+                width: 300, height: 560, alignment: .topLeading)
         }
     }
 
@@ -138,5 +145,76 @@ public enum ClickProbe {
             print(line)
         }
         return 0
+    }
+
+    /// Trackpad taps the way macOS delivers them, through the app's event queue (so `ScrollClickGuard`'s monitors see
+    /// them): a zero-movement "touch" scroll before or during the press, down and up with the same timestamp.
+    /// Run without the guard, then with it.
+    public static func taps() -> Int32 {
+        Offscreen.startApp()
+        let c = Counter()
+        let size = NSSize(width: 300, height: 560)
+        let w = Offscreen.window(size)
+        Offscreen.host(Probe(c: c), in: w)
+        w.orderFrontRegardless()
+        Offscreen.pump(0.5)
+        let names = ["plain", "icon", "onClick", "hoverPlain", "inDouble", "inDrag", "inScroll"]
+        let rows = ["plain": 0, "icon": 1, "pill": 2, "onClick": 3, "hoverPlain": 5, "inDouble": 6, "inDrag": 7, "inScroll": 8]
+        var time = ProcessInfo.processInfo.systemUptime
+        func mouse(_ type: NSEvent.EventType, _ p: NSPoint, _ dt: Double) -> NSEvent? {
+            time += dt
+            return NSEvent.mouseEvent(
+                with: type, location: p, modifierFlags: [], timestamp: time, windowNumber: w.windowNumber,
+                context: nil, eventNumber: 0, clickCount: type == .mouseMoved ? 0 : 1, pressure: 0)
+        }
+        func touch(_ p: NSPoint, phase: Int64) -> NSEvent? {
+            guard
+                let cg = CGEvent(
+                    scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 2, wheel1: 0, wheel2: 0, wheel3: 0)
+            else { return nil }
+            cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)  // 128 may begin, 8 cancelled
+            cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
+            let screen = w.convertPoint(toScreen: p)
+            cg.location = CGPoint(x: screen.x, y: (NSScreen.screens.first?.frame.height ?? 0) - screen.y)
+            return NSEvent(cgEvent: cg)
+        }
+        func run(_ events: [NSEvent?]) {
+            for e in events.compactMap({ $0 }) { NSApp.postEvent(e, atStart: false) }
+            let end = Date().addingTimeInterval(0.35)
+            while Date() < end {
+                if let e = NSApp.nextEvent(matching: .any, until: Date().addingTimeInterval(0.01), inMode: .default, dequeue: true) {
+                    NSApp.sendEvent(e)
+                }
+            }
+        }
+        let scenarios: [(String, (NSPoint) -> [NSEvent?])] = [
+            ("tap", { p in [mouse(.leftMouseDown, p, 0.01), mouse(.leftMouseUp, p, 0)] }),
+            ("touch, tap", { p in [touch(p, phase: 128), mouse(.leftMouseDown, p, 0.08), mouse(.leftMouseUp, p, 0)] }),
+            ("tap with touch inside", { p in
+                [mouse(.leftMouseDown, p, 0.01), touch(p, phase: 128), touch(p, phase: 8), mouse(.leftMouseUp, p, 0.016)]
+            }),
+            ("touch, tap, cancel inside", { p in
+                [touch(p, phase: 128), mouse(.leftMouseDown, p, 0.08), touch(p, phase: 8), mouse(.leftMouseUp, p, 0.016)]
+            }),
+        ]
+        var lost = 0
+        for guarded in [false, true] {
+            if guarded { ScrollClickGuard.install() }
+            print(guarded ? "with guard" : "without guard")
+            for (label, events) in scenarios {
+                var line = "  " + label.padding(toLength: 26, withPad: " ", startingAt: 0)
+                for n in names {
+                    let p = NSPoint(x: n == "inDouble" || n == "inDrag" ? 31 : 80, y: size.height - (20 + 15 + CGFloat(rows[n]!) * 50))
+                    let before = c.hits[n, default: 0]
+                    run([mouse(.mouseMoved, p, 0.05)] + events(p))
+                    let ok = c.hits[n, default: 0] > before
+                    if guarded && !ok { lost += 1 }
+                    line += " \(n)=\(ok ? "✓" : "✗")"
+                }
+                print(line)
+            }
+        }
+        print(lost == 0 ? "with the guard every tap registered" : "with the guard \(lost) tap(s) lost")
+        return lost == 0 ? 0 : 1
     }
 }
