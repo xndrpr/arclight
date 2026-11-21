@@ -8,6 +8,50 @@ project format; older projects keep loading.
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-21
+
+### Added
+
+- The chat shows what each turn cost. Every message has its time; under each reply a line gives how long the turn
+  took, its tokens and its cost (hover for the model, input, output and cache tokens, model requests, tool calls and
+  context size). A ring in the chat header shows the limit that matters now and opens into all of them: the plan's
+  5-hour and weekly limits with when they reset (command-line agent) or the API's rate limits, how full the context
+  is, and what this chat has used. Limits appear after the first reply, when the provider reports them.
+- A sound clip or the scene audio picked in the timeline opens in the inspector, with all its fields.
+
+### Changed
+
+- A new look for the chat: each turn's tool calls and thinking fold into one line ("Worked for 4s · 3 steps: read
+  the scene, edited the scene…") that opens into the steps, replies carry an author line, days are divided, your
+  messages sit in tinted bubbles, and the composer is a card. A new chat starts with suggestions.
+- The editor answers faster (measured on a 78-scene project, main-thread time until the app is responsive again):
+  selecting a layer about 170 → 110 ms, moving the playhead 100 → 55 ms, opening another scene 360 → 270 ms, opening
+  another chat 260 → 110 ms, typing in the chat 200 → 15 ms a key, a streamed reply 215 → 30 ms a frame.
+- Scrubbing the timeline keeps up at 60 fps on big scenes (a step went from 25–50 ms to 12 ms).
+- Switching between Motion and Thumbnails takes less than half as long (430 → about 180 ms, 660 → about 250 ms) and
+  happens behind a short fade, so panels and the viewer are never seen half-resized. Coming back to Motion returns to
+  the scene that was open.
+- Long lists in the inspector (more than 8 sound clips) start folded, and each row says what it is ("3  whoosh-1  at
+  2.4 s").
+- Changing a setting redraws only what shows it, not the whole window.
+- The app is less than half the size (22.0 → 9.3 MB): debug symbols are no longer shipped inside it.
+- Every clickable in the chat and every sound clip shows the pointer.
+- Each thumbnail export option says the size it writes.
+- `Scripts/install.sh` quits a running editor (it saves first) instead of stopping.
+
+### Removed
+
+- Performance mode and its toggle: it lowered the preview resolution, which made no difference you could feel;
+  scrubbing is fast without it.
+- One-time migrations of settings from older versions (AI panel width, canvas snapping).
+
+### Fixed
+
+- Taps on the trackpad (tap to click) were often lost, mostly in the top bar, unless the pointer stopped first: a
+  finger resting on the trackpad sends an empty scroll that cancelled the click. Every tap now clicks.
+- A vertical thumbnail exported for YouTube came out landscape. It is now 720×1280 (a Shorts cover); other shapes fit
+  inside 1280×720 with their own aspect.
+
 ## [0.1.4] - 2026-11-19
 
 ### Added
@@ -289,7 +333,8 @@ Found while preparing the release and fixed before it:
 - Requires macOS 14 or later on a Mac with Metal.
 - The project format may still change before 1.0. Old projects will keep loading.
 
-[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/xndrpr/arclight/compare/v0.1.5...HEAD
+[0.1.5]: https://github.com/xndrpr/arclight/compare/v0.1.4...v0.1.5
 [0.1.4]: https://github.com/xndrpr/arclight/compare/v0.1.3...v0.1.4
 [0.1.3]: https://github.com/xndrpr/arclight/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/xndrpr/arclight/compare/v0.1.1...v0.1.2
