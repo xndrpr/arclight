@@ -93,8 +93,8 @@ enum KeyCommands {
             case ("a", true): doc.selection = nil; return nil  // ⇧⌘A deselect all
             case ("l", false): doc.toggleLoop(); return nil
             case ("/", _), ("?", _): NotificationCenter.default.post(name: .showShortcuts, object: doc); return nil
-            case ("1", false): doc.setWorkspace(.motion); return nil
-            case ("2", false): doc.setWorkspace(.thumbnail); return nil
+            case ("1", false): doc.switchWorkspace(.motion); return nil
+            case ("2", false): doc.switchWorkspace(.thumbnail); return nil
             default: return e
             }
         }

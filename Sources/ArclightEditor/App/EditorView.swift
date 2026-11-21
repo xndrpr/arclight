@@ -69,7 +69,7 @@ struct EditorView: View {
                 collapsed: !doc.isThumbnail || doc.isEmptyWorkspace,
                 top: { LeftSidebar(doc: doc) },
                 bottom: {
-                    if doc.isThumbnail && !doc.isEmptyWorkspace { ThumbnailLayersPanel(doc: doc).workspaceFade() }
+                    if doc.isThumbnail && !doc.isEmptyWorkspace { ThumbnailLayersPanel(doc: doc) }
                 }
             )
             .frame(width: w.left)
@@ -79,7 +79,6 @@ struct EditorView: View {
                     // Thumbnail tools in their own column (the Metal canvas would draw over a floating bar).
                     if doc.isThumbnail && !doc.isEmptyWorkspace {
                         ThumbnailToolBar(doc: doc).padding(.horizontal, 6).frame(maxHeight: .infinity).background(UI.bg)
-                            .workspaceFade()
                         Hairline(vertical: true)
                     }
                     ViewportView(doc: doc)
@@ -110,6 +109,9 @@ struct EditorView: View {
         }
         // Floats over everything below the top bar (sidebars, viewport, timeline, inspector); takes no layout space.
         .overlay { FloatingAIPanel(doc: doc, pill: pill) }
+        .overlay {
+            if let ws = doc.switching { WorkspaceCurtain(workspace: ws).transition(.opacity) }
+        }
         .clipped()
     }
 }
@@ -199,5 +201,23 @@ struct VSplit<Top: View, Bottom: View>: View {
             }
         }
         .clipped()
+    }
+}
+
+/// Covers the panels while the workspace switches (`EditorDocument.switchWorkspace`).
+private struct WorkspaceCurtain: View {
+    let workspace: Workspace
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: workspace.symbol).font(.system(size: 22, weight: .light)).foregroundStyle(UI.dim)
+            HStack(spacing: 7) {
+                ProgressView().controlSize(.small)
+                Text(workspace.title).font(UI.font).foregroundStyle(UI.label2)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(UI.bg)
+        .contentShape(Rectangle())
     }
 }

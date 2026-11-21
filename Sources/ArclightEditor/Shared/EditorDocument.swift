@@ -21,6 +21,8 @@ import Observation
     var scene: Scene
     /// Motion (scenes, timeline) or Thumbnail (thumbnail pages, artboards). Remembered in project.json.
     var workspace: Workspace = .motion
+    /// The workspace being switched to while the switch's curtain is up (`switchWorkspace`).
+    var switching: Workspace?
     /// What `scene` is a working copy of; `.none` when the workspace is empty ("Create first scene / thumbnail").
     var target: EditTarget = .none
     /// Thumbnail workspace tool (Figma / Photoshop style): move, text, shapes, hand, zoom.

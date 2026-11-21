@@ -105,7 +105,7 @@ public enum EditorSnapshot {
     }
 
     /// `--setup` takes comma-separated items: `zoom:3`, `ai` (open the floating AI panel), `ai:collapsed`,
-    /// `ai:bottomLeading` (or any corner), `agent[:idle|reading|editing]` (a fake agent session on this project),
+    /// `ai:bottomLeading` (or any corner), `switching:thumbnail` (the workspace switch's curtain), `agent[:idle|reading|editing]` (a fake agent session on this project),
     /// `agents:N` (N fake sessions), `rowH:N` / `audioH:N` / `soundsH:N` (timeline row and lane heights). Real
     /// sessions are never shown.
     static func applySetup(_ setup: String?, doc: EditorDocument, openAI: inout Bool, layout: inout String) {
@@ -134,6 +134,8 @@ public enum EditorSnapshot {
             let kv = it.split(separator: ":").map(String.init)
             if kv.count == 2, let key = heights[kv[0]], let v = Double(kv[1]) {
                 Pref.store.set(v, forKey: key)
+            } else if it.hasPrefix("switching:"), let ws = Workspace(rawValue: String(it.dropFirst(10))) {
+                doc.switching = ws  // the workspace switch's curtain
             } else if it == "ai" {
                 openAI = true
             } else if it.hasPrefix("ai:") {

@@ -65,6 +65,23 @@ extension EditorDocument {
 
     // MARK: Workspace
 
+    /// The switch as the user sees it: a curtain fades in over the panels, the workspace changes under it, and the
+    /// curtain fades out once the new layout and the viewer's first frame are drawn, so panels coming and going and
+    /// the viewer resizing are never seen half-done.
+    func switchWorkspace(_ ws: Workspace) {
+        guard ws != workspace, switching == nil else { return }
+        guard !Motion.reduce else { setWorkspace(ws); return }
+        withAnimation(.easeOut(duration: Self.curtainIn)) { switching = ws }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.curtainIn) { [self] in
+            setWorkspace(ws)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [self] in
+                withAnimation(.easeIn(duration: 0.2)) { switching = nil }
+            }
+        }
+    }
+
+    static let curtainIn = 0.09
+
     func setWorkspace(_ ws: Workspace) {
         guard ws != workspace else { return }
         saveNow()
