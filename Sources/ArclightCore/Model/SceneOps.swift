@@ -85,23 +85,13 @@ public enum SceneOps {
 
     /// A node id not used in the scene: `base`, `base-2`, `base-3`, …
     public static func uniqueId(_ base: String, in scene: Scene) -> String {
-        let ids = Set(scene.nodes.map(\.id))
-        if !ids.contains(base) { return base }
-        var k = 2
-        while ids.contains("\(base)-\(k)") { k += 1 }
-        return "\(base)-\(k)"
+        Naming.unique(base, in: Set(scene.nodes.map(\.id)))
     }
 
     /// A sound id not used yet, from the file name: `whoosh`, `whoosh-2`, …
     public static func uniqueSoundId(_ src: String, in sounds: [AudioRef]) -> String {
         let stem = ((src as NSString).lastPathComponent as NSString).deletingPathExtension
-        let words = stem.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        let base = words.prefix(3).joined(separator: "-").isEmpty ? "sound" : words.prefix(3).joined(separator: "-")
-        let ids = Set(sounds.compactMap(\.id))
-        if !ids.contains(base) { return base }
-        var k = 2
-        while ids.contains("\(base)-\(k)") { k += 1 }
-        return "\(base)-\(k)"
+        return Naming.unique(Naming.slug(stem, maxWords: 3, fallback: "sound"), in: Set(sounds.compactMap(\.id)))
     }
 
     /// `r` with the op's clip fields merged in (`null` clears one).

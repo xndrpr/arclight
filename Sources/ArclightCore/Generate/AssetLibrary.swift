@@ -115,10 +115,7 @@ public struct AssetLibrary: Sendable {
         let data = try await download(url)
         _ = try ImageData.decode(data)
         try FileManager.default.createDirectory(at: store.assetsURL, withIntermediateDirectories: true)
-        var name = "\(ImageAI.slug(id)).jpg", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(ImageAI.slug(id))-\(k).jpg"; k += 1
-        }
+        let name = Naming.freeFile(ImageAI.slug(id), ext: "jpg", in: store.assetsURL)
         try data.write(to: store.assetsURL.appendingPathComponent(name), options: .atomic)
         ImageAI.log(store, op: "library", model: "polyhaven", prompt: id, source: nil, asset: name)
         return name

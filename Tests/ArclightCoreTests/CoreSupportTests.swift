@@ -78,4 +78,31 @@ import Testing
         #expect(n.id == "a" && n.props["x"] == .value(4))
         #expect(throws: (any Error).self) { try JSONValue.string("x").decoded(as: Node.self) }
     }
+
+    /// The slug flavours the call sites use: asset bases (four words), sound bases (Latin), artboard ids (ASCII).
+    @Test func namingSlugs() {
+        #expect(Naming.slug("  Brand — Dark!! v2 ") == "brand-dark-v2")
+        #expect(Naming.slug("---") == "" && Naming.slug("---", fallback: "theme") == "theme")
+        #expect(ImageAI.slug("  Hello, World!! again and more ") == "hello-world-again-and")
+        #expect(ImageAI.slug("!!") == "image")
+        #expect(AudioFiles.slug("Привет, мир") == "privet-mir" && AudioFiles.slug("…") == "sound")
+        #expect(Naming.latin("Ünïcode café") == "Unicode cafe")
+        #expect(Naming.slug("B · Дверь", keeping: Naming.ascii, maxLength: 32, fallback: "variant") == "b")
+        #expect(Naming.slug("Дверь", keeping: Naming.ascii, fallback: "variant") == "variant")
+        #expect(Naming.slug(String(repeating: "ab ", count: 20), keeping: Naming.ascii, maxLength: 5) == "ab-ab")
+        #expect(Naming.slug("Whoosh Big Hit Long", maxWords: 3) == "whoosh-big-hit")
+    }
+
+    @Test func namingUnique() throws {
+        #expect(Naming.unique("a", in: []) == "a")
+        #expect(Naming.unique("a", in: ["a", "a-2", "a-4"]) == "a-3")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-naming-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        #expect(Naming.freeFile("x", ext: "png", in: dir) == "x.png")
+        try Data().write(to: dir.appendingPathComponent("x.png"))
+        try Data().write(to: dir.appendingPathComponent("x-2.png"))
+        #expect(Naming.freeFile("x", ext: "png", in: dir) == "x-3.png")
+        #expect(Naming.freeFile("x", ext: "jpg", in: dir) == "x.jpg")
+    }
 }

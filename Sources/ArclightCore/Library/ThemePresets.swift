@@ -127,7 +127,7 @@ public enum ThemePresets {
         let q = idOrName.trimmingCharacters(in: .whitespaces).lowercased()
         let list = all()
         return list.first { $0.id == q } ?? list.first { $0.name.lowercased() == q }
-            ?? list.first { slug($0.name) == slug(q) }
+            ?? list.first { Naming.slug($0.name) == Naming.slug(q) }
     }
 
     /// Saves `tokens` as a user preset named `name` (replacing a user preset of the same name). Returns it.
@@ -137,8 +137,7 @@ public enum ThemePresets {
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !n.isEmpty else { throw ModelError.invalid("a preset needs a name") }
         guard !tokens.isEmpty else { throw ModelError.invalid("the theme has no tokens to save") }
-        var id = slug(n)
-        if id.isEmpty { id = "theme" }
+        var id = Naming.slug(n, fallback: "theme")
         if builtIn.contains(where: { $0.id == id || $0.name.lowercased() == n.lowercased() }) { id = "my-" + id }
         let preset = ThemePreset(id: id, name: n, description: description, tokens: tokens)
         try FileManager.default.createDirectory(at: userDir, withIntermediateDirectories: true)
@@ -186,20 +185,5 @@ public enum ThemePresets {
     static func same(_ a: JSONValue, _ b: JSONValue) -> Bool {
         if let x = a.string, let y = b.string { return x.caseInsensitiveCompare(y) == .orderedSame }
         return a == b
-    }
-
-    static func slug(_ s: String) -> String {
-        let lower = s.lowercased()
-        var out = ""
-        var dash = false
-        for ch in lower {
-            if ch.isLetter || ch.isNumber {
-                out.append(ch); dash = false
-            } else if !dash && !out.isEmpty {
-                out.append("-"); dash = true
-            }
-        }
-        while out.hasSuffix("-") { out.removeLast() }
-        return out
     }
 }

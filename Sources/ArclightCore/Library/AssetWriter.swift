@@ -92,8 +92,7 @@ public enum AssetWriter {
         scope: SymbolScope, project: URL?
     ) throws -> String {
         func slug(_ s: String) -> String {
-            s.lowercased().replacingOccurrences(of: "[^a-z0-9-]+", with: "-", options: .regularExpression)
-                .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            Naming.slug(s, keeping: Naming.ascii.union(["-"])).trimmingCharacters(in: ["-"])
         }
         let p = slug(pack), i = slug(id)
         guard !p.isEmpty, !i.isEmpty else { throw Failure.bad("pack and id need letters or digits") }

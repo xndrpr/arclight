@@ -236,20 +236,14 @@ public enum ImageAI {
         return base.isEmpty ? "image" : base
     }
 
-    static func slug(_ s: String) -> String {
-        let words = s.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        let j = words.prefix(4).joined(separator: "-")
-        return j.isEmpty ? "image" : j
-    }
+    /// An asset file-name base from a prompt or id: its first four words ("image" if none).
+    static func slug(_ s: String) -> String { Naming.slug(s, maxWords: 4, fallback: "image") }
 
     /// Writes a PNG into assets/ under a name not already taken (`base.png`, `base-2.png`, …).
     static func write(_ img: CGImage, base: String, store: ProjectStore) throws -> String {
         guard let data = ImageData.png(img) else { throw ImageAIError.badImage }
-        var name = "\(base).png", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(base)-\(k).png"; k += 1
-        }
-        return try AssetWriter.writeImage(data, name: name, to: store).src
+        return try AssetWriter.writeImage(data, name: Naming.freeFile(base, ext: "png", in: store.assetsURL), to: store)
+            .src
     }
 
     struct LogEntry: Codable {

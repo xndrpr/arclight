@@ -49,10 +49,7 @@ public enum ModelAI {
     /// Writes .glb bytes into assets/ under a free name (`base.glb`, `base-2.glb`, …).
     static func writeModel(_ data: Data, base: String, store: ProjectStore) throws -> String {
         try FileManager.default.createDirectory(at: store.assetsURL, withIntermediateDirectories: true)
-        var name = "\(base).glb", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(base)-\(k).glb"; k += 1
-        }
+        let name = Naming.freeFile(base, ext: "glb", in: store.assetsURL)
         try data.write(to: store.assetsURL.appendingPathComponent(name), options: .atomic)
         return name
     }
