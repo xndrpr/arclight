@@ -36,7 +36,6 @@ struct AIStatus: Equatable {
         }
     }
 
-    /// The status of `doc`'s project.
     static func compute(for doc: EditorDocument, agents: [AgentPresence], now: Date) -> AIStatus {
         compute(agents: agents, project: doc.url, now: now)
     }

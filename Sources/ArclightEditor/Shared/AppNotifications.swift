@@ -1,6 +1,7 @@
 import Foundation
 
-/// Every notification the editor posts. `object` is the `EditorDocument` unless noted.
+/// The editor's app-wide notifications. `object` is the `EditorDocument` unless noted. Two live with their owners:
+/// `ChatSettingsChange.name` and `AudioFileCache.loaded`.
 extension Notification.Name {
     /// ⌘E: show the export sheet.
     static let showExport = Notification.Name("arclight.showExport")

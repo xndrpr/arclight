@@ -205,7 +205,7 @@ extension EditorDocument {
     }
 }
 
-/// Menu actions for ⌘G / ⇧⌘G (items added in `buildMenu`).
+/// Menu actions for ⌘G / ⇧⌘G (items added in `MainMenu.build`).
 extension EditorWindowController {
     @objc func groupLayers(_ sender: Any?) { doc.groupSelection() }
     @objc func ungroupLayers(_ sender: Any?) { doc.ungroupSelection() }

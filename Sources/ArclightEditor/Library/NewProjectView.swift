@@ -8,7 +8,7 @@ struct NewProjectView: View {
     let create: (URL) -> Void
     let cancel: () -> Void
     @State private var name = "Untitled"
-    @State private var location = LibraryModel.defaultProjectsDir
+    @State private var location = AppPaths.defaultProjects
     @State private var preset = 0
     @State private var fps: Double = 30
     @State private var start: String?
