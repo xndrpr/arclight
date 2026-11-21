@@ -26,39 +26,27 @@ struct StillExportSheet: View {
         let outDir = dest ?? doc.url.appendingPathComponent("exports")
         let page = doc.openThumbnail
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Export").font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
-                Text(summary(page)).font(UI.small).foregroundStyle(UI.dim)
-            }
+            ExportParts.header(summary(page))
             VStack(spacing: 6) {
                 ForEach(Self.kinds, id: \.kind) { k in
                     FormatCard(title: k.title, detail: k.detail, on: kind == k.kind) { kind = k.kind }
                 }
             }
             if kind == .png {
-                row("Alpha") {
+                ExportParts.row("Alpha", width: 66) {
                     Toggle("Transparent background", isOn: $transparent).toggleStyle(.checkbox).font(UI.font)
                 }
             }
             if let page, page.artboards.count > 1 {
-                row("Artboards") {
+                ExportParts.row("Artboards", width: 66) {
                     Toggle("All \(page.artboards.count) artboards (variants and covers)", isOn: $allArtboards)
                         .toggleStyle(.checkbox).font(UI.font)
                 }
             }
-            row("Folder") {
-                HStack {
-                    Text(outDir.tildePath).font(UI.monoSmall).foregroundStyle(UI.label2)
-                        .lineLimit(1).truncationMode(.head)
-                    Spacer()
-                    Button("Change…") { if let u = FilePicker.folder(canCreate: true) { dest = u } }
-                        .buttonStyle(PillButtonStyle())
-                }
-            }
+            ExportParts.folder(outDir, width: 66, dest: $dest)
             if let error { Text(error).font(UI.small).foregroundStyle(UI.danger).textSelection(.enabled) }
             if !results.isEmpty {
-                ScrollView {
-                VStack(alignment: .leading, spacing: 2) {
+                ExportParts.results(count: results.count) {
                     ForEach(results, id: \.url) { r in
                         HStack(spacing: 8) {
                             Text(r.url.lastPathComponent).font(UI.monoSmall).foregroundStyle(UI.text)
@@ -68,9 +56,6 @@ struct StillExportSheet: View {
                         }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(height: min(CGFloat(results.count) * 17, 140))
             }
             HStack {
                 if !results.isEmpty {
@@ -96,12 +81,6 @@ struct StillExportSheet: View {
         return "“\(a?.name ?? a?.id ?? "")” · \(a?.width ?? 0)×\(a?.height ?? 0)"
     }
 
-    private func row<C: View>(_ label: String, @ViewBuilder _ c: () -> C) -> some View {
-        HStack(alignment: .center) {
-            Text(label).font(UI.small).foregroundStyle(UI.label2).frame(width: 66, alignment: .leading)
-            c()
-        }
-    }
 
     private func run(_ dir: URL) {
         doc.saveNow()
