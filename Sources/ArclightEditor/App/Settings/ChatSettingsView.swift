@@ -10,32 +10,19 @@ enum ChatSettingsChange {
 
 /// Settings ▸ AI ▸ Chat: the API key (Keychain), model and effort.
 struct ChatSettingsView: View {
-    @State private var key = ""
-    @State private var saved = KeychainStore.chatKey() != nil
     @State private var model = ChatSettings.model
     @State private var effort = ChatSettings.effort
     @State private var stages = Set(ChatSettings.directionStages)
     @State private var web = ChatSettings.webSearch
-    @State private var message: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                SecureField(saved ? "Key saved — paste a new one to replace it" : "Anthropic API key", text: $key)
-                    .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 300)
-                Button("Save") { save(key) }.buttonStyle(PillButtonStyle(primary: true)).disabled(key.isEmpty)
-                if saved { Button("Remove") { save(nil) }.buttonStyle(PillButtonStyle()) }
-            }
-            HStack(spacing: 6) {
-                StatusDot(color: saved ? UI.success : UI.faint)
-                Text(saved ? "Ready — open the AI panel (⌥⌘A) ▸ Chat" : "No key — create one in the Anthropic Console")
-                    .font(UI.small).foregroundStyle(UI.label2)
-                if !saved {
-                    Link("Open Console", destination: URL(string: "https://console.anthropic.com/settings/keys")!)
-                        .font(UI.small)
-                }
-            }
-            if let message { Text(message).font(UI.small).foregroundStyle(UI.dim) }
+            APIKeyField(
+                name: "Anthropic API key", read: { KeychainStore.chatKey() }, write: KeychainStore.setChatKey,
+                ready: "Ready — open the AI panel (⌥⌘A) ▸ Chat",
+                missing: "No key — create one in the Anthropic Console",
+                link: ("Open Console", URL(string: "https://console.anthropic.com/settings/keys")!),
+                changed: ChatSettingsChange.post)
             HStack(spacing: 8) {
                 Text("Model").font(UI.small).foregroundStyle(UI.label2).frame(width: 50, alignment: .leading)
                 Picker("", selection: $model) {
@@ -87,16 +74,6 @@ struct ChatSettingsView: View {
                 if on { stages.insert(st) } else { stages.remove(st) }
                 ChatSettings.directionStages = Array(stages)
             })
-    }
-
-    private func save(_ k: String?) {
-        do {
-            try KeychainStore.setChatKey(k)
-            saved = KeychainStore.chatKey() != nil
-            key = ""
-            message = k == nil ? "Key removed" : "Key saved in your Keychain"
-            ChatSettingsChange.post()
-        } catch { message = "\(error)" }
     }
 }
 
