@@ -16,6 +16,19 @@ extension View {
     func popoverChrome(width: CGFloat? = nil) -> some View {
         padding(14).frame(width: width).background(UI.panel)
     }
+
+    /// The small outlined button look: secondary text on `UI.raised`, brighter on `hover`; `on` fills it with the
+    /// accent instead (a toggle that's on, an armed or primary action).
+    func outlinedChip(
+        hover: Bool, on: Bool = false, padding: CGFloat = 8, height: CGFloat = 22, cornerRadius: CGFloat = 5
+    ) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius)
+        return foregroundStyle(on ? UI.onAccent : hover ? UI.text : UI.label2)
+            .padding(.horizontal, padding).frame(height: height)
+            .background(shape.fill(on ? UI.accent : hover ? UI.hover : UI.raised))
+            .overlay(shape.stroke(on ? .clear : UI.border, lineWidth: 1))
+            .barHit()
+    }
 }
 
 /// A field-looking button that opens a picker: `label`, then the up/down chevron.
@@ -40,10 +53,12 @@ struct FieldButton<Label: View>: View {
     }
 }
 
-/// Small outlined button: secondary text on `UI.raised`, brighter on hover. Logs presses to ClickTrace.
+/// Small outlined button (`outlinedChip`) that tracks its own hover. Logs presses to ClickTrace.
 struct HoverButtonStyle: ButtonStyle {
     /// Name in the click diagnostics log.
     var name = "button"
+    var on = false
+    var padding: CGFloat = 8
     var height: CGFloat = 22
     var cornerRadius: CGFloat = 5
 
@@ -59,14 +74,40 @@ private struct HoverButtonBody: View {
 
     var body: some View {
         configuration.label
-            .foregroundStyle(hover ? UI.text : UI.label2)
-            .padding(.horizontal, 8).frame(height: style.height)
-            .background(RoundedRectangle(cornerRadius: style.cornerRadius).fill(hover ? UI.hover : UI.raised))
-            .overlay(RoundedRectangle(cornerRadius: style.cornerRadius).stroke(UI.border, lineWidth: 1))
-            .hitArea()
+            .outlinedChip(
+                hover: hover, on: style.on, padding: style.padding, height: style.height,
+                cornerRadius: style.cornerRadius
+            )
             .onHover { hover = $0 }
             .onChange(of: configuration.isPressed) { _, on in ClickTrace.pressed(style.name, on) }
             .cursor(.pointingHand)
+    }
+}
+
+/// One choice in a picker popover: a check circle, the title (bold when picked) and a line on what it's good for.
+struct OptionRow: View {
+    let title: String
+    let detail: String
+    let on: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 12))
+                    .foregroundStyle(on ? UI.accent : UI.faint)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).font(UI.font.weight(on ? .semibold : .regular)).foregroundStyle(UI.text)
+                    Text(detail).font(.system(size: 10.5)).foregroundStyle(UI.dim).lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 6).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 6).fill(on ? UI.selected : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).cursor(.pointingHand)
     }
 }
 

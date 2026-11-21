@@ -501,7 +501,7 @@ struct ChatBrainMenu: View {
             VStack(alignment: .leading, spacing: 10) {
                 section("Model") {
                     ForEach(ChatModel.allCases, id: \.self) { m in
-                        option(m.label, detail: Self.detail(m), on: m == model) {
+                        OptionRow(title: m.label, detail: Self.detail(m), on: m == model) {
                             ChatSettings.model = m; model = m; ChatSettingsChange.post()
                         }
                     }
@@ -546,21 +546,4 @@ struct ChatBrainMenu: View {
         }
     }
 
-    private func option(_ title: String, detail: String, on: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: on ? "checkmark.circle.fill" : "circle").font(.system(size: 12))
-                    .foregroundStyle(on ? UI.accent : UI.faint)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title).font(UI.font.weight(on ? .semibold : .regular)).foregroundStyle(UI.text)
-                    Text(detail).font(.system(size: 10.5)).foregroundStyle(UI.dim)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 6).padding(.vertical, 5)
-            .background(RoundedRectangle(cornerRadius: 6).fill(on ? UI.selected : .clear))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain).cursor(.pointingHand)
-    }
 }

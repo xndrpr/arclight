@@ -14,9 +14,6 @@ struct AIPanelTests {
     @Test func statusPill() {
         let now = Date()
         #expect(AIStatus.compute(agents: [], project: here, now: now).kind == .none)
-        #expect(
-            AIStatus.compute(agents: [], project: here, legacyActiveUntil: now.addingTimeInterval(2), now: now).text
-                == "AI is editing…")
 
         // A server that was started but never used (every agent app starts one): not connected.
         var a = agent(1, "claude-code", project: here.path)
@@ -131,11 +128,7 @@ struct AIPanelTests {
         let defaults = try TempDefaults()
         defer { defaults.remove() }
         let d = try defaults.suite("aiFloat")
-        // The old sidebar width becomes the panel width once, then the old key is gone.
-        d.set(300.0, forKey: Pref.legacyAIWidth)
-        #expect(AIPanelLayout.load(d).width == 300)
-        #expect(d.object(forKey: Pref.legacyAIWidth) == nil)
-        #expect(AIPanelLayout.load(d).width == 300)
+        #expect(AIPanelLayout.load(d) == AIPanelLayout())
         l.save(d)
         #expect(AIPanelLayout.load(d) == l)
     }

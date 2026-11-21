@@ -46,10 +46,7 @@ struct ExportSheet: View {
     private var progress: Double? { job.progress }
     private var results: [URL] { job.results }
     private var error: String? { job.error }
-    private var dest: URL? {
-        get { job.dest }
-        nonmutating set { job.dest = newValue }
-    }
+    private var dest: URL? { job.dest }
     private var transparent: Bool { job.transparent }
 
     init(doc: EditorDocument, isPresented: Binding<Bool>, which: Which? = nil) {
@@ -61,22 +58,19 @@ struct ExportSheet: View {
         let outDir = dest ?? doc.url.appendingPathComponent("exports")
         let running = progress != nil && progress! < 1
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Export").font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
-                Text(summary).font(UI.small).foregroundStyle(UI.dim)
-            }
+            ExportParts.header(summary)
             VStack(spacing: 6) {
                 ForEach(Self.formats, id: \.format) { f in
                     FormatCard(title: f.title, detail: f.detail, on: format == f.format) { format = f.format }
                 }
             }
             if format == .prores || format == .png {
-                row("Alpha") {
+                ExportParts.row("Alpha") {
                     Toggle("Transparent background (for overlaying in your video editor)", isOn: $job.transparent)
                         .toggleStyle(.checkbox).font(UI.font)
                 }
             }
-            row("Size") {
+            ExportParts.row("Size") {
                 Picker("", selection: $job.scale) {
                     ForEach([0.5, 1.0, 2.0], id: \.self) { s in
                         Text("\(Int(doc.canvasSize.width * s))×\(Int(doc.canvasSize.height * s))").tag(s)
@@ -84,7 +78,7 @@ struct ExportSheet: View {
                 }.pickerStyle(.segmented).labelsHidden()
             }
             if doc.scenes.count > 1 {
-                row("Scenes") {
+                ExportParts.row("Scenes") {
                     Picker("", selection: $job.which) {
                         Text("This scene").tag(Which.current)
                         Text("All \(doc.scenes.count), joined").tag(Which.joined)
@@ -100,16 +94,7 @@ struct ExportSheet: View {
                     .padding(.leading, 68)
                 }
             }
-            row("Folder") {
-                HStack {
-                    Text(outDir.tildePath).font(UI.monoSmall).foregroundStyle(UI.label2)
-                        .lineLimit(1).truncationMode(.head)
-                    Spacer()
-                    Button("Change…") {
-                        if let u = FilePicker.folder(canCreate: true) { dest = u }
-                    }.buttonStyle(PillButtonStyle())
-                }
-            }
+            ExportParts.folder(outDir, dest: $job.dest)
             if let progress {
                 HStack(spacing: 8) {
                     if running { ProgressView().controlSize(.small).scaleEffect(0.7) }
@@ -119,17 +104,11 @@ struct ExportSheet: View {
             }
             if let error { Text(error).font(UI.small).foregroundStyle(UI.danger).textSelection(.enabled) }
             if !results.isEmpty {
-                // Exporting every scene lists dozens of files: scroll them instead of growing the sheet past the
-                // window.
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(results, id: \.self) { u in
-                            Text(u.lastPathComponent).font(UI.monoSmall).foregroundStyle(UI.text)
-                        }
+                ExportParts.results(count: results.count) {
+                    ForEach(results, id: \.self) { u in
+                        Text(u.lastPathComponent).font(UI.monoSmall).foregroundStyle(UI.text)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(height: min(CGFloat(results.count) * 17, 140))
             }
             HStack {
                 if !results.isEmpty {
@@ -184,13 +163,6 @@ struct ExportSheet: View {
         return "\(what) · \(fmt((d * 100).rounded() / 100)) s · \(frames) frames at \(fmt(fps)) fps"
             + ((allScenes ? doc.scenes : [doc.scene]).contains { !$0.audibleClips.isEmpty } && format != .png
                 ? " · with audio" : "")
-    }
-
-    private func row<C: View>(_ label: String, @ViewBuilder _ c: () -> C) -> some View {
-        HStack(alignment: .center) {
-            Text(label).font(UI.small).foregroundStyle(UI.label2).frame(width: 60, alignment: .leading)
-            c()
-        }
     }
 
     private func still(_ dir: URL) {
@@ -296,5 +268,45 @@ struct FormatCard: View {
             .hitArea()
         }
         .buttonStyle(.plain).onHover { hover = $0 }.cursor(.pointingHand)
+    }
+}
+
+/// The pieces both export sheets share.
+enum ExportParts {
+    /// "Export" and what will be exported.
+    static func header(_ summary: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("Export").font(.system(size: 15, weight: .semibold)).foregroundStyle(UI.text)
+            Text(summary).font(UI.small).foregroundStyle(UI.dim)
+        }
+    }
+
+    /// A labelled row: the label in a column `width` wide, then the controls.
+    static func row<C: View>(_ label: String, width: CGFloat = 60, @ViewBuilder _ c: () -> C) -> some View {
+        HStack(alignment: .center) {
+            Text(label).font(UI.small).foregroundStyle(UI.label2).frame(width: width, alignment: .leading)
+            c()
+        }
+    }
+
+    /// Where the files go, and Change… to pick another folder.
+    static func folder(_ dir: URL, width: CGFloat = 60, dest: Binding<URL?>) -> some View {
+        row("Folder", width: width) {
+            HStack {
+                Text(dir.tildePath).font(UI.monoSmall).foregroundStyle(UI.label2).lineLimit(1).truncationMode(.head)
+                Spacer()
+                Button("Change…") { if let u = FilePicker.folder(canCreate: true) { dest.wrappedValue = u } }
+                    .buttonStyle(PillButtonStyle())
+            }
+        }
+    }
+
+    /// The files an export wrote. Exporting every scene lists dozens: they scroll instead of growing the sheet
+    /// past the window.
+    static func results<C: View>(count: Int, @ViewBuilder _ c: () -> C) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) { c() }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(height: min(CGFloat(count) * 17, 140))
     }
 }

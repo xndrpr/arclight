@@ -1,7 +1,6 @@
 import AppKit
 import UniformTypeIdentifiers
 
-/// Open panels.
 enum FilePicker {
     /// Asks for one file, or several when `multiple`; empty when cancelled. `types` empty allows any file.
     static func files(_ types: [UTType] = [], multiple: Bool = false, message: String? = nil) -> [URL] {

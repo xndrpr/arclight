@@ -114,17 +114,9 @@ struct AIPanelLayout: Codable, Equatable {
 
     // MARK: Persistence
 
-    /// The saved layout, or the default. Undecodable data falls back to the default; the old sidebar width
-    /// becomes the panel width the first time.
+    /// The saved layout, or the default (also for undecodable data).
     static func load(_ d: UserDefaults = Pref.store) -> AIPanelLayout {
-        if let s = d.string(forKey: Pref.aiFloat), let l = decode(s) { return l }
-        var l = AIPanelLayout()
-        if let w = d.object(forKey: Pref.legacyAIWidth) as? Double, w > 0 {
-            l.width = min(max(w, Double(minSize.width)), Double(maxSize.width))
-            d.removeObject(forKey: Pref.legacyAIWidth)
-            d.set(l.encoded, forKey: Pref.aiFloat)
-        }
-        return l
+        d.string(forKey: Pref.aiFloat).flatMap(decode) ?? AIPanelLayout()
     }
 
     func save(_ d: UserDefaults = Pref.store) { d.set(encoded, forKey: Pref.aiFloat) }

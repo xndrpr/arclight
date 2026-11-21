@@ -89,7 +89,6 @@ enum TransformMath {
         return (x + dx * cos(r) - dy * sin(r), y + dx * sin(r) + dy * cos(r))
     }
 
-    /// Axis-aligned bounds of points.
     static func bounds(_ pts: [CGPoint]) -> CGRect {
         guard let f = pts.first else { return .null }
         var r = CGRect(origin: f, size: .zero)

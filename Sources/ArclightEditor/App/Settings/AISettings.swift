@@ -102,35 +102,18 @@ struct AISettings: View {
 
 /// fal.ai key (Keychain), on/off, and the models used.
 struct ImageGenerationSettings: View {
-    @State private var key = ""
-    @State private var saved = KeychainStore.falKey() != nil
     @State private var enabled = ImageSettings.enabled
     @State private var models = ImageSettings.models
-    @State private var message: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle("Use fal.ai for image generation", isOn: $enabled).toggleStyle(.switch).controlSize(.small)
                 .onChange(of: enabled) { _, v in ImageSettings.enabled = v }
-            HStack(spacing: 8) {
-                SecureField(saved ? "Key saved — paste a new one to replace it" : "fal.ai API key", text: $key)
-                    .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 300)
-                Button("Save") { save(key) }.buttonStyle(PillButtonStyle(primary: true)).disabled(key.isEmpty)
-                if saved { Button("Remove") { save(nil) }.buttonStyle(PillButtonStyle()) }
-            }
-            HStack(spacing: 6) {
-                StatusDot(color: saved && enabled ? UI.success : UI.faint)
-                Text(
-                    saved
-                        ? (enabled ? "Ready" : "Key saved, turned off")
-                        : "No key — get one at fal.ai ▸ Dashboard ▸ Keys"
-                )
-                .font(UI.small).foregroundStyle(UI.label2)
-                if !saved {
-                    Link("Open fal.ai", destination: URL(string: "https://fal.ai/dashboard/keys")!).font(UI.small)
-                }
-            }
-            if let message { Text(message).font(UI.small).foregroundStyle(UI.dim) }
+            APIKeyField(
+                name: "fal.ai API key", read: { KeychainStore.falKey() }, write: KeychainStore.setFalKey,
+                ready: enabled ? "Ready" : "Key saved, turned off", on: enabled,
+                missing: "No key — get one at fal.ai ▸ Dashboard ▸ Keys",
+                link: ("Open fal.ai", URL(string: "https://fal.ai/dashboard/keys")!))
             picker("Images", \.generate, ModelCatalog.images)
             picker("3D models", \.model3D, ModelCatalog.models3D)
             Text(
@@ -200,13 +183,49 @@ struct ImageGenerationSettings: View {
             .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 240)
         }
     }
+}
+
+/// An API key kept in the Keychain: the field with Save / Remove, whether a key is saved, and where to get one.
+struct APIKeyField: View {
+    let name: String
+    let read: () -> String?
+    let write: (String?) throws -> Void
+    /// The status with a key saved; `on` false greys its dot (the feature is turned off).
+    let ready: String
+    var on = true
+    /// The status without a key, and where to get one.
+    let missing: String
+    let link: (title: String, url: URL)
+    /// After a key was saved or removed.
+    var changed: () -> Void = {}
+    @State private var key = ""
+    @State private var message: String?
+    /// Keychain reads are cached, and saving sets `message`, so the view redraws with the new answer.
+    private var saved: Bool { read() != nil }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                SecureField(saved ? "Key saved — paste a new one to replace it" : name, text: $key)
+                    .textFieldStyle(.roundedBorder).font(UI.monoSmall).frame(maxWidth: 300)
+                Button("Save") { save(key) }.buttonStyle(PillButtonStyle(primary: true)).disabled(key.isEmpty)
+                if saved { Button("Remove") { save(nil) }.buttonStyle(PillButtonStyle()) }
+            }
+            HStack(spacing: 6) {
+                StatusDot(color: saved && on ? UI.success : UI.faint)
+                Text(saved ? ready : missing).font(UI.small).foregroundStyle(UI.label2)
+                if !saved { Link(link.title, destination: link.url).font(UI.small) }
+            }
+            if let message { Text(message).font(UI.small).foregroundStyle(UI.dim) }
+        }
+    }
 
     private func save(_ k: String?) {
         do {
-            try KeychainStore.setFalKey(k)
-            saved = KeychainStore.falKey() != nil
+            try write(k)
             key = ""
             message = k == nil ? "Key removed" : "Key saved in your Keychain"
+            changed()
         } catch { message = "\(error)" }
     }
 }

@@ -27,7 +27,7 @@ extension ClickProbe {
                 _ = (doc.project, doc.scene, doc.workspace, doc.target, doc.tool, doc.marquee, doc.aiPrompt)
                 _ = (doc.selection, doc.multiSelection, doc.soloIds, doc.selectedSound, doc.time, doc.playing)
                 _ = (doc.toast, doc.busy, doc.tlVisible, doc.tlOffset, doc.workArea, doc.cinema, doc.viewerOnly)
-                _ = (doc.activity, doc.agentActiveUntil, doc.flashIds, doc.leftTab, doc.libraryVersion)
+                _ = (doc.activity, doc.flashIds, doc.leftTab, doc.libraryVersion)
             } onChange: { [weak self] in
                 DispatchQueue.main.async { self?.count += 1; self?.arm() }
             }

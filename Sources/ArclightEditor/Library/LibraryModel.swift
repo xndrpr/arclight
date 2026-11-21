@@ -42,10 +42,6 @@ enum LibraryModel {
         return url
     }
 
-    /// Default location for new projects.
-    static var defaultProjectsDir: URL {
-        AppPaths.defaultProjects
-    }
 
     /// Parses a form value for a param kind ("number" → number, "json" → any JSON, else string).
     static func value(_ text: String, kind: String?) -> JSONValue? {

@@ -13,7 +13,6 @@ public enum ClickProbe {
     /// One of each button kind, 30 pt rows 50 pt apart.
     struct Probe: View {
         @ObservedObject var c: Counter
-        var top: CGFloat = 20
         @State private var hover = false
         var body: some View {
             VStack(alignment: .leading, spacing: 20) {
@@ -27,29 +26,25 @@ public enum ClickProbe {
                     .background(hover ? UI.hover : .clear).hitArea().onHover { hover = $0 }.cursor(.pointingHand).help(
                         "x")
             }
-            .padding(.horizontal, 20).padding(.top, top).padding(.bottom, 20).frame(
+            .padding(20).frame(
                 width: 300, height: 400, alignment: .topLeading)
         }
     }
 
     /// Clicks every button kind with moving / jittery / zero-length presses (the ways trackpad tap-to-click arrives).
-    public static func run(titled: Bool = false) -> Int32 {
+    public static func run() -> Int32 {
         Offscreen.startApp()
         let c = Counter()
-        let w = Offscreen.window(
-            NSSize(width: 300, height: 400),
-            style: titled ? [.titled, .closable, .resizable, .fullSizeContentView] : [.borderless])
-        if titled { w.titlebarAppearsTransparent = true; w.titleVisibility = .hidden }
-        let host = Offscreen.host(Probe(c: c, top: titled ? 0 : 20), in: w)
+        let w = Offscreen.window(NSSize(width: 300, height: 400))
+        let host = Offscreen.host(Probe(c: c), in: w)
         w.orderFrontRegardless()
         Offscreen.pump(0.5)
         host.layoutSubtreeIfNeeded()
 
         let names = ["plain", "icon", "pill", "onClick", "tap", "hoverPlain"]
-        let top0: CGFloat = titled ? 0 : 20
         // Row centre, from the host's top-left, in window coordinates.
         func centre(_ i: Int) -> NSPoint {
-            let yTop = top0 + 15 + CGFloat(i) * 50
+            let yTop = 20 + 15 + CGFloat(i) * 50
             let local = NSPoint(x: 80, y: host.isFlipped ? yTop : host.bounds.height - yTop)
             return host.convert(local, to: nil)
         }

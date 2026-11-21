@@ -52,7 +52,7 @@ struct EditorSettings: View {
                     "Restore the default sidebar and timeline sizes, and put the AI panel back in the top-right corner."
             ) {
                 Button("Reset layout") {
-                    for k in [Pref.leftWidth, Pref.rightWidth, Pref.timelineHeight, Pref.aiFloat, Pref.legacyAIWidth] {
+                    for k in [Pref.leftWidth, Pref.rightWidth, Pref.timelineHeight, Pref.aiFloat] {
                         Pref.store.removeObject(forKey: k)
                     }
                 }.buttonStyle(PillButtonStyle())

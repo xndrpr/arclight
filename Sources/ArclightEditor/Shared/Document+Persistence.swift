@@ -107,16 +107,11 @@ extension EditorDocument {
             let fresh = more.entries.filter { !known.contains($0.id) }
             guard !fresh.isEmpty else { return }
             activity = Array((activity + fresh).suffix(400))
-            if fresh.contains(where: \.isAI) { agentActiveUntil = Date().addingTimeInterval(4) }
             return
         }
         let size = ActivityLog.size(project: url)
-        let entries = ActivityLog.read(project: url, limit: 400)
-        let known = Set(activity.map(\.id))
-        let newAgentEntries = entries.contains { $0.isAI && !known.contains($0.id) }
-        activity = entries
+        activity = ActivityLog.read(project: url, limit: 400)
         activityOffset = size
-        if newAgentEntries && !force { agentActiveUntil = Date().addingTimeInterval(4) }
     }
 
     func poll() {

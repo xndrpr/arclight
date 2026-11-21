@@ -8,18 +8,18 @@ import Testing
     @Test func keysAreStable() {
         let keys = [
             Pref.theme, Pref.performance, Pref.snapping, Pref.leftWidth, Pref.rightWidth, Pref.timelineHeight,
-            Pref.aiPanel, Pref.aiFloat, Pref.legacyAIWidth, Pref.activityWho, Pref.activityThisScene,
+            Pref.aiPanel, Pref.aiFloat, Pref.activityWho, Pref.activityThisScene,
             Pref.activityReads,
             Pref.notesCollapsed, Pref.assetsCollapsed, Pref.layerDensity, Pref.rulers, Pref.centerLines, Pref.safeAreas,
-            Pref.thirds, Pref.canvasSnap, Pref.recentProjects, Pref.clickTrace,
+            Pref.thirds, Pref.recentProjects, Pref.clickTrace,
         ]
         #expect(
             keys == [
                 "ui.theme", "ui.performance", "ui.snapping", "ui.leftWidth", "ui.rightWidth", "ui.timelineHeight",
-                "ui.aiPanel", "ui.aiFloat", "ui.aiWidth", "ui.activity.who", "ui.activity.thisScene",
+                "ui.aiPanel", "ui.aiFloat", "ui.activity.who", "ui.activity.thisScene",
                 "ui.activity.reads",
                 "ui.notes.collapsed", "ui.assets.collapsed", "layers.density", "canvas.rulers", "canvas.centerLines",
-                "canvas.safeAreas", "canvas.thirds", "canvas.snap", "recentProjects", "debug.clickTrace",
+                "canvas.safeAreas", "canvas.thirds", "recentProjects", "debug.clickTrace",
             ])
         #expect(Pref.activitySeen(URL(fileURLWithPath: "/tmp/a/../P.arclight")) == "ui.activitySeen./tmp/P.arclight")
         #expect(Pref.layersCollapsed(projectPath: "/p", scene: "s") == "layers.collapsed./p.s")
