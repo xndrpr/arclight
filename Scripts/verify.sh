@@ -177,7 +177,8 @@ image_compare() {  # <dir> <threshold> <max-fraction> <label>
 # ---------------------------------------------------------------- test
 if want test; then
   section "swift test"
-  swift test > "$WORK/test.log" 2>&1
+  # Serial: parallel runs deadlock in the export and texture-loading tests (all workers wait on AVFoundation / MetalKit)
+  swift test --no-parallel > "$WORK/test.log" 2>&1
   code=$?
   n=$(grep -Eo "Test run with [0-9]+ tests? passed" "$WORK/test.log" | grep -Eo "[0-9]+" | tail -1)
   x=$(grep -Eo "Executed [0-9]+ tests?, with 0 failures" "$WORK/test.log" | grep -Eo "^Executed [0-9]+" | grep -Eo "[0-9]+" | tail -1)
