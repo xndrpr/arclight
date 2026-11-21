@@ -5,8 +5,9 @@ import SwiftUI
 
 /// `arclight uibench <project>`: how long the editor's main thread is busy after common actions, measured off screen
 /// with the whole editor laid out and drawn. `first draw` is the time until the change is laid out and drawn;
-/// `busy` adds the main-thread work that lands in the next `settle` seconds (deferred updates, async results).
-/// Development only. `UIBENCH_LOOP=<action>` repeats one action for profiling.
+/// `busy` adds the main-thread work of the next `settle` seconds (deferred updates, async results) beyond what an
+/// idle window of the same length just before the action had. Development only. `UIBENCH_LOOP=<action>` repeats
+/// one action for profiling.
 public enum UIBench {
     public static func run(project: String) -> Int32 {
         Offscreen.startApp()
@@ -46,21 +47,24 @@ public enum UIBench {
         }
 
         let noise = [idle(), idle(), idle()].sorted()[1]
-        print(String(format: "idle main-thread work: %.1f ms per %.1f s (subtracted)", noise, settle))
+        print(String(format: "idle main-thread work: %.1f ms per %.1f s", noise, settle))
         print("action                         first draw (median / max)    busy (median / max)")
 
+        let only = ProcessInfo.processInfo.environment["UIBENCH_ONLY"]
         func measure(_ name: String, n: Int = 8, prepare: (Int) -> Void = { _ in }, _ change: (Int) -> Void) {
+            if let only, !name.contains(only) { return }
             var first: [Double] = [], busy: [Double] = []
             for i in 0..<n {
                 prepare(i)
                 draw()
                 _ = idle()
+                let before = idle()
                 let t0 = CACurrentMediaTime()
                 change(i)
                 draw()
                 let f = (CACurrentMediaTime() - t0) * 1000
                 first.append(f)
-                busy.append(f + max(0, idle() - noise))
+                busy.append(f + max(0, idle() - before))
             }
             func stat(_ v: [Double]) -> String {
                 let s = v.sorted()
@@ -79,13 +83,13 @@ public enum UIBench {
         func streamFrame(_ c: ChatController) {
             c.replay((0..<6).map { _ in k += 1; return .text(words[k % words.count] + (words[k % words.count] == "\n\n" ? "" : " ")) })
         }
-        if let only = ProcessInfo.processInfo.environment["UIBENCH_LOOP"] {
-            if only == "stream" || only == "type", let first = chats.first {
+        if let loop = ProcessInfo.processInfo.environment["UIBENCH_LOOP"] {
+            if loop == "stream" || loop == "type", let first = chats.first {
                 Pref.store.set("chat", forKey: Pref.aiPanelTab)
                 doc.chats.select(first)
             }
             for i in 0..<400 {
-                switch only {
+                switch loop {
                 case "stream": streamFrame(doc.chats.active); Offscreen.pump(1 / 30)
                 case "type": doc.chats.active.draft += "a"; Offscreen.pump(1 / 30)
                 case "select": doc.selection = ids[i % ids.count]

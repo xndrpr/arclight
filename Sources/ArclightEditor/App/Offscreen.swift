@@ -1,4 +1,5 @@
 import AppKit
+import ArclightCore
 import MetalKit
 import SwiftUI
 
@@ -18,6 +19,9 @@ enum Offscreen {
     @discardableResult
     static func startApp() -> NSApplication {
         isActive = true
+        // Nor their Keychain: a development copy of the binary isn't trusted by the saved keys, so macOS would ask
+        // the user for their password on every run. Keys in the environment still count.
+        KeychainStore.backend = NoKeychain()
         // Off-screen commands never read or write the user's settings: a throwaway domain, removed at exit.
         if !usesThrowawayStore {
             usesThrowawayStore = true
@@ -164,4 +168,10 @@ final class SyntheticMouse {
 func debugTypeName(_ o: Any?) -> String {
     guard let o else { return "nil" }
     return String(describing: type(of: o)).replacingOccurrences(of: "<.*", with: "", options: .regularExpression)
+}
+
+/// The Keychain as an off-screen run sees it: empty, and nothing is saved.
+private struct NoKeychain: KeychainStore.Backend {
+    func read(_ account: String) -> String? { nil }
+    func write(_ account: String, _ value: String?) throws {}
 }

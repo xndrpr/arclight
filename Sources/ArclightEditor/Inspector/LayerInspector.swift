@@ -10,7 +10,8 @@ struct LayerInspector: View {
 
     var body: some View {
         let schema = Schema.node(node.type)
-        VStack(alignment: .leading, spacing: 0) {
+        // Lazy: sections scrolled out of view aren't built or laid out (a layer has up to a hundred fields).
+        LazyVStack(alignment: .leading, spacing: 0) {
             InspectorHeader(
                 icon: schema?.icon ?? symbol(for: node.type), title: node.name ?? node.id,
                 subtitle: schema?.label ?? node.type, doc: schema?.doc ?? ""

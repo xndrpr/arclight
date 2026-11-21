@@ -73,3 +73,30 @@ What the profiles and audits found behind these numbers:
 ## Log
 
 Each entry: the change, the hypothesis, and what the measurement said.
+
+### 1. Strip the shipped binary
+
+Hypothesis: most of the 21.4 MB binary is symbols (`__LINKEDIT` was 13 MB). Result: `strip` in `bundle.sh` (a
+dSYM is kept in `dist/` for crash reports) took the app from 22.0 to 9.4 MB and the zip from 6.2 to 4.6 MB.
+`-Osize` would take the stripped binary from 8.8 to 7.6 MB; not adopted until its effect on render times is measured.
+
+### 2. Observe only what is read
+
+Hypothesis: whole-document invalidation is the main cost of every editor action. `EditorDocument`, its view-state
+objects, the chats and `ProjectStore` moved to Observation (`@Observable`); 133 `@ObservedObject` documents became
+plain references, and the 13 manual `objectWillChange` sends were removed or replaced by tracked values.
+
+Result (busy, median; measured while three builds ran, so only large changes count): select a layer 174 → 92 ms,
+move the playhead 103 → 33, open another scene 361 → 233, open another chat 257 → 143. The workspace switch barely
+moved (429 → 383, 664 → 550): its cost is elsewhere (next entries).
+
+Learned: the `busy` window also catches unrelated periodic work under load (typing showed 156 ms in the bench, but a
+profile of continuous typing shows ~4 ms per character). Busy is now measured against an idle window right before
+each action.
+
+### 3. Chat streaming and typing
+
+A profile of a reply streaming at 30 frames a second showed the main thread 43 % busy: SwiftUI layout of the
+message list, Markdown parsing of the paragraph being written (`AttributedString(markdown:)`, again for the whole
+reply every frame), and the composer reading the key and backend settings seven times per redraw. Live replies
+are now parsed incrementally (finished blocks and lines are cached), and the settings are read once per change.

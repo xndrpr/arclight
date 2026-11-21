@@ -67,13 +67,28 @@ extension EditorDocument {
     func setWorkspace(_ ws: Workspace) {
         guard ws != workspace else { return }
         saveNow()
+        lastTargets[workspace] = target
         workspace = ws
         var p = store.project
         p.workspace = ws.rawValue
         try? store.update(project: p)
         notedProjectWrite()
-        let (s, t, rev) = EditorDocument.initialTarget(ws, store: store)
+        let (s, t, rev) = returnTarget(ws)
         open(s, target: t, rev: rev)
+    }
+
+    /// What a workspace opens when the user comes back to it: what was open there last, if it still exists.
+    private func returnTarget(_ ws: Workspace) -> (Scene, EditTarget, Int) {
+        switch lastTargets[ws] {
+        case .scene(let id)?:
+            if let s = store.scenes[id], !s.isDraft { return (s, .scene(id), s.rev) }
+        case .artboard(let pid, let aid)?:
+            if let p = store.thumbnails[pid], let a = p.artboard(aid) {
+                return (a.asScene(thumbnail: pid, rev: p.rev), .artboard(thumbnail: pid, artboard: aid), p.rev)
+            }
+        default: break
+        }
+        return EditorDocument.initialTarget(ws, store: store)
     }
 
     /// Makes `s` the working copy for `t`, with fresh per-target state (see `switchTo`).

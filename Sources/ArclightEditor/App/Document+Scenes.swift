@@ -4,7 +4,12 @@ import Foundation
 extension EditorDocument {
     // MARK: Scenes
 
-    var scenes: [Scene] { store.orderedScenes.map { $0.id == scene.id ? scene : $0 } }
+    /// The motion scenes in order, the open one as edited. Outside Motion it doesn't read the working copy (an
+    /// artboard), so the scene list kept alive behind the Thumbnails workspace isn't redrawn by artboard edits.
+    var scenes: [Scene] {
+        guard case .scene(let open) = target else { return store.orderedScenes }
+        return store.orderedScenes.map { $0.id == open ? scene : $0 }
+    }
 
     func open(scene id: String) {
         saveNow()

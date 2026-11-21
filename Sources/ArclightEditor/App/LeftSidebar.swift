@@ -58,8 +58,7 @@ struct LeftSidebar: View {
         switch id {
         case "history": HistoryPanel(doc: doc)
         case "assets": AssetsPanel(doc: doc)
-        default:
-            if doc.isThumbnail { ThumbnailsSidebar(doc: doc) } else { ScenesSidebar(doc: doc) }
+        default: WorkspaceList(doc: doc)
         }
     }
 
@@ -96,5 +95,26 @@ struct LeftSidebar: View {
                 id: compact ? "tab-compact" : "tab", in: tabNS)
         }
         .buttonStyle(TracedPlainButtonStyle(name: "tab \(t.id)")).cursor(.pointingHand).help(t.help)
+    }
+}
+
+/// The first tab: the scenes in Motion, the thumbnail pages in Thumbnails. Both lists stay built once shown, so
+/// switching workspaces shows the other one instead of building it again (a long scene list took most of a switch).
+private struct WorkspaceList: View {
+    let doc: EditorDocument
+    @State private var built: Set<Workspace> = []
+
+    var body: some View {
+        let ws = doc.workspace
+        ZStack {
+            if built.contains(.motion) || ws == .motion { shown(ScenesSidebar(doc: doc), ws == .motion) }
+            if built.contains(.thumbnail) || ws == .thumbnail { shown(ThumbnailsSidebar(doc: doc), ws == .thumbnail) }
+        }
+        .onAppear { built.insert(ws) }
+        .onChange(of: ws) { _, w in built.insert(w) }
+    }
+
+    private func shown<V: View>(_ v: V, _ on: Bool) -> some View {
+        v.opacity(on ? 1 : 0).allowsHitTesting(on).accessibilityHidden(!on)
     }
 }

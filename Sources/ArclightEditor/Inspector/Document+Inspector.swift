@@ -71,9 +71,18 @@ extension Scene {
 }
 
 extension Scene {
-    fileprivate static func json<T: Encodable>(_ v: T) -> JSONValue? {
-        (try? JSONEncoder().encode(v)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+    /// The last value converted for each type is remembered: the inspector reads the sound list once per clip row
+    /// and field, and converting a hundred clips each time made a scene's inspector take a quarter of a second.
+    fileprivate static func json<T: Encodable & Equatable>(_ v: T) -> JSONValue? {
+        let key = ObjectIdentifier(T.self)
+        if let (old, j) = memoLock.withLock({ jsonMemo[key] }), let old = old as? T, old == v { return j }
+        let j = (try? JSONEncoder().encode(v)).flatMap { try? JSONDecoder().decode(JSONValue.self, from: $0) }
+        memoLock.withLock { jsonMemo[key] = (v, j) }
+        return j
     }
+
+    nonisolated(unsafe) private static var jsonMemo: [ObjectIdentifier: (Any, JSONValue?)] = [:]
+    private static let memoLock = NSLock()
 }
 
 extension EditorDocument {

@@ -13,15 +13,24 @@ struct ScenesSidebar: View {
     @State private var frames: [String: CGRect] = [:]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // Built once per update: `doc.scenes` makes a new array of every scene each time it is read.
+        let scenes = doc.scenes
+        return VStack(alignment: .leading, spacing: 0) {
             SectionHeader(title: "Scenes", trailing: AnyView(NewSceneMenu(doc: doc)))
             ScrollView {
-                VStack(spacing: 1) {
-                    ForEach(doc.scenes, id: \.id) { s in
-                        row(s).transition(Motion.row)
-                            .background(GeometryReader { g in
-                                Color.clear.preference(key: RowFrames.self, value: [s.id: g.frame(in: .named(Self.space))])
-                            })
+                // Lazy, and rows report their frames only during a drag: a long list was laid out in full (with a
+                // geometry reader per row) whenever the open scene changed.
+                LazyVStack(spacing: 1) {
+                    ForEach(Array(scenes.enumerated()), id: \.element.id) { i, s in
+                        row(s, index: i, count: scenes.count).transition(Motion.row)
+                            .background {
+                                if dragging != nil {
+                                    GeometryReader { g in
+                                        Color.clear.preference(
+                                            key: RowFrames.self, value: [s.id: g.frame(in: .named(Self.space))])
+                                    }
+                                }
+                            }
                             .opacity(dragging == s.id ? 0.45 : 1)
                     }
                 }
@@ -30,9 +39,9 @@ struct ScenesSidebar: View {
                 .onPreferenceChange(RowFrames.self) { frames = $0 }
                 .padding(.horizontal, 6)
                 // The selection slides to the opened scene; added / removed scenes drop in and out.
-                .animation(Motion.snappy, value: doc.scene.id)
-                .animation(Motion.snappy, value: doc.scenes.map(\.id))
-                if doc.scenes.count == 1 {
+                .animation(Motion.snappy, value: doc.target)
+                .animation(Motion.snappy, value: scenes.map(\.id))
+                if scenes.count == 1 {
                     Text("A video can have several scenes. Add one with + (⇧⌘N); double-click a scene to rename it, drag it to change the order.")
                         .font(UI.small).foregroundStyle(UI.faint).fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 14).padding(.top, 10)
@@ -42,8 +51,8 @@ struct ScenesSidebar: View {
         .background(UI.panel)
     }
 
-    @ViewBuilder private func row(_ s: Scene) -> some View {
-        let selected = s.id == doc.scene.id
+    @ViewBuilder private func row(_ s: Scene, index i: Int, count: Int) -> some View {
+        let selected = doc.target == .scene(s.id)
         Group {
             if renaming == s.id {
                 HStack(spacing: 8) {
@@ -82,13 +91,13 @@ struct ScenesSidebar: View {
         // Single click opens right away; a double click (which starts with a single) then renames.
         // (Jitter-tolerant: SwiftUI's tap gestures dropped trackpad taps made while the finger was still moving.)
         .onClick(enabled: renaming != s.id) { count in
-            if count >= 2 { renaming = s.id } else if s.id != doc.scene.id { endEditing(); doc.open(scene: s.id) }
+            if count >= 2 { renaming = s.id } else if !selected { endEditing(); doc.open(scene: s.id) }
         }
         // Dragging a row up or down moves the scene (the click handler ignores presses that move).
         .simultaneousGesture(
             DragGesture(minimumDistance: 6, coordinateSpace: .named(Self.space))
                 .onChanged { g in
-                    guard renaming != s.id, doc.scenes.count > 1 else { return }
+                    guard renaming != s.id, count > 1 else { return }
                     if dragging == nil { dragging = s.id }
                     dragY = g.location.y
                 }
@@ -96,29 +105,36 @@ struct ScenesSidebar: View {
                     guard let id = dragging else { return }
                     let to = dropIndex
                     dragging = nil
+                    frames = [:]
                     withMotion(Motion.snappy) { doc.moveScene(id, to: to) }
                 }
         )
         .help("Click to open · double-click to rename · drag to reorder · right-click for more")
         .contextMenu {
-            let i = doc.scenes.firstIndex { $0.id == s.id } ?? 0
             Button("Rename") { renaming = s.id }
             Button("Move Up") { withMotion(Motion.snappy) { doc.moveScene(s.id, to: i - 1) } }.disabled(i == 0)
             Button("Move Down") { withMotion(Motion.snappy) { doc.moveScene(s.id, to: i + 2) } }
-                .disabled(i >= doc.scenes.count - 1)
+                .disabled(i >= count - 1)
             Button("Duplicate") { doc.duplicateScene(s.id) }
             Button("Save as Template…") { LibrarySheets.saveTemplate(doc, scene: s.id) }
             Divider()
-            Button("Delete") { doc.deleteScene(s.id) }.disabled(doc.scenes.count < 2)
+            Button("Delete") { doc.deleteScene(s.id) }.disabled(count < 2)
         }
     }
 
     private static let space = "scenes-list"
 
-    /// Where the dragged scene would land: the gap before the first row whose middle is below the pointer.
+    /// Where the dragged scene would land: the gap before the first laid-out row whose middle is below the pointer,
+    /// else after the last laid-out row (rows scrolled far out of view have no frame).
     private var dropIndex: Int {
         let ids = doc.scenes.map(\.id)
-        return ids.firstIndex { (frames[$0]?.midY ?? .infinity) > dragY } ?? ids.count
+        var last: Int?
+        for (i, id) in ids.enumerated() {
+            guard let f = frames[id] else { continue }
+            if f.midY > dragY { return i }
+            last = i
+        }
+        return (last ?? ids.count - 1) + 1
     }
 
     /// The accent line in the gap the dragged scene would drop into (none when it would stay put).
@@ -126,7 +142,7 @@ struct ScenesSidebar: View {
         if let id = dragging, let from = doc.scenes.firstIndex(where: { $0.id == id }) {
             let ids = doc.scenes.map(\.id), to = dropIndex
             if to != from, to != from + 1 {
-                let y = to < ids.count ? (frames[ids[to]]?.minY ?? 0) - 1 : (frames[ids[ids.count - 1]]?.maxY ?? 0) + 1
+                let y = (to < ids.count ? frames[ids[to]].map { $0.minY - 1 } : nil) ?? (frames[ids[to - 1]]?.maxY ?? 0) + 1
                 RoundedRectangle(cornerRadius: 1).fill(UI.accent).frame(height: 2)
                     .padding(.horizontal, 4).offset(y: y - 1).allowsHitTesting(false)
             }

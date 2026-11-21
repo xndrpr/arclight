@@ -1,17 +1,22 @@
 import ArclightCore
 import SwiftUI
 
-/// A list of objects (repeater items, camera shakes): add / remove / reorder rows, each row a sub-section.
+/// A list of objects (repeater items, camera shakes, sound clips): add / remove / reorder rows, each row a
+/// sub-section. A long list starts folded: a scene's sound clips can number in the hundreds, and building their rows
+/// made every scene take a fifth of a second to show.
 struct ListSection: View {
     let doc: EditorDocument
     let slot: Slot
     let schema: ObjectSchema
-    @State private var open = true
+    @State private var userOpen: Bool?
     @State private var picking = false
     @Environment(\.inspectorIndent) private var indent
 
     private var rows: [JSONValue] { slot.stored?.array ?? [] }
     private var isItems: Bool { schema.field("symbol") != nil }
+
+    private var open: Bool { userOpen ?? (rows.count <= Self.foldedOver) }
+    static let foldedOver = 8
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -34,7 +39,7 @@ struct ListSection: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            DisclosureButton(open: open, toggle: { open.toggle() }) {
+            DisclosureButton(open: open, toggle: { userOpen = !open }) {
                 Text(slot.field.label).font(.system(size: 11.5, weight: .medium)).foregroundStyle(
                     rows.isEmpty ? UI.dim : UI.text)
                 Text("\(rows.count)").font(UI.monoSmall).foregroundStyle(UI.faint)
@@ -104,12 +109,14 @@ private struct ListRow: View {
         }
     }
 
+    /// "3  whoosh-1  at 2.4 s": the number, the row's name (sounds, markers) and its time.
     private var summary: String {
         if let s = row["symbol"]?.string {
             return "\(index + 1)  " + (s.split(separator: "/").last.map(String.init) ?? s) + weight
         }
-        if let at = row["at"]?.double { return "\(index + 1)  at \(fmt(at)) s" }
-        return "\(index + 1)"
+        let name = row["id"]?.string ?? row["name"]?.string
+        let at = (row["at"] ?? row["offset"] ?? row["t"])?.double
+        return ["\(index + 1)", name, at.map { "at \(fmt($0)) s" }].compactMap { $0 }.joined(separator: "  ")
     }
 
     private var weight: String { row["weight"]?.double.map { "  ×\(fmt($0))" } ?? "" }

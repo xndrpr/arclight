@@ -232,9 +232,10 @@ extension EditorDocument {
     /// on a row overlap. Clips whose file can't be read are left out.
     func soundRows(onLoad: @escaping () -> Void = {}) -> [SoundRow] {
         let key = LaneMemo.key(scene.sounds ?? [], duration: scene.duration, assets: assets)
-        if let m = laneMemo.sounds, m.key == key { return m.value }
+        if let m = laneMemo.sounds[scene.id], m.key == key { return m.value }
         let rows = buildSoundRows(onLoad: onLoad)
-        laneMemo.sounds = (key, rows)
+        if laneMemo.sounds.count > 16 { laneMemo.sounds.removeAll() }
+        laneMemo.sounds[scene.id] = (key, rows)
         return rows
     }
 

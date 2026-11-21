@@ -142,6 +142,8 @@ import Observation
     /// How far into the activity log the feed has been read (bytes).
     @ObservationIgnored var activityOffset: UInt64 = 0
     @ObservationIgnored var zoomTween: Timer?
+    /// What each workspace had open when the user left it, to come back to.
+    @ObservationIgnored var lastTargets: [Workspace: EditTarget] = [:]
 
     @ObservationIgnored private var pollTimer: Timer?
     @ObservationIgnored private var gestureRecorded = false

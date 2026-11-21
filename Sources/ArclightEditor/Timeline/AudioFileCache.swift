@@ -92,5 +92,6 @@ final class LaneMemo {
     }
 
     var audio: (key: Key, value: (clip: AudioClip, ref: AudioRef, entry: AudioFileCache.Entry)?)?
-    var sounds: (key: Key, value: [EditorDocument.SoundRow])?
+    /// By scene id: coming back to a scene (or a workspace) finds its rows.
+    var sounds: [String: (key: Key, value: [EditorDocument.SoundRow])] = [:]
 }
