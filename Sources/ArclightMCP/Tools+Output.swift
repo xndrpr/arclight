@@ -21,7 +21,7 @@ extension MCPServer {
                 let s = try requireStore()
                 let scene = try s.scene(try a.str("scene"))
                 var times = a["times"]?.doubles ?? []
-                if times.isEmpty { times = [0.15, 0.4, 0.7, 0.98].map { ($0 * scene.duration * 100).rounded() / 100 } }
+                if times.isEmpty { times = [0.15, 0.4, 0.7, 0.98].map { ($0 * scene.duration).rounded(places: 2) } }
                 times = Array(times.prefix(9))
                 let scale = min(max(a["scale"]?.double ?? 0.25, 0.05), 1)
                 let img = try ContactSheet.render(
@@ -157,7 +157,7 @@ extension MCPServer {
                     let d = try? AudioDescriptors.measure(s.assetsURL.appendingPathComponent(n))
                 {
                     return text(
-                        "src: \(n) (\(Format.number((d.duration * 100).rounded() / 100))s)\nmeasured: \(d.line)\nPlace it with scene_apply {\"op\":\"sound\",\"src\":\"\(n)\",\"offset\":t}; audio_analyze {src, image:true} shows more.")
+                        "src: \(n) (\(Format.number(d.duration.rounded(places: 2)))s)\nmeasured: \(d.line)\nPlace it with scene_apply {\"op\":\"sound\",\"src\":\"\(n)\",\"offset\":t}; audio_analyze {src, image:true} shows more.")
                 }
                 guard Mesh.extensions.contains(src.pathExtension.lowercased()) else { return text("src: " + n) }
                 let mesh = try Mesh.load(s.assetsURL.appendingPathComponent(n))

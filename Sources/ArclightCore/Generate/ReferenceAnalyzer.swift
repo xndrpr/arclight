@@ -64,7 +64,7 @@ public enum ReferenceAnalyzer {
         }
         return Report(
             width: img.width, height: img.height, palette: palette, shares: shares, text: text, faces: faces,
-            focus: focus, tone: avg > 0.45 ? "light" : "dark", contrast: (contrast * 10).rounded() / 10, layout: layout)
+            focus: focus, tone: avg > 0.45 ? "light" : "dark", contrast: contrast.rounded(places: 1), layout: layout)
     }
 
     public static func luminance(_ c: RGBA) -> Double {
@@ -114,12 +114,12 @@ public enum ReferenceAnalyzer {
             let c = centers[j]
             return String(format: "#%02X%02X%02X", Int(c.x * 255), Int(c.y * 255), Int(c.z * 255))
         }
-        return (hex, order.map { (Double(counts[$0]) / Double(px.count) * 100).rounded() / 100 })
+        return (hex, order.map { (Double(counts[$0]) / Double(px.count)).rounded(places: 2) })
     }
 
     /// Vision's normalised (bottom-left origin) box → top-left fractions, rounded.
     static func box(_ r: CGRect) -> [Double] {
-        [r.minX, 1 - r.maxY, r.width, r.height].map { (Double($0) * 1000).rounded() / 1000 }
+        [r.minX, 1 - r.maxY, r.width, r.height].map { Double($0).rounded(places: 3) }
     }
 
     static func recognizeText(_ img: CGImage) -> [Region] {
@@ -129,7 +129,7 @@ public enum ReferenceAnalyzer {
         return (req.results ?? []).compactMap { o in
             guard let c = o.topCandidates(1).first else { return nil }
             return Region(
-                box: box(o.boundingBox), text: c.string, confidence: (Double(c.confidence) * 100).rounded() / 100)
+                box: box(o.boundingBox), text: c.string, confidence: Double(c.confidence).rounded(places: 2))
         }
     }
 

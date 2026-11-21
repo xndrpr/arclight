@@ -258,9 +258,9 @@ public struct MixReport: Sendable {
             let near = (scene.markers ?? []).min { abs($0.t - heard) < abs($1.t - heard) }
             let marker = near.flatMap { m -> String? in
                 let d = heard - m.t
-                return abs(d) <= 0.5 ? "\(m.name) \(d >= 0 ? "+" : "−")\(Format.number((abs(d) * 100).rounded() / 100))s" : nil
+                return abs(d) <= 0.5 ? "\(m.name) \(d >= 0 ? "+" : "−")\(Format.number(abs(d).rounded(places: 2)))s" : nil
             }
-            func r1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+            func r1(_ v: Double) -> Double { v.rounded(places: 1) }
             let row = Row(
                 id: stem.id, src: stem.ref.src, from: AudioAnalysis.round2(from0), to: AudioAnalysis.round2(to0),
                 peakAt: AudioAnalysis.round2(peakAt), level: r1(bestLevel), rest: r1(Loudness.level(rest)),
@@ -297,12 +297,12 @@ public struct MixReport: Sendable {
         let lufs = Loudness.integrated(kMix)
         if tp.db > -1 {
             warnings.insert(
-                "the mix peaks at \(Format.number((tp.db * 10).rounded() / 10)) dBTP at \(Format.number(AudioAnalysis.round2(tp.at)))s (over −1): it will distort — lower the clips sounding there",
+                "the mix peaks at \(Format.number(tp.db.rounded(places: 1))) dBTP at \(Format.number(AudioAnalysis.round2(tp.at)))s (over −1): it will distort — lower the clips sounding there",
                 at: 0)
         }
         return MixReport(
-            duration: scene.duration, lufs: (lufs * 10).rounded() / 10, truePeakDB: (tp.db * 10).rounded() / 10,
-            truePeakAt: AudioAnalysis.round2(tp.at), referenceLufs: refLufs.map { ($0 * 10).rounded() / 10 }, rows: rows,
+            duration: scene.duration, lufs: lufs.rounded(places: 1), truePeakDB: tp.db.rounded(places: 1),
+            truePeakAt: AudioAnalysis.round2(tp.at), referenceLufs: refLufs.map { $0.rounded(places: 1) }, rows: rows,
             warnings: warnings)
     }
 
@@ -316,11 +316,11 @@ public struct MixReport: Sendable {
             var l =
                 "  \(r.id)  \(Format.number(r.from))–\(Format.number(r.to))s  loudest at \(Format.number(r.peakAt))s  level \(Format.number(r.level))"
             if r.rest > -100 {
-                l += "  rest \(Format.number(r.rest))  Δ \(Format.number(((r.level - r.rest) * 10).rounded() / 10))"
+                l += "  rest \(Format.number(r.rest))  Δ \(Format.number((r.level - r.rest).rounded(places: 1)))"
             } else {
                 l += "  alone"
             }
-            if let v = r.reference { l += "  vs scene audio \(Format.number(((r.level - v) * 10).rounded() / 10))" }
+            if let v = r.reference { l += "  vs scene audio \(Format.number((r.level - v).rounded(places: 1)))" }
             if let m = r.marker { l += "  starts at \(m)" }
             lines.append(l)
         }

@@ -122,7 +122,7 @@ public enum AudioSheet {
         while t <= start + dur + 1e-6 {
             ctx.setFillColor(rgb(1, 1, 1, 0.12))
             ctx.fill(CGRect(x: x(t), y: CGFloat(axisY), width: 1, height: CGFloat(H - axisY)))
-            label(Format.number((t * 100).rounded() / 100) + "s", x: x(t) + 3, y: CGFloat(axisY + 6))
+            label(Format.number(t.rounded(places: 2)) + "s", x: x(t) + 3, y: CGFloat(axisY + 6))
             t += tick
         }
         for m in marks where m.t >= start && m.t <= start + dur {

@@ -66,6 +66,11 @@ import Testing
         #expect(
             Format.number(3) == "3" && Format.number(-2) == "-2" && Format.number(0.25) == "0.25"
                 && Format.number(1.5e-5) == "1.5e-05")
+        for x in [0.125, -2.675, 1.0 / 3, 1234.5678, 0.0049] {
+            #expect(x.rounded(places: 1) == (x * 10).rounded() / 10)
+            #expect(x.rounded(places: 3) == (x * 1000).rounded() / 1000)
+        }
+        #expect(2.5.rounded(places: 0) == 3 && 0.25.rounded(places: 1) == 0.3)
     }
 
     @Test func assetPaths() {

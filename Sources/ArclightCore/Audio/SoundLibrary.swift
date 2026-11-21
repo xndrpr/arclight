@@ -40,7 +40,7 @@ public struct SoundLibrary: Sendable {
 
         public var line: String {
             var s = "\(id) — \(title)"
-            if let d = duration { s += ", \(Format.number((d * 10).rounded() / 10))s" }
+            if let d = duration { s += ", \(Format.number(d.rounded(places: 1)))s" }
             if let c = creator { s += " by \(c)" }
             s += " (\(source), \(licenseName)\(needsCredit ? ", credit needed" : ""))"
             let t = tags.prefix(6)

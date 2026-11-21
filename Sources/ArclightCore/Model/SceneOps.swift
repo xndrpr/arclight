@@ -50,7 +50,7 @@ public enum SceneOps {
     ) {
         guard let i = scene.nodes.firstIndex(where: { $0.id == id }) else { return }
         if case .keys(var ks)? = scene.nodes[i].props[prop] {
-            let ft = (t * 1000).rounded() / 1000
+            let ft = t.rounded(places: 3)
             if let k = ks.firstIndex(where: { abs($0.t - ft) < 1e-4 }) {
                 ks[k].v = value; if let ease { ks[k].ease = ease }
             } else {
@@ -68,7 +68,7 @@ public enum SceneOps {
         _ scene: inout Scene, id: String, prop: String, current: JSONValue, localTime t: Double
     ) {
         guard let i = scene.nodes.firstIndex(where: { $0.id == id }) else { return }
-        let ft = (t * 1000).rounded() / 1000
+        let ft = t.rounded(places: 3)
         switch scene.nodes[i].props[prop] {
         case .keys(var ks)?:
             if let k = ks.firstIndex(where: { abs($0.t - ft) < 1e-4 }) {

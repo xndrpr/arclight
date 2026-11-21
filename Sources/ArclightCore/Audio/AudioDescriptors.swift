@@ -72,11 +72,11 @@ public struct AudioDescriptors: Equatable, Sendable {
                 if run >= 3 { clipped = true; break }
             }
         }
-        func r1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+        func r1(_ v: Double) -> Double { v.rounded(places: 1) }
         return AudioDescriptors(
             duration: s.duration, lufs: r1(lufs), momentaryMax: r1(momentary), truePeakDB: r1(tp.db),
             crest: r1(tp.db - momentary), centroid: centroid.rounded(), bands: bands, tone: tone,
-            lead: (Double(first) * step * 1000).rounded() / 1000, attackMs: attack.map { $0.rounded() },
+            lead: (Double(first) * step).rounded(places: 3), attackMs: attack.map { $0.rounded() },
             decayMs: decay.map { $0.rounded() }, abruptStart: edge(s.l.prefix(4)) || edge(s.r.prefix(4)),
             abruptEnd: edge(s.l.suffix(4)) || edge(s.r.suffix(4)), clipped: clipped)
     }
@@ -118,7 +118,7 @@ public struct AudioDescriptors: Equatable, Sendable {
             weighted += f * power[b]
             bands[bandEdges.firstIndex { f < $0 } ?? bandEdges.count] += power[b]
         }
-        bands = bands.map { (($0 / total) * 100).rounded() / 100 }
+        bands = bands.map { ($0 / total).rounded(places: 2) }
         // Strongest peak between 40 Hz and 4 kHz; tonal when it carries a good part of the energy.
         let lo = Int(40 / hz), hi = Int(4000 / hz)
         var tone: Double?
@@ -129,7 +129,7 @@ public struct AudioDescriptors: Equatable, Sendable {
             if around / total > 0.2 {
                 let a = power[b - 1], c = power[b + 1]
                 let shift = (a - c) / (2 * (a - 2 * p + c))
-                tone = ((Double(b) + (shift.isFinite ? shift : 0)) * hz * 10).rounded() / 10
+                tone = ((Double(b) + (shift.isFinite ? shift : 0)) * hz).rounded(places: 1)
             }
         }
         return (weighted / total, bands, tone)

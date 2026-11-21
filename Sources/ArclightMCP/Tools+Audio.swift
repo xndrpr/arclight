@@ -105,7 +105,7 @@ extension MCPServer {
             }
         if let lv = a["level"]?.double, let m = measured, mode != "audio" {
             let g = pow(10, ((refLufs ?? -16) + lv - m.momentaryMax) / 20)
-            fields["gain"] = .number((min(4, max(0, g)) * 1000).rounded() / 1000)
+            fields["gain"] = .number(min(4, max(0, g)).rounded(places: 3))
         }
         let op: JSONValue
         let label: String
@@ -124,14 +124,14 @@ extension MCPServer {
         var lines = head + ["\(label) at \(Format.number(at))s in \(sid) (rev \(saved.rev))"]
         if let m = measured, mode != "audio" {
             let g = fields["gain"]?.double ?? 1
-            let lvl = ((m.momentaryMax + 20 * log10(max(g, 1e-6))) * 10).rounded() / 10
+            let lvl = (m.momentaryMax + 20 * log10(max(g, 1e-6))).rounded(places: 1)
             var l = "level in the mix \(Format.number(lvl)) LUFS at gain \(Format.number(g))"
             if let r = refLufs {
-                let d = ((lvl - r) * 10).rounded() / 10
+                let d = (lvl - r).rounded(places: 1)
                 l +=
                     d >= 0
-                    ? ": \(Format.number(d)) dB OVER the scene audio (\(Format.number((r * 10).rounded() / 10)) LUFS) — too loud for an effect under a voice"
-                    : ": \(Format.number(-d)) dB under the scene audio (\(Format.number((r * 10).rounded() / 10)) LUFS)"
+                    ? ": \(Format.number(d)) dB OVER the scene audio (\(Format.number(r.rounded(places: 1))) LUFS) — too loud for an effect under a voice"
+                    : ": \(Format.number(-d)) dB under the scene audio (\(Format.number(r.rounded(places: 1))) LUFS)"
             }
             if g >= 3.99 { l += " (gain is at its limit of 4)" }
             lines.append(l + ". Run mix_check when the sound edits are done.")
@@ -141,7 +141,7 @@ extension MCPServer {
             mode == "audio"
         {
             lines.append(
-                "note: the audio runs \(Format.number((info.duration * 10).rounded() / 10))s, the scene \(Format.number(saved.duration))s — it is cut at the scene end (fadeOut softens it), or lengthen the scene"
+                "note: the audio runs \(Format.number(info.duration.rounded(places: 1)))s, the scene \(Format.number(saved.duration))s — it is cut at the scene end (fadeOut softens it), or lengthen the scene"
             )
         }
         return lines
@@ -163,7 +163,7 @@ extension MCPServer {
 
     func info(_ asset: String, store s: ProjectStore) -> String {
         guard let i = SceneAudio.info(s.assetsURL.appendingPathComponent(asset)) else { return asset }
-        return "\(asset) (\(Format.number((i.duration * 100).rounded() / 100))s)"
+        return "\(asset) (\(Format.number(i.duration.rounded(places: 2)))s)"
     }
 
     func audioTools() -> [Tool] {
@@ -415,7 +415,7 @@ extension MCPServer {
                     let p = SceneAudio.placement(ref, fileDuration: r.duration, sceneDuration: sc.duration)
                     let lo = p?.at ?? 0, hi = p.map { $0.at + $0.length } ?? 0
                     func map(_ t: Double) -> Double? {
-                        let v = ((t + shift) * 1000).rounded() / 1000
+                        let v = (t + shift).rounded(places: 3)
                         return v >= lo - 1e-6 && v <= hi + 1e-6 ? v : nil
                     }
                     r.beats = r.beats.compactMap(map)
@@ -424,7 +424,7 @@ extension MCPServer {
                         let a = max(lo, ph.lowerBound + shift), b = min(hi, ph.upperBound + shift)
                         return b > a ? AudioAnalysis.round2(a)...AudioAnalysis.round2(b) : nil
                     }
-                    r.loudest = ((r.loudest + shift) * 100).rounded() / 100
+                    r.loudest = (r.loudest + shift).rounded(places: 2)
                 }
                 let stereo = try Stereo.read(url)
                 var out =
@@ -510,7 +510,7 @@ extension MCPServer {
                 // File time → scene time (a stretched clip plays its words 1/rate apart).
                 let rate = ref.rate ?? 1
                 let shift = scene != nil ? (ref.offset ?? 0) - (ref.trim ?? 0) : 0
-                func at(_ x: Double) -> Double { ((x / rate + shift) * 100).rounded() / 100 }
+                func at(_ x: Double) -> Double { (x / rate + shift).rounded(places: 2) }
                 var out = [
                     "\(ref.src): \(t.words.count) words" + (t.language.map { ", language \($0)" } ?? "")
                         + (fresh ? " (transcribed now, paid)" : " (from the project's saved transcript)")

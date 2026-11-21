@@ -30,7 +30,7 @@ public struct Note: Codable, Equatable, Identifiable, Sendable {
     public var target: String {
         var s = scene
         if let layer { s += " · " + layer }
-        if let time { s += " @ " + String(format: "%gs", (time * 100).rounded() / 100) }
+        if let time { s += " @ " + String(format: "%gs", time.rounded(places: 2)) }
         return s
     }
 }

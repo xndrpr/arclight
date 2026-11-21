@@ -63,7 +63,7 @@ public enum ThumbnailVariants {
                 let ops: [JSONValue] = a.nodes.filter { $0.type == "image" }.map { n in
                     var scale = 1.0
                     if case .value(let v)? = n.props["scale"], let d = v.double { scale = d }
-                    return ["op": "set", "id": .string(n.id), "scale": .number((scale * k * 100).rounded() / 100)]
+                    return ["op": "set", "id": .string(n.id), "scale": .number((scale * k).rounded(places: 2))]
                 }
                 return Spec(ops: ops)
             case .background:
