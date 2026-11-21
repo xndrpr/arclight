@@ -202,7 +202,7 @@ struct AIPanelHeader: View {
     @ObservedObject private var monitor = AgentMonitor.shared
 
     var body: some View {
-        SwiftUI.TimelineView(.periodic(from: .now, by: 1)) { ctx in
+        SwiftUI.TimelineView(SecondsWhile(on: !monitor.agents.isEmpty)) { ctx in
             let s = AIStatus.compute(for: doc, agents: monitor.agents, now: ctx.date)
             let busy = s.isBusy
             HStack(spacing: 7) {

@@ -60,3 +60,17 @@ struct AIStatus: Equatable {
         }
     }
 }
+
+/// Every second while `on`, else just once: the AI status only changes with time while some agent exists, so with
+/// none the views showing it don't wake up every second.
+struct SecondsWhile: TimelineSchedule {
+    let on: Bool
+
+    func entries(from start: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        var next: Date? = start
+        return AnyIterator {
+            defer { next = on ? next?.addingTimeInterval(1) : nil }
+            return next
+        }
+    }
+}

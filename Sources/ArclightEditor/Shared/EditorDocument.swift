@@ -91,8 +91,6 @@ import Observation
     // Shared editor state used by several panels (activity, layers, canvas, inspector).
     /// Project activity feed (MCP calls by the AI, editor saves), oldest first.
     var activity: [ActivityEntry] = []
-    /// Set when new AI (MCP) calls arrive; the top bar shows "AI is editing" until then.
-    var agentActiveUntil: Date?
     /// Layers changed outside the editor, highlighted briefly.
     var flashIds: Set<String> = []
     /// Extra selected layers (⌘/⇧-click); `selection` stays the primary one.
