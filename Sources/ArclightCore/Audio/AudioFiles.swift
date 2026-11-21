@@ -23,13 +23,7 @@ public enum AudioFiles {
     }
 
     /// A file-name base in plain Latin letters ("Привет, мир" → "privet-mir"), so names stay portable.
-    public static func slug(_ s: String) -> String {
-        let latin =
-            s.applyingTransform(.toLatin, reverse: false)?.applyingTransform(.stripDiacritics, reverse: false) ?? s
-        let ascii = String(latin.unicodeScalars.filter { $0.isASCII }.map(Character.init))
-        let out = ImageAI.slug(ascii)
-        return out == "image" ? "sound" : out
-    }
+    public static func slug(_ s: String) -> String { Naming.slug(Naming.latin(s), maxWords: 4, fallback: "sound") }
 
     /// Writes audio bytes into assets/ as `base.ext` (or `base-2.ext`, …) after checking Core Audio can read them.
     /// Returns the file name.
@@ -38,28 +32,19 @@ public enum AudioFiles {
         guard let ext = sniff(data) else {
             throw ImageAIError.failed("that isn't a sound file Arclight can play (wav, mp3, m4a, aiff, flac)")
         }
-        try FileManager.default.createDirectory(at: store.assetsURL, withIntermediateDirectories: true)
-        var name = "\(base).\(ext)", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(base)-\(k).\(ext)"; k += 1
-        }
-        let url = store.assetsURL.appendingPathComponent(name)
+        let url = try freeName(base, ext: ext, store: store)
         try data.write(to: url, options: .atomic)
         guard let info = SceneAudio.info(url), info.duration > 0 else {
             try? FileManager.default.removeItem(at: url)
             throw ImageAIError.failed("the sound came back unreadable")
         }
-        return name
+        return url.lastPathComponent
     }
 
     /// A free `base.wav` name in assets/ (for writers that make the file themselves).
     static func freeName(_ base: String, ext: String = "wav", store: ProjectStore) throws -> URL {
         try FileManager.default.createDirectory(at: store.assetsURL, withIntermediateDirectories: true)
-        var name = "\(base).\(ext)", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(base)-\(k).\(ext)"; k += 1
-        }
-        return store.assetsURL.appendingPathComponent(name)
+        return store.assetsURL.appendingPathComponent(Naming.freeFile(base, ext: ext, in: store.assetsURL))
     }
 
     /// Writes mono float samples as a 16-bit WAV.

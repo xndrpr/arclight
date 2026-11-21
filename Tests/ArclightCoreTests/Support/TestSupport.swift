@@ -84,3 +84,12 @@ func tone(
 
 func near(_ a: Double, _ b: Double, _ eps: Double = 1e-6) -> Bool { abs(a - b) <= eps }
 func near(_ a: CGFloat, _ b: CGFloat, _ eps: CGFloat = 1e-6) -> Bool { abs(a - b) <= eps }
+
+extension KeychainStore {
+    /// An in-memory key store, so tests never touch the real Keychain.
+    final class MemoryBackend: Backend {
+        var values: [String: String] = [:]
+        func read(_ account: String) -> String? { values[account] }
+        func write(_ account: String, _ value: String?) throws { values[account] = value }
+    }
+}

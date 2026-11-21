@@ -169,7 +169,7 @@ extension JSONValue {
     var numberValue: Double? { if case .number(let d) = self { return d }; return nil }
 
     var compactDescription: String {
-        let s = (try? String(data: JSONFormat.compact().encode(self), encoding: .utf8)) ?? "?"
+        let s = JSONFormat.compactString(self) ?? "?"
         return s.count > 40 ? String(s.prefix(37)) + "…" : s
     }
 }

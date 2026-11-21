@@ -36,11 +36,7 @@ public enum FeedMock {
     /// A copy of `img` with a "12:34" timestamp badge in the bottom-right corner.
     public static func badge(_ img: CGImage, label: String = "12:34") -> CGImage {
         let w = img.width, h = img.height
-        guard
-            let ctx = CGContext(
-                data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { return img }
+        guard let ctx = ImageData.context(w, h) else { return img }
         ctx.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
         let r = badgeRect(width: Double(w), height: Double(h))
         let cg = CGRect(x: r.minX, y: Double(h) - r.maxY, width: r.width, height: r.height)  // flip to CG

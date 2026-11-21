@@ -71,6 +71,11 @@ public enum JSONValue: Codable, Equatable, Sendable {
 
     public subscript(key: String) -> JSONValue? { object?[key] }
 
+    /// `value` as a JSONValue (a round trip through its JSON encoding).
+    public init<T: Encodable>(encoding value: T) throws {
+        self = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(value))
+    }
+
     /// Re-decodes this value as `T` (a round trip through JSON).
     public func decoded<T: Decodable>(as type: T.Type) throws -> T {
         try JSONDecoder().decode(T.self, from: JSONEncoder().encode(self))

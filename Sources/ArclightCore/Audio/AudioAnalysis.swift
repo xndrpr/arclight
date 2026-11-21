@@ -71,12 +71,12 @@ public struct AudioAnalysis: Equatable, Sendable {
             energy.append((part.map { $0 * $0 }.reduce(0, +) / Double(part.count)).squareRoot())
         }
         let emax = energy.max() ?? 0
-        if emax > 0 { energy = energy.map { (($0 / emax) * 100).rounded() / 100 } }
+        if emax > 0 { energy = energy.map { ($0 / emax).rounded(places: 2) } }
 
         return AudioAnalysis(
-            duration: duration, peakDB: (db(Double(peak)) * 10).rounded() / 10,
-            rmsDB: (db(Double(ms).squareRoot()) * 10).rounded() / 10, bpm: bpm, beats: beats, onsets: onsets,
-            phrases: phrases(rms, step: 0.01, peak: Double(peak)), loudest: (loudest * 100).rounded() / 100,
+            duration: duration, peakDB: db(Double(peak)).rounded(places: 1),
+            rmsDB: db(Double(ms).squareRoot()).rounded(places: 1), bpm: bpm, beats: beats, onsets: onsets,
+            phrases: phrases(rms, step: 0.01, peak: Double(peak)), loudest: loudest.rounded(places: 2),
             energy: energy)
     }
 
@@ -128,7 +128,7 @@ public struct AudioAnalysis: Equatable, Sendable {
             && f[k] > (k + 1 < f.count ? f[k + 1] : 0)
         {
             if k - last < gap { continue }
-            out.append((Double(k) / fps * 1000).rounded() / 1000)
+            out.append((Double(k) / fps).rounded(places: 3))
             last = k
         }
         return out
@@ -172,13 +172,13 @@ public struct AudioAnalysis: Equatable, Sendable {
             let c = Int(k)
             var at = c
             for j in max(0, c - r)...min(f.count - 1, c + r) where f[j] > f[at] { at = j }
-            beats.append((Double(at) / fps * 1000).rounded() / 1000)
+            beats.append((Double(at) / fps).rounded(places: 3))
             k += period
         }
         // Most beats must land on a real onset, or the "tempo" is just the spacing of a few sounds.
         let onBeat = beats.filter { b in onsets.contains { abs($0 - b) < 0.07 } }.count
         guard Double(onBeat) >= Double(beats.count) * 0.5 else { return (nil, []) }
-        return ((60 * fps / period * 10).rounded() / 10, beats)
+        return ((60 * fps / period).rounded(places: 1), beats)
     }
 
     /// Runs of sound separated by ≥ 0.3 s quieter than 30 dB below the peak; runs under 0.15 s are dropped.
@@ -208,7 +208,7 @@ public struct AudioAnalysis: Equatable, Sendable {
         return out
     }
 
-    public static func round2(_ x: Double) -> Double { (x * 100).rounded() / 100 }
+    public static func round2(_ x: Double) -> Double { x.rounded(places: 2) }
 
     /// A short text report for agents.
     public var summary: String {
@@ -217,7 +217,7 @@ public struct AudioAnalysis: Equatable, Sendable {
         ]
         if let bpm {
             lines.append(
-                "tempo \(Format.number(bpm)) BPM (beat every \(Format.number((60 / bpm * 1000).rounded() / 1000))s), \(beats.count) beats: "
+                "tempo \(Format.number(bpm)) BPM (beat every \(Format.number((60 / bpm).rounded(places: 3)))s), \(beats.count) beats: "
                     + list(beats, max: 32))
         } else {
             lines.append("no steady tempo (speech, effects or free-time music)")

@@ -70,7 +70,7 @@ public struct Transcript: Codable, Equatable, Sendable {
         let size = (attrs?[.size] as? NSNumber)?.intValue ?? 0
         let hash = SHA256.hash(data: Data("\(file.lastPathComponent)|\(stamp)|\(size)".utf8)).prefix(6)
             .map { String(format: "%02x", $0) }.joined()
-        return store.url.appendingPathComponent(".arclight/transcripts")
+        return ProjectLayout.hidden("transcripts", in: store.url)
             .appendingPathComponent("\(file.deletingPathExtension().lastPathComponent)-\(hash).json")
     }
 
@@ -92,8 +92,7 @@ public struct Transcript: Codable, Equatable, Sendable {
             "aif": "audio/aiff", "aiff": "audio/aiff", "caf": "audio/x-caf"][ext] ?? "application/octet-stream"
         let t = try await provider.transcribe(data, mime: mime, language: language)
         let u = cacheURL(for: file, store: store)
-        try? FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? JSONEncoder().encode(t).write(to: u, options: .atomic)
+        try? JSONFile.write(t, to: u, encoder: JSONEncoder())
         ImageAI.log(store, op: "transcribe", model: model, prompt: String(t.text.prefix(120)), source: nil, asset: file.lastPathComponent)
         return (t, true)
     }

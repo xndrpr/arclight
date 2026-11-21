@@ -35,7 +35,8 @@ public enum ThumbnailVariants {
         }.makeIterator()
         for spec in specs {
             let name = spec.name ?? letters.next() ?? "Variant"
-            let id = p.uniqueArtboardId(ThumbnailVariants.slug(name))
+            // ASCII only ("B · Дверь" → "b").
+            let id = p.uniqueArtboardId(Naming.slug(name, keeping: Naming.ascii, maxLength: 32, fallback: "variant"))
             let r = try ThumbnailOps.apply(
                 [["op": "artboard_duplicate", "id": .string(a.id), "as": .string(id), "name": .string(name)]], to: p)
             p = r.thumbnail
@@ -62,7 +63,7 @@ public enum ThumbnailVariants {
                 let ops: [JSONValue] = a.nodes.filter { $0.type == "image" }.map { n in
                     var scale = 1.0
                     if case .value(let v)? = n.props["scale"], let d = v.double { scale = d }
-                    return ["op": "set", "id": .string(n.id), "scale": .number((scale * k * 100).rounded() / 100)]
+                    return ["op": "set", "id": .string(n.id), "scale": .number((scale * k).rounded(places: 2))]
                 }
                 return Spec(ops: ops)
             case .background:
@@ -71,16 +72,6 @@ public enum ThumbnailVariants {
                 ])
             }
         }
-    }
-
-    /// An artboard id from a display name: ASCII letters, digits and dashes ("B · Дверь" → "b"); "variant" if none.
-    static func slug(_ name: String) -> String {
-        let words = name.lowercased().components(
-            separatedBy: CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789").inverted
-        )
-        .filter { !$0.isEmpty }
-        let s = words.joined(separator: "-")
-        return s.isEmpty ? "variant" : String(s.prefix(32))
     }
 
     static func usesAccent(_ p: Prop?) -> Bool {

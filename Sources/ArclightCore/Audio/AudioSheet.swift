@@ -25,11 +25,7 @@ public enum AudioSheet {
         let specH = 240, loudH = 110, axisH = 22, laneH = 16
         let shown = Array(lanes.prefix(28))
         let H = specH + loudH + axisH + shown.count * laneH + (shown.isEmpty ? 0 : 8) + 8
-        guard
-            let ctx = CGContext(
-                data: nil, width: W, height: H, bitsPerComponent: 8, bytesPerRow: 0,
-                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { throw RenderError.readback }
+        guard let ctx = ImageData.context(W, H) else { throw RenderError.readback }
         func rgb(_ r: Double, _ g: Double, _ b: Double, _ a: Double = 1) -> CGColor { CGColor(red: r, green: g, blue: b, alpha: a) }
         ctx.setFillColor(rgb(0.07, 0.07, 0.08))
         ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
@@ -126,7 +122,7 @@ public enum AudioSheet {
         while t <= start + dur + 1e-6 {
             ctx.setFillColor(rgb(1, 1, 1, 0.12))
             ctx.fill(CGRect(x: x(t), y: CGFloat(axisY), width: 1, height: CGFloat(H - axisY)))
-            label(Format.number((t * 100).rounded() / 100) + "s", x: x(t) + 3, y: CGFloat(axisY + 6))
+            label(Format.number(t.rounded(places: 2)) + "s", x: x(t) + 3, y: CGFloat(axisY + 6))
             t += tick
         }
         for m in marks where m.t >= start && m.t <= start + dur {

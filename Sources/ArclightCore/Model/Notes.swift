@@ -30,16 +30,14 @@ public struct Note: Codable, Equatable, Identifiable, Sendable {
     public var target: String {
         var s = scene
         if let layer { s += " · " + layer }
-        if let time { s += " @ " + String(format: "%gs", (time * 100).rounded() / 100) }
+        if let time { s += " @ " + String(format: "%gs", time.rounded(places: 2)) }
         return s
     }
 }
 
 /// Notes for the AI agent at `<project>/.arclight/notes.json` (oldest first), shared by the editor and the MCP server.
 public enum Notes {
-    static func url(_ project: URL) -> URL {
-        project.appendingPathComponent(ProjectLayout.hiddenFolder).appendingPathComponent("notes.json")
-    }
+    static func url(_ project: URL) -> URL { ProjectLayout.hidden("notes.json", in: project) }
 
     public static func load(project: URL) -> [Note] {
         JSONFile.read([Note].self, from: url(project)) ?? []

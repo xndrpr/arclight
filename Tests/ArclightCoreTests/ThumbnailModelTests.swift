@@ -77,26 +77,17 @@ import Testing
         #expect(again.project.thumbnails == ["thumb", "aaa"])
     }
 
-    /// Before the rename, thumbnails were "previews": the previews/ folder, the "previews" key, workspace "preview".
-    @Test func projectFromBeforeTheRenameStillOpens() throws {
+    /// The names from before thumbnails were renamed (a "previews" key and folder) are no longer read.
+    @Test func prerenameNamesAreNotRead() throws {
         let tp = try TempProject("thumbnail-legacy")
         defer { tp.remove() }
-        try tp.store.save(thumbnail: sample())
         let fm = FileManager.default
-        try fm.moveItem(at: tp.url.appendingPathComponent("thumbnails"), to: tp.url.appendingPathComponent("previews"))
-        let pj = tp.url.appendingPathComponent("project.json")
-        var json = try String(contentsOf: pj, encoding: .utf8)
-        json = json.replacingOccurrences(of: "\"thumbnails\"", with: "\"previews\"")
-        json = json.replacingOccurrences(of: "\"workspace\" : \"thumbnail\"", with: "\"workspace\" : \"preview\"")
-        try json.write(to: pj, atomically: true, encoding: .utf8)
-
+        try fm.createDirectory(at: tp.url.appendingPathComponent("previews"), withIntermediateDirectories: true)
         let old = try ProjectStore(url: tp.url)
-        #expect(old.project.thumbnails == ["thumb"])
-        #expect(old.thumbnails["thumb"] != nil)
-        #expect(fm.fileExists(atPath: tp.url.appendingPathComponent("thumbnails/thumb.json").path))
-        #expect(!fm.fileExists(atPath: tp.url.appendingPathComponent("previews").path))
+        #expect(old.thumbnails.isEmpty)
+        #expect(fm.fileExists(atPath: tp.url.appendingPathComponent("previews").path))
         let p = try JSONDecoder().decode(Project.self, from: Data(#"{"workspace":"preview","previews":["x"]}"#.utf8))
-        #expect(p.workspace == "thumbnail" && p.thumbnails == ["x"])
+        #expect(p.workspace == "preview" && p.thumbnails.isEmpty)
     }
 
     @Test func staleRevIsRefusedAndHistoryReverts() throws {

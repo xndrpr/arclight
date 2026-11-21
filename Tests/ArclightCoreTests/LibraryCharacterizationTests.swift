@@ -19,9 +19,9 @@ import Testing
     }
 
     @Test func presetSlugsAndLookup() {
-        #expect(ThemePresets.slug("  Brand — Dark!! v2 ") == "brand-dark-v2")
-        #expect(ThemePresets.slug("Ünïcode Ok") == "ünïcode-ok")
-        #expect(ThemePresets.slug("---") == "")
+        #expect(Naming.slug("  Brand — Dark!! v2 ") == "brand-dark-v2")
+        #expect(Naming.slug("Ünïcode Ok") == "ünïcode-ok")
+        #expect(Naming.slug("---") == "")
         let first = ThemePresets.builtIn[0]
         #expect(ThemePresets.get(first.name.uppercased())?.id == first.id)
         #expect(ThemePresets.get(" \(first.id) ")?.id == first.id)

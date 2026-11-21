@@ -21,7 +21,7 @@ extension MCPServer {
                 let s = try requireStore()
                 let scene = try s.scene(try a.str("scene"))
                 var times = a["times"]?.doubles ?? []
-                if times.isEmpty { times = [0.15, 0.4, 0.7, 0.98].map { ($0 * scene.duration * 100).rounded() / 100 } }
+                if times.isEmpty { times = [0.15, 0.4, 0.7, 0.98].map { ($0 * scene.duration).rounded(places: 2) } }
                 times = Array(times.prefix(9))
                 let scale = min(max(a["scale"]?.double ?? 0.25, 0.05), 1)
                 let img = try ContactSheet.render(
@@ -78,7 +78,9 @@ extension MCPServer {
                 o.scale = try SafeNumber.positive(a["scale"]?.double ?? 1, "scale", max: SafeNumber.maxScale)
                 o.fps = try a["fps"]?.double.map { try SafeNumber.positive($0, "fps", max: SafeNumber.maxFPS) }
                 o.transparent = a["transparent"]?.bool
-                let dir = a["out_dir"]?.string.map(URL.init(expandingPath:)) ?? s.url.appendingPathComponent("exports")
+                let dir =
+                    a["out_dir"]?.string.map(URL.init(expandingPath:))
+                    ?? s.url.appendingPathComponent(ProjectLayout.exports)
                 let exporter = Exporter(renderer: try renderer())
                 var lines: [String] = []
                 if let t = a["frame"]?.double {
@@ -155,7 +157,7 @@ extension MCPServer {
                     let d = try? AudioDescriptors.measure(s.assetsURL.appendingPathComponent(n))
                 {
                     return text(
-                        "src: \(n) (\(Format.number((d.duration * 100).rounded() / 100))s)\nmeasured: \(d.line)\nPlace it with scene_apply {\"op\":\"sound\",\"src\":\"\(n)\",\"offset\":t}; audio_analyze {src, image:true} shows more.")
+                        "src: \(n) (\(Format.number(d.duration.rounded(places: 2)))s)\nmeasured: \(d.line)\nPlace it with scene_apply {\"op\":\"sound\",\"src\":\"\(n)\",\"offset\":t}; audio_analyze {src, image:true} shows more.")
                 }
                 guard Mesh.extensions.contains(src.pathExtension.lowercased()) else { return text("src: " + n) }
                 let mesh = try Mesh.load(s.assetsURL.appendingPathComponent(n))
@@ -183,7 +185,8 @@ extension MCPServer {
         }
         o.transparent = a["transparent"]?.bool ?? false
         let userScale = try a["scale"]?.double.map { try SafeNumber.positive($0, "scale", max: SafeNumber.maxScale) }
-        let dir = a["out_dir"]?.string.map(URL.init(expandingPath:)) ?? s.url.appendingPathComponent("exports")
+        let dir =
+            a["out_dir"]?.string.map(URL.init(expandingPath:)) ?? s.url.appendingPathComponent(ProjectLayout.exports)
         let ex = StillExporter(renderer: try renderer())
         var lines: [String] = []
         for aid in ids {

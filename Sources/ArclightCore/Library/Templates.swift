@@ -34,7 +34,7 @@ public struct Template: Codable, Equatable, Sendable {
     /// "scene" (default: a motion scene) or "thumbnail" (a thumbnail artboard; `scene.size` is its size).
     public var kind: String?
 
-    public var isThumbnail: Bool { kind == "thumbnail" || kind == "preview" }  // "preview": saved before the rename
+    public var isThumbnail: Bool { kind == "thumbnail" }
 
     public init(
         id: String, name: String, description: String? = nil, category: String? = nil, params: [Param],
@@ -61,7 +61,7 @@ public enum Templates {
 
     public static func all(project: URL?) -> [Template] {
         var list = BuiltInTemplates.all + load(dir: userDir)
-        if let project { list += load(dir: project.appendingPathComponent("templates")) }
+        if let project { list += load(dir: project.appendingPathComponent(ProjectLayout.templates)) }
         var seen = Set<String>()
         return list.reversed().filter { seen.insert($0.id).inserted }.reversed()
     }
@@ -152,8 +152,7 @@ public enum Templates {
                 switch val {
                 case .string(let x): str = x
                 case .number(let d): str = d.rounded() == d && abs(d) < 1e15 ? String(Int64(d)) : String(d)
-                default:
-                    str = (try? String(data: JSONFormat.compact().encode(val), encoding: .utf8)) ?? ""
+                default: str = JSONFormat.compactString(val) ?? ""
                 }
                 out = out.replacingOccurrences(of: "{{\(k)}}", with: str)
             }
@@ -170,7 +169,7 @@ public enum Templates {
         from scene: Scene, id: String, name: String, description: String?,
         params: [(param: Template.Param, target: String)]
     ) throws -> Template {
-        var json = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(scene))
+        var json = try JSONValue(encoding: scene)
         var obj = json.object ?? [:]
         obj["rev"] = nil
         obj["id"] = .string(id)
@@ -210,11 +209,10 @@ public enum Templates {
         case .user: dir = userDir
         case .project:
             guard let project else { throw ModelError.invalid("no project open") }
-            dir = project.appendingPathComponent("templates")
+            dir = project.appendingPathComponent(ProjectLayout.templates)
         }
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = dir.appendingPathComponent("\(t.id).json")
-        try JSONFormat.pretty().encode(t).write(to: url, options: .atomic)
+        try JSONFile.write(t, to: url)
         return url
     }
 }

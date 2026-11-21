@@ -6,7 +6,7 @@ import Foundation
 public enum SoundNotes {
     public static let maxLength = 4000
 
-    public static func url(_ project: URL) -> URL { project.appendingPathComponent(".arclight/sound.md") }
+    public static func url(_ project: URL) -> URL { ProjectLayout.hidden("sound.md", in: project) }
 
     public static func read(_ project: URL) -> String? {
         guard let s = try? String(contentsOf: url(project), encoding: .utf8) else { return nil }

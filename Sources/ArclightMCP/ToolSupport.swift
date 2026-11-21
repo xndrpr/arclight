@@ -14,7 +14,7 @@ func text(_ s: String) -> [JSONValue] { [["type": "text", "text": .string(s)]] }
 
 /// Sorted-key one-line JSON, so tool output is stable between runs.
 func compactJSON<T: Encodable>(_ v: T) -> String {
-    (try? String(data: JSONFormat.compact().encode(v), encoding: .utf8)) ?? "{}"
+    JSONFormat.compactString(v) ?? "{}"
 }
 
 /// JSON Schema for a tool's arguments.

@@ -236,20 +236,14 @@ public enum ImageAI {
         return base.isEmpty ? "image" : base
     }
 
-    static func slug(_ s: String) -> String {
-        let words = s.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        let j = words.prefix(4).joined(separator: "-")
-        return j.isEmpty ? "image" : j
-    }
+    /// An asset file-name base from a prompt or id: its first four words ("image" if none).
+    static func slug(_ s: String) -> String { Naming.slug(s, maxWords: 4, fallback: "image") }
 
     /// Writes a PNG into assets/ under a name not already taken (`base.png`, `base-2.png`, …).
     static func write(_ img: CGImage, base: String, store: ProjectStore) throws -> String {
         guard let data = ImageData.png(img) else { throw ImageAIError.badImage }
-        var name = "\(base).png", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(base)-\(k).png"; k += 1
-        }
-        return try AssetWriter.writeImage(data, name: name, to: store).src
+        return try AssetWriter.writeImage(data, name: Naming.freeFile(base, ext: "png", in: store.assetsURL), to: store)
+            .src
     }
 
     struct LogEntry: Codable {
@@ -258,14 +252,12 @@ public enum ImageAI {
 
     static func log(_ store: ProjectStore, op: String, model: String, prompt: String?, source: String?, asset: String) {
         let e = LogEntry(time: Timestamp.string(), op: op, model: model, prompt: prompt, source: source, asset: asset)
-        let dir = store.url.appendingPathComponent(".arclight")
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        JSONL.append(e, to: dir.appendingPathComponent("generations.jsonl"), encoder: JSONEncoder())
+        JSONL.append(e, to: ProjectLayout.hidden("generations.jsonl", in: store.url), encoder: JSONEncoder())
     }
 
     /// What made each generated asset (newest last).
     public static func history(_ store: ProjectStore) -> [(op: String, prompt: String?, asset: String)] {
-        let u = store.url.appendingPathComponent(".arclight/generations.jsonl")
+        let u = ProjectLayout.hidden("generations.jsonl", in: store.url)
         guard let s = try? String(contentsOf: u, encoding: .utf8) else { return [] }
         return s.split(separator: "\n").compactMap { try? JSONDecoder().decode(LogEntry.self, from: Data($0.utf8)) }
             .map { ($0.op, $0.prompt, $0.asset) }

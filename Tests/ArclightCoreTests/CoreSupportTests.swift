@@ -28,6 +28,8 @@ import Testing
         #expect(
             String(decoding: try JSONFormat.pretty().encode(Sample()), as: UTF8.self)
                 == "{\n  \"a\" : 1,\n  \"b\" : \"a/b\"\n}")
+        #expect(JSONFormat.compactString(Sample()) == #"{"a":1,"b":"a/b"}"#)
+        #expect(String(decoding: try JSONFormat.wire().encode(["k": "a/b"]), as: UTF8.self) == #"{"k":"a/b"}"#)
     }
 
     @Test func jsonFilesAndLines() throws {
@@ -64,6 +66,11 @@ import Testing
         #expect(
             Format.number(3) == "3" && Format.number(-2) == "-2" && Format.number(0.25) == "0.25"
                 && Format.number(1.5e-5) == "1.5e-05")
+        for x in [0.125, -2.675, 1.0 / 3, 1234.5678, 0.0049] {
+            #expect(x.rounded(places: 1) == (x * 10).rounded() / 10)
+            #expect(x.rounded(places: 3) == (x * 1000).rounded() / 1000)
+        }
+        #expect(2.5.rounded(places: 0) == 3 && 0.25.rounded(places: 1) == 0.3)
     }
 
     @Test func assetPaths() {
@@ -77,5 +84,33 @@ import Testing
         let n = try JSONValue.object(["id": "a", "type": "shape", "x": 4]).decoded(as: Node.self)
         #expect(n.id == "a" && n.props["x"] == .value(4))
         #expect(throws: (any Error).self) { try JSONValue.string("x").decoded(as: Node.self) }
+        #expect(try JSONValue(encoding: Sample()) == ["a": 1, "b": "a/b"])
+    }
+
+    /// The slug flavours the call sites use: asset bases (four words), sound bases (Latin), artboard ids (ASCII).
+    @Test func namingSlugs() {
+        #expect(Naming.slug("  Brand — Dark!! v2 ") == "brand-dark-v2")
+        #expect(Naming.slug("---") == "" && Naming.slug("---", fallback: "theme") == "theme")
+        #expect(ImageAI.slug("  Hello, World!! again and more ") == "hello-world-again-and")
+        #expect(ImageAI.slug("!!") == "image")
+        #expect(AudioFiles.slug("Привет, мир") == "privet-mir" && AudioFiles.slug("…") == "sound")
+        #expect(Naming.latin("Ünïcode café") == "Unicode cafe")
+        #expect(Naming.slug("B · Дверь", keeping: Naming.ascii, maxLength: 32, fallback: "variant") == "b")
+        #expect(Naming.slug("Дверь", keeping: Naming.ascii, fallback: "variant") == "variant")
+        #expect(Naming.slug(String(repeating: "ab ", count: 20), keeping: Naming.ascii, maxLength: 5) == "ab-ab")
+        #expect(Naming.slug("Whoosh Big Hit Long", maxWords: 3) == "whoosh-big-hit")
+    }
+
+    @Test func namingUnique() throws {
+        #expect(Naming.unique("a", in: []) == "a")
+        #expect(Naming.unique("a", in: ["a", "a-2", "a-4"]) == "a-3")
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("arclight-naming-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        #expect(Naming.freeFile("x", ext: "png", in: dir) == "x.png")
+        try Data().write(to: dir.appendingPathComponent("x.png"))
+        try Data().write(to: dir.appendingPathComponent("x-2.png"))
+        #expect(Naming.freeFile("x", ext: "png", in: dir) == "x-3.png")
+        #expect(Naming.freeFile("x", ext: "jpg", in: dir) == "x.jpg")
     }
 }

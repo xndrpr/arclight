@@ -15,6 +15,18 @@ public enum JSONFormat {
         e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return e
     }
+
+    /// One line, keys in encoding order (no sorting cost), slashes unescaped: JSON-RPC messages.
+    public static func wire() -> JSONEncoder {
+        let e = JSONEncoder()
+        e.outputFormatting = [.withoutEscapingSlashes]
+        return e
+    }
+
+    /// `value` as `compact()` text, or nil when it can't be encoded.
+    public static func compactString<T: Encodable>(_ value: T) -> String? {
+        (try? compact().encode(value)).map { String(decoding: $0, as: UTF8.self) }
+    }
 }
 
 /// Whole-file JSON reads and writes.

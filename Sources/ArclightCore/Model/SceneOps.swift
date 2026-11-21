@@ -50,7 +50,7 @@ public enum SceneOps {
     ) {
         guard let i = scene.nodes.firstIndex(where: { $0.id == id }) else { return }
         if case .keys(var ks)? = scene.nodes[i].props[prop] {
-            let ft = (t * 1000).rounded() / 1000
+            let ft = t.rounded(places: 3)
             if let k = ks.firstIndex(where: { abs($0.t - ft) < 1e-4 }) {
                 ks[k].v = value; if let ease { ks[k].ease = ease }
             } else {
@@ -68,7 +68,7 @@ public enum SceneOps {
         _ scene: inout Scene, id: String, prop: String, current: JSONValue, localTime t: Double
     ) {
         guard let i = scene.nodes.firstIndex(where: { $0.id == id }) else { return }
-        let ft = (t * 1000).rounded() / 1000
+        let ft = t.rounded(places: 3)
         switch scene.nodes[i].props[prop] {
         case .keys(var ks)?:
             if let k = ks.firstIndex(where: { abs($0.t - ft) < 1e-4 }) {
@@ -85,28 +85,18 @@ public enum SceneOps {
 
     /// A node id not used in the scene: `base`, `base-2`, `base-3`, …
     public static func uniqueId(_ base: String, in scene: Scene) -> String {
-        let ids = Set(scene.nodes.map(\.id))
-        if !ids.contains(base) { return base }
-        var k = 2
-        while ids.contains("\(base)-\(k)") { k += 1 }
-        return "\(base)-\(k)"
+        Naming.unique(base, in: Set(scene.nodes.map(\.id)))
     }
 
     /// A sound id not used yet, from the file name: `whoosh`, `whoosh-2`, …
     public static func uniqueSoundId(_ src: String, in sounds: [AudioRef]) -> String {
         let stem = ((src as NSString).lastPathComponent as NSString).deletingPathExtension
-        let words = stem.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
-        let base = words.prefix(3).joined(separator: "-").isEmpty ? "sound" : words.prefix(3).joined(separator: "-")
-        let ids = Set(sounds.compactMap(\.id))
-        if !ids.contains(base) { return base }
-        var k = 2
-        while ids.contains("\(base)-\(k)") { k += 1 }
-        return "\(base)-\(k)"
+        return Naming.unique(Naming.slug(stem, maxWords: 3, fallback: "sound"), in: Set(sounds.compactMap(\.id)))
     }
 
     /// `r` with the op's clip fields merged in (`null` clears one).
     static func mergeSound(_ r: AudioRef, _ o: [String: JSONValue]) throws -> AudioRef {
-        guard var obj = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(r)).object else { return r }
+        guard var obj = try JSONValue(encoding: r).object else { return r }
         for k in ["src", "offset", "trim", "length", "gain", "fadeIn", "fadeOut", "mute", "pitch", "rate", "lowpass", "highpass", "reverb", "space", "reverse", "pan", "duck"] {
             guard let v = o[k] else { continue }
             if k == "src", v == .null { continue }
@@ -174,7 +164,7 @@ public enum SceneOps {
             switch k {
             case "type":
                 guard let t = v.string else { throw ModelError.invalid("type must be a string") };
-                n.type = Node.typeAliases[t] ?? t
+                n.type = t
             case "parent": n.parent = v.string
             case "name": n.name = v.string
             case "in": n.start = v.double

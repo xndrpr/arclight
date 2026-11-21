@@ -133,13 +133,7 @@ public struct Thumbnail: Codable, Equatable, Sendable {
     }
 
     /// An artboard id not used in this thumbnail: `base`, `base-2`, …
-    public func uniqueArtboardId(_ base: String) -> String {
-        let ids = Set(artboards.map(\.id))
-        if !ids.contains(base) { return base }
-        var k = 2
-        while ids.contains("\(base)-\(k)") { k += 1 }
-        return "\(base)-\(k)"
-    }
+    public func uniqueArtboardId(_ base: String) -> String { Naming.unique(base, in: Set(artboards.map(\.id))) }
 
     /// Where a new artboard goes: to the right of the rightmost one, with a gap.
     public func nextArtboardOrigin(gap: Double = 120) -> (Double, Double) {

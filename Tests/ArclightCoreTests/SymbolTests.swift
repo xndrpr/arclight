@@ -17,11 +17,9 @@ import Testing
         }
     }
 
-    @Test func legacyNamesStillLoad() throws {
-        let json = #"{"id":"c","type":"instancer","items":[{"piece":"pawn"}]}"#
+    @Test func legacyPieceStillLoads() throws {
+        let json = #"{"id":"c","type":"repeater","items":[{"piece":"pawn"}]}"#
         let n = try JSONDecoder().decode(Node.self, from: Data(json.utf8))
-        #expect(n.type == "repeater")
-        #expect(String(data: try JSONEncoder().encode(n), encoding: .utf8)!.contains(#""type":"repeater""#))
         var s = Scene(id: "s"); s.nodes = [n]
         #expect(Validator.validate(s).isEmpty)
         s.nodes[0].props["items"] = .value([["symbol": "basic/nope"]])

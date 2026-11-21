@@ -115,10 +115,7 @@ public struct AssetLibrary: Sendable {
         let data = try await download(url)
         _ = try ImageData.decode(data)
         try FileManager.default.createDirectory(at: store.assetsURL, withIntermediateDirectories: true)
-        var name = "\(ImageAI.slug(id)).jpg", k = 2
-        while FileManager.default.fileExists(atPath: store.assetsURL.appendingPathComponent(name).path) {
-            name = "\(ImageAI.slug(id))-\(k).jpg"; k += 1
-        }
+        let name = Naming.freeFile(ImageAI.slug(id), ext: "jpg", in: store.assetsURL)
         try data.write(to: store.assetsURL.appendingPathComponent(name), options: .atomic)
         ImageAI.log(store, op: "library", model: "polyhaven", prompt: id, source: nil, asset: name)
         return name
@@ -127,17 +124,9 @@ public struct AssetLibrary: Sendable {
     // MARK: HTTP
 
     func get(_ url: URL) async throws -> Data {
-        var r = URLRequest(url: url)
-        r.setValue("Arclight", forHTTPHeaderField: "User-Agent")
-        r.timeoutInterval = 60
-        let (data, resp) = try await session.data(for: r)
-        let code = (resp as? HTTPURLResponse)?.statusCode ?? 200
-        guard (200..<300).contains(code) else {
-            throw ImageAIError.failed(
-                code == 404
-                    ? "asset library: not found (check the id with library_search)" : "asset library: HTTP \(code)")
+        try await LibraryHTTP.get(url, session: session) { code in
+            code == 404 ? "asset library: not found (check the id with library_search)" : "asset library: HTTP \(code)"
         }
-        return data
     }
 
     func json(_ url: URL) async throws -> JSONValue {

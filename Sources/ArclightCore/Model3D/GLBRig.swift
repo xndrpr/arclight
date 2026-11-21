@@ -58,7 +58,6 @@ public struct Rig: Sendable {
     var pieces: [Piece] = []
     public internal(set) var clips: [Clip] = []
 
-    /// True when there is anything to play.
     public var animated: Bool { clips.contains { $0.duration > 0 && !$0.channels.isEmpty } }
 
     /// The clip a layer's `clip` names: an index ("0"), a name (any case), or empty for the first one.
