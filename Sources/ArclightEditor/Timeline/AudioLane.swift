@@ -5,7 +5,6 @@ import SwiftUI
 /// Left column of the audio lane: file name, gain, mute, remove.
 struct AudioLaneHeader: View {
     let doc: EditorDocument
-    @AppStorage(Pref.audioLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 
     var body: some View {
         let a = doc.scene.audio
@@ -51,7 +50,6 @@ struct AudioLaneHeader: View {
 struct AudioLane: View {
     let doc: EditorDocument
     let width: CGFloat
-    @AppStorage(Pref.audioLaneHeight) private var laneH = 0.0  // redraw when ⇧ + scroll resizes the lane
 
     private enum Hit: Equatable { case none, body, trimIn, end, gain, fadeIn, fadeOut }
     @State private var drag: Hit?

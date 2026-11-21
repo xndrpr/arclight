@@ -4,9 +4,6 @@ import SwiftUI
 
 struct NameRow: View {
     let doc: EditorDocument
-    // Redraw when ⇧ + scroll resizes the rows or the density changes (both set `TL.rowH`).
-    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0
-    @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     let ui: LayerUIState
     let row: TLRow
     let childCount: Int

@@ -7,9 +7,9 @@ import SwiftUI
 /// the sidebars give up width before the viewport does.
 struct EditorView: View {
     let doc: EditorDocument
-    @AppStorage(Pref.leftWidth) private var leftW: Double = 210
-    @AppStorage(Pref.rightWidth) private var rightW: Double = 360
-    @AppStorage(Pref.timelineHeight) private var timelineH: Double = 280
+    @Preference(Pref.leftWidth) private var leftW: Double = 210
+    @Preference(Pref.rightWidth) private var rightW: Double = 360
+    @Preference(Pref.timelineHeight) private var timelineH: Double = 280
     @State private var showExport = false
     @State private var showShortcuts = false
     /// Where the top-bar AI pill is (global), for the panel's open/close animation.
@@ -171,7 +171,7 @@ struct VSplit<Top: View, Bottom: View>: View {
     var collapsed = false
     @ViewBuilder let top: () -> Top
     @ViewBuilder let bottom: () -> Bottom
-    @AppStorage("thumbnail.layersSplit") private var fraction: Double = 0.42
+    @Preference("thumbnail.layersSplit") private var fraction: Double = 0.42
     @State private var startFraction: Double?
 
     var body: some View {

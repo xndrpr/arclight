@@ -28,13 +28,13 @@ enum AIPanelState {
 struct AIPanelContent: View {
     let doc: EditorDocument
     @ObservedObject private var monitor = AgentMonitor.shared
-    @AppStorage private var seen: String
-    @AppStorage(Pref.aiPanelTab) private var tab = "chat"
+    @Preference private var seen: String
+    @Preference(Pref.aiPanelTab) private var tab = "chat"
     @Namespace private var tabNS
 
     init(doc: EditorDocument) {
         self.doc = doc
-        _seen = AppStorage(wrappedValue: "", Pref.activitySeen(doc.url))
+        _seen = Preference(wrappedValue: "", Pref.activitySeen(doc.url))
     }
 
     var body: some View {
@@ -139,15 +139,15 @@ struct AIStatusPill: View {
     let doc: EditorDocument
     var compact = false
     @ObservedObject private var monitor = AgentMonitor.shared
-    @AppStorage(Pref.aiPanel) private var open = false
-    @AppStorage(Pref.aiFloat) private var layoutRaw = ""
-    @AppStorage private var seen: String
+    @Preference(Pref.aiPanel) private var open = false
+    @Preference(Pref.aiFloat) private var layoutRaw = ""
+    @Preference private var seen: String
     @State private var hover = false
 
     init(doc: EditorDocument, compact: Bool = false) {
         self.doc = doc
         self.compact = compact
-        _seen = AppStorage(wrappedValue: "", Pref.activitySeen(doc.url))
+        _seen = Preference(wrappedValue: "", Pref.activitySeen(doc.url))
     }
 
     var body: some View {

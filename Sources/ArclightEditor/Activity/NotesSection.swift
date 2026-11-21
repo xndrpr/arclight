@@ -8,7 +8,7 @@ struct NotesSection: View {
     @State private var notes: [Note] = []
     @State private var draft = ""
     @State private var showResolved = false
-    @AppStorage(Pref.notesCollapsed) private var collapsed = false
+    @Preference(Pref.notesCollapsed) private var collapsed = false
     @FocusState private var focused: Bool
 
     var body: some View {

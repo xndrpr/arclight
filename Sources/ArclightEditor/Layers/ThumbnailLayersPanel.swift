@@ -5,7 +5,6 @@ import SwiftUI
 /// timeline's name column — select, rename, reorder, group, lock, hide — without tracks or camera/look rows.
 struct ThumbnailLayersPanel: View {
     let doc: EditorDocument
-    @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
 
     var body: some View {
         let ui = doc.layerUI

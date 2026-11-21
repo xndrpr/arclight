@@ -14,10 +14,10 @@ struct FloatingAIPanel: View {
     let doc: EditorDocument
     /// The top-bar AI pill's frame (global), so the panel opens out of it and closes back into it.
     var pill: CGRect = .zero
-    @AppStorage(Pref.aiPanel) private var open = false
-    @AppStorage(Pref.aiFloat) private var raw = ""
+    @Preference(Pref.aiPanel) private var open = false
+    @Preference(Pref.aiFloat) private var raw = ""
     /// Full size: the panel covers the whole editor area (a focus mode for long chats).
-    @AppStorage("aiPanel.expanded") private var expanded = false
+    @Preference("aiPanel.expanded") private var expanded = false
     /// Header drag in progress (translation).
     @State private var drag: CGSize?
     /// Corner resize in progress: frame at the start, and the live layout.

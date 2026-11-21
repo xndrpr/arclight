@@ -20,7 +20,6 @@ struct Tracks: View {
     var minHeight: CGFloat = 120
     /// Height of the scroll view the tracks sit in (taller than `minHeight` when lanes sit above them).
     var viewportHeight: CGFloat
-    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0  // redraw when ⇧ + scroll resizes the rows
 
     init(doc: EditorDocument, rows: [TLRow], width: CGFloat, minHeight: CGFloat = 120, viewportHeight: CGFloat? = nil) {
         self.doc = doc; self.ui = doc.timelineUI; self.rows = rows; self.width = width; self.minHeight = minHeight

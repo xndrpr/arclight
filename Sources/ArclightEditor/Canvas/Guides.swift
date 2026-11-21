@@ -6,10 +6,10 @@ struct GuidesOverlay: View {
     let canvas: CGSize
     let scale: CGFloat
     var thumbnail = false
-    @AppStorage(Pref.timestampBadge) private var badge = true
-    @AppStorage(Pref.centerLines) private var center = false
-    @AppStorage(Pref.safeAreas) private var safe = false
-    @AppStorage(Pref.thirds) private var thirds = false
+    @Preference(Pref.timestampBadge) private var badge = true
+    @Preference(Pref.centerLines) private var center = false
+    @Preference(Pref.safeAreas) private var safe = false
+    @Preference(Pref.thirds) private var thirds = false
 
     var body: some View {
         SwiftUI.Canvas { ctx, _ in

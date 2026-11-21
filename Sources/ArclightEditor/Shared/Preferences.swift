@@ -1,12 +1,13 @@
 import ArclightCore
 import Foundation
 
-/// Every UserDefaults key the editor uses. Views read them with `@AppStorage(Pref.x)`. The strings are stored in
+/// Every UserDefaults key the editor uses. Editor views read them with `@Preference(Pref.x)`, the Settings windows
+/// with `@AppStorage(Pref.x)`. The strings are stored in
 /// users' settings: never change one without migrating it.
 enum Pref {
     /// Where the editor keeps these settings: the standard domain, except in off-screen commands (`snapshot`,
-    /// `clickprobe`), which use a throwaway domain in a temp folder (`throwawayStore`), and in tests. Views read
-    /// it through `.themedRoot()`, which makes it their `@AppStorage` store. (`CFFIXED_USER_HOME` moves the user's
+    /// `clickprobe`), which use a throwaway domain in a temp folder (`throwawayStore`), and in tests. `@Preference`
+    /// reads it directly; `.themedRoot()` makes it the `@AppStorage` store. (`CFFIXED_USER_HOME` moves the user's
     /// folders but not UserDefaults: cfprefsd keeps those in the real home.)
     static var store: UserDefaults = {
         // A test run (`swift test` passes the .xctest bundle on the command line) keeps the editor's settings in a

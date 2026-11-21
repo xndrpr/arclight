@@ -88,12 +88,12 @@ private struct ZoomControl: View {
 private struct GuidesMenu: View {
     /// Snapping is the document's one setting (`doc.snapping`, Settings ▸ Snapping, N), shared with the timeline.
     @Bindable var doc: EditorDocument
-    @AppStorage(Pref.rulers) private var rulers = false
-    @AppStorage(Pref.centerLines) private var center = false
-    @AppStorage(Pref.safeAreas) private var safe = false
-    @AppStorage(Pref.thirds) private var thirds = false
-    @AppStorage(Pref.timestampBadge) private var badge = true
-    @AppStorage(Pref.feedThumbnail) private var feed = false
+    @Preference(Pref.rulers) private var rulers = false
+    @Preference(Pref.centerLines) private var center = false
+    @Preference(Pref.safeAreas) private var safe = false
+    @Preference(Pref.thirds) private var thirds = false
+    @Preference(Pref.timestampBadge) private var badge = true
+    @Preference(Pref.feedThumbnail) private var feed = false
 
     var body: some View {
         Menu {

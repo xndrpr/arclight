@@ -6,9 +6,9 @@ import SwiftUI
 /// grouped by day. Lives in the AI panel under the notes.
 struct ActivityPanel: View {
     let doc: EditorDocument
-    @AppStorage(Pref.activityWho) private var who = ActivityFeed.Who.all.rawValue
-    @AppStorage(Pref.activityThisScene) private var thisScene = false
-    @AppStorage(Pref.activityReads) private var showReads = true
+    @Preference(Pref.activityWho) private var who = ActivityFeed.Who.all.rawValue
+    @Preference(Pref.activityThisScene) private var thisScene = false
+    @Preference(Pref.activityReads) private var showReads = true
     @State private var expanded: String?
     @Namespace private var tabNS
     /// Direction of the last All / AI / You change, for the list's page slide.

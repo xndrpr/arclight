@@ -100,3 +100,37 @@ A profile of a reply streaming at 30 frames a second showed the main thread 43 %
 message list, Markdown parsing of the paragraph being written (`AttributedString(markdown:)`, again for the whole
 reply every frame), and the composer reading the key and backend settings seven times per redraw. Live replies
 are now parsed incrementally (finished blocks and lines are cached), and the settings are read once per change.
+
+### 4. Find what a workspace switch really costs
+
+Hypothesis: the switch is slow because of the panels that only one workspace shows. Experiments that dropped one
+candidate at a time (a temporary environment switch in the build, since removed) said otherwise: without the
+timeline, the Thumbnails tool bar and layers panel, Motion → Thumbnails saved 45 ms and Thumbnails → Motion
+nothing; without the inspector, both directions halved. Profiles then named the rest:
+
+- The scene list swapped sidebars with `if`/`else`, rebuilding 78 rows (each with a geometry reader for drag
+  reordering) on every switch. Both lists now stay built; the scene list is lazy and measures rows only while one
+  is dragged.
+- The scene inspector built every sound clip's row (49 in this project's first scene, 140 in another), and read the
+  clip list as JSON once per field. Long lists start folded, rows are named ("3  whoosh-1  at 2.4 s"), and the JSON
+  is converted once per change.
+- After the first draw, both lists animated their selection to the new target (one of them hidden), redrawing the
+  whole window for a quarter of a second. The switch is now one non-animated change.
+- The timeline hidden behind Thumbnails followed every artboard edit and had to diff back on return. It is parked:
+  its hosting view leaves the window while hidden (`Parked`), so it neither updates nor rebuilds.
+
+Learned: lazy stacks inside scroll views cost more than they save here (the inspector got slower: 7 → 686 profile
+samples in lazy layout); re-attaching a parked inspector cost more than updating it. Both were reverted.
+
+Result (median of 3 interleaved runs): Motion → Thumbnails 429 → 197 ms, Thumbnails → Motion 664 → 279 ms. Switching
+back to Motion now also returns to the scene that was open instead of the first one (it was a bug).
+
+### 5. Any setting written redrew the whole window
+
+`_printChanges()` on the views redrawn by "toggle Performance" showed the root, `EditorView`, re-running because of
+its `@AppStorage` panel sizes, which SwiftUI reports as changed on every write to the defaults: any key, including
+AppKit's own window-frame saves. 54 `@AppStorage` properties in the editor meant a whole-window redraw for a
+Performance toggle, an AI tab switch, a layer group fold, a panel resize step, or the activity feed marking an entry
+seen while an agent works. The editor window's settings now go through `@Preference` (`PrefChanges`), which tracks
+each key on its own; the timeline's row and lane heights are read through it too, which replaces eleven
+`@AppStorage` properties that existed only to force redraws.

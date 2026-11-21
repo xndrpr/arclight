@@ -8,8 +8,7 @@ import SwiftUI
 struct NamesColumn: View {
     let doc: EditorDocument
     let rows: [TLRow]
-    @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
-    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0
+    @Preference(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     static let space = "layerNames"
 
     var body: some View {
@@ -43,7 +42,7 @@ struct NamesColumn: View {
 /// Filter field, layer count / solo indicator, density toggle. Sits in the ruler row above the names.
 struct LayerListHeader: View {
     let doc: EditorDocument
-    @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
+    @Preference(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -92,7 +91,7 @@ struct LayerListHeader: View {
                 help: detailed ? "Detailed rows — switch to compact" : "Compact rows — switch to detailed"
             ) {
                 density = (detailed ? LayerDensity.compact : .detailed).rawValue
-                Pref.store.removeObject(forKey: Pref.layerRowHeight)  // back to that density's own row height
+                PrefChanges.shared.write(Pref.layerRowHeight, nil)  // back to that density's own row height
             }
         }
         .padding(.leading, 10).padding(.trailing, 4)

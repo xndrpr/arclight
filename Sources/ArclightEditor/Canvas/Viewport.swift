@@ -10,8 +10,8 @@ struct ViewportView: View {
     @State private var vp = ViewportState()
     @State private var hint = true
     @State private var dropTarget = false
-    @AppStorage(Pref.rulers) private var rulers = false
-    @AppStorage(Pref.feedThumbnail) private var feedThumbnail = false
+    @Preference(Pref.rulers) private var rulers = false
+    @Preference(Pref.feedThumbnail) private var feedThumbnail = false
 
     var body: some View {
         GeometryReader { geo in

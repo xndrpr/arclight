@@ -55,7 +55,7 @@ extension String {
 /// into the full step list. Without a plan, a running turn still shows what it is doing.
 struct ChatProgress: View {
     let chat: ChatController
-    @AppStorage("chat.planOpen") private var open = false
+    @Preference("chat.planOpen") private var open = false
 
     var body: some View {
         let plan = chat.transcript.plan

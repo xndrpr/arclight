@@ -27,7 +27,7 @@ enum LayerLabel {
 enum LayerDensity: String {
     case compact, detailed
     static var current: LayerDensity {
-        LayerDensity(rawValue: Pref.store.string(forKey: Pref.layerDensity) ?? "") ?? .detailed
+        LayerDensity(rawValue: PrefChanges.shared.read(Pref.layerDensity) as? String ?? "") ?? .detailed
     }
     var rowHeight: CGFloat { self == .compact ? 26 : 44 }
 }

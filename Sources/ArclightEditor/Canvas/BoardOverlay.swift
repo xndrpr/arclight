@@ -134,7 +134,7 @@ struct BoardTile: View {
 struct FeedThumbnail: View {
     let doc: EditorDocument
     @State private var image: CGImage?
-    @AppStorage(Pref.feedThumbnail) private var on = false
+    @Preference(Pref.feedThumbnail) private var on = false
 
     var body: some View {
         let scene = doc.scene

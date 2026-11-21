@@ -14,7 +14,7 @@ enum TL {
     /// Layer row height, shared by names and tracks so they align: the density's (compact 26 / detailed 44) until
     /// ⇧ + scroll over the rows sets one of its own.
     static var rowH: CGFloat {
-        let v = Pref.store.double(forKey: Pref.layerRowHeight)
+        let v = number(Pref.layerRowHeight)
         return v > 0 ? clamp(CGFloat(v), rowRange).rounded() : LayerDensity.current.rowHeight
     }
     static let rowRange: ClosedRange<CGFloat> = 22...120
@@ -33,8 +33,13 @@ enum TL {
         min(max(v, r.lowerBound), r.upperBound)
     }
 
+    /// Read through `PrefChanges`, so a view sized by these redraws when ⇧ + scroll changes them.
+    private static func number(_ key: String) -> Double {
+        (PrefChanges.shared.read(key) as? NSNumber)?.doubleValue ?? 0
+    }
+
     private static func laneHeight(_ key: String, default d: CGFloat) -> CGFloat {
-        let v = Pref.store.double(forKey: key)
+        let v = number(key)
         return v > 0 ? clamp(CGFloat(v), laneRange).rounded() : d
     }
 
@@ -46,10 +51,10 @@ enum TL {
         let now = stored > 0 ? CGFloat(stored) : row ? rowH : key == Pref.audioLaneHeight ? audioH : soundsRowH
         let h = clamp(now + delta, row ? rowRange : laneRange)
         guard h != now else { return }
-        Pref.store.set(Double(h), forKey: key)
+        PrefChanges.shared.write(key, Double(h))
         if row {
             let d = (h.rounded() >= 36 ? LayerDensity.detailed : .compact).rawValue
-            if Pref.store.string(forKey: Pref.layerDensity) != d { Pref.store.set(d, forKey: Pref.layerDensity) }
+            if Pref.store.string(forKey: Pref.layerDensity) != d { PrefChanges.shared.write(Pref.layerDensity, d) }
         }
     }
 
@@ -86,10 +91,6 @@ struct TimeMap {
 struct TimelineView: View {
     let doc: EditorDocument
     @State private var scroll = TimelineScrollMonitor()
-    @AppStorage(Pref.layerDensity) private var density = LayerDensity.detailed.rawValue
-    @AppStorage(Pref.audioLaneHeight) private var audioLaneH = 0.0
-    @AppStorage(Pref.soundsLaneHeight) private var soundsLaneH = 0.0
-    @AppStorage(Pref.layerRowHeight) private var rowHeight = 0.0
 
     var body: some View {
         let rows = doc.layerRows()

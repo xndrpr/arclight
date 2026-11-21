@@ -38,7 +38,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
     var appearance: NSAppearance? { NSAppearance(named: palette.isDark ? .darkAqua : .aqua) }
 
     /// The one way to change the app theme, from anywhere: saves the setting (every `.themedRoot()` re-renders
-    /// through its `@AppStorage`), makes `UI.*` read the new palette, sets the light/dark appearance of NSApp and
+    /// through its `@Preference`), makes `UI.*` read the new palette, sets the light/dark appearance of NSApp and
     /// of every open window (sheets, popovers, the colour panel…) so system controls follow, repaints themed
     /// window backgrounds, and posts `.appThemeChanged` for long-lived AppKit / Metal objects.
     static func apply(_ t: AppTheme) {
@@ -162,7 +162,7 @@ enum AppTheme: String, CaseIterable, Identifiable {
 /// (re-renders the whole tree when it changes), sets the matching light/dark scheme, and makes `Pref.store` the
 /// `@AppStorage` store of everything inside.
 private struct ThemedRoot: ViewModifier {
-    @AppStorage(Pref.theme, store: Pref.store) private var raw = AppTheme.dark.rawValue
+    @Preference(Pref.theme) private var raw = AppTheme.dark.rawValue
     func body(content: Content) -> some View {
         let t = AppTheme(rawValue: raw) ?? .dark
         AppTheme.activate(t)
